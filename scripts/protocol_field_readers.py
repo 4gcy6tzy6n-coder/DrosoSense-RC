@@ -412,6 +412,7 @@ def render(records: list[dict[str, Any]]) -> str:
         The document text.
     """
     orphans = [r for r in records if r["orphan"]]
+    holes = [r for r in orphans if is_hole(r)]
     prose = [r for r in records if r["prose"]]
     read = [r for r in records if r["readers"]]
     lines = [
@@ -430,16 +431,35 @@ def render(records: list[dict[str, Any]]) -> str:
         f"| Declared leaves | {len(records)} |",
         f"| With a literal reader in the production path | {len(read)} |",
         f"| Prose (no reader expected) | {len(prose)} |",
-        f"| **Orphaned (needs a disposition)** | **{len(orphans)}** |",
+        f"| Orphaned (a recorded disposition) | {len(orphans)} |",
+        f"| — of which statements or mirrored declarations | {len(orphans) - len(holes)} |",
+        f"| **— of which real holes (nothing reads them and something should)** | **{len(holes)}** |",
         "",
-        "## Orphaned fields",
+        "## Real holes",
+        "",
+        "A hole is a field nothing reads whose reader would have to exist before the thing it",
+        "declares could be relied on: an M4/E-series dependency, or a declaration that has already",
+        "diverged from the code. The rest of the orphans are statements, or declarations whose",
+        "operative copy lives elsewhere — both are listed under *Every declared field* below.",
         "",
     ]
-    if not orphans:
+    if not holes:
+        lines.append("None.")
+    else:
+        lines += ["| Field | Why it is a hole |", "| --- | --- |"]
+        for record in holes:
+            lines.append(f"| `{record['path']}` | {disposition(record)[len('HOLE — '):]} |")
+    lines += [
+        "",
+        "## Orphaned fields (statements and mirrored declarations)",
+        "",
+    ]
+    statement_orphans = [r for r in orphans if r not in holes]
+    if not statement_orphans:
         lines.append("None.")
     else:
         lines += ["| Field | Disposition |", "| --- | --- |"]
-        for record in orphans:
+        for record in statement_orphans:
             lines.append(f"| `{record['path']}` | {disposition(record)} |")
     lines += ["", "## Every declared field", "", "| Field | Value | Production reader |", "| --- | --- | --- |"]
     for record in records:

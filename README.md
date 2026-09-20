@@ -96,7 +96,19 @@ The re-verification confirmed the geometry and found three more gaps, two of the
 defect class as the first round: **the protocol declared something and no production code
 read it.** That class had now appeared three times (gate symbols, `model_params`, and
 `multiplicity.families`), so this round also delivers a standing inventory of every
-declarative field and its reader — see [`docs/protocol_field_readers.md`](docs/protocol_field_readers.md).
+declarative field and its reader — see [`docs/protocol_field_readers.md`](docs/protocol_field_readers.md),
+regenerate with `python scripts/protocol_field_readers.py --write`.
+
+682 declared leaves: 253 read by the production path, 189 free text, and 239 orphaned with a
+recorded disposition — 190 of them statements or declarations whose operative copy lives
+elsewhere, and **49 real holes** where nothing reads the field and something should. The holes
+are mostly dependencies on work not yet started (the M4 hyperparameter selector, the E4–E6
+robustness protocol, the E9 size study, the experiment register), plus three that have already
+diverged from the code: `results.raw_dir`/`tables_dir`/`figures_dir` (paths are resolved through
+`drososense/utils/paths.py`), `seeds.root_seeds` (the runner takes seeds from its arguments, so
+a run outside 0–9 would not be refused) and `preprocessing.windowing.length_candidates` (same,
+for window lengths). `tests/test_protocol_field_readers.py` makes the inventory a gate: a newly
+declared field with no reader and no disposition fails the suite.
 
 | Item | Was | Now |
 | --- | --- | --- |

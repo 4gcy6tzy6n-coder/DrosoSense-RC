@@ -13,9 +13,70 @@ nowhere in the production path at all.
 | Declared leaves | 682 |
 | With a literal reader in the production path | 253 |
 | Prose (no reader expected) | 189 |
-| **Orphaned (needs a disposition)** | **239** |
+| Orphaned (a recorded disposition) | 239 |
+| — of which statements or mirrored declarations | 190 |
+| **— of which real holes (nothing reads them and something should)** | **49** |
 
-## Orphaned fields
+## Real holes
+
+A hole is a field nothing reads whose reader would have to exist before the thing it
+declares could be relied on: an M4/E-series dependency, or a declaration that has already
+diverged from the code. The rest of the orphans are statements, or declarations whose
+operative copy lives elsewhere — both are listed under *Every declared field* below.
+
+| Field | Why it is a hole |
+| --- | --- |
+| `seeds.root_seeds` | the declared seed set. The runner takes seeds from its arguments, so a run outside 0..9 would not be refused |
+| `seeds.primary_seed_count` | same as seeds.root_seeds |
+| `seeds.extension_to` | same as seeds.root_seeds |
+| `preprocessing.windowing.length_candidates` | declared candidate lengths. The candidate list is read from the run arguments, so a length outside this set would not be refused |
+| `datasets.channel_intersection.channel_count` | the matched channel subset for a cross-food comparison. Nothing computes or enforces it, so an M4 'channel-matched' claim would be unchecked |
+| `datasets.channel_intersection.measured_on` | the matched channel subset for a cross-food comparison. Nothing computes or enforces it, so an M4 'channel-matched' claim would be unchecked |
+| `hyperparameter_selection.grid.readout_regularisation` | the declared tuning space. No selector reads it: the M1 runner takes per-model defaults, so nothing today could notice a model tuned outside this grid. Wire it into the M4 selector. |
+| `hyperparameter_selection.grid.reservoir_leak_alpha` | the declared tuning space. No selector reads it: the M1 runner takes per-model defaults, so nothing today could notice a model tuned outside this grid. Wire it into the M4 selector. |
+| `hyperparameter_selection.grid.reservoir_gain_g` | the declared tuning space. No selector reads it: the M1 runner takes per-model defaults, so nothing today could notice a model tuned outside this grid. Wire it into the M4 selector. |
+| `hyperparameter_selection.grid.input_scale_gamma` | the declared tuning space. No selector reads it: the M1 runner takes per-model defaults, so nothing today could notice a model tuned outside this grid. Wire it into the M4 selector. |
+| `hyperparameter_selection.grid.spectral_scaling` | the declared tuning space. No selector reads it: the M1 runner takes per-model defaults, so nothing today could notice a model tuned outside this grid. Wire it into the M4 selector. |
+| `hyperparameter_selection.selection_split` | same selector; nothing reads it today |
+| `hyperparameter_selection.scope` | same selector; nothing reads it today |
+| `robustness_protocol.injection_stage` | E4-E6 dependency. No injection code exists yet, so nothing can violate it, but nothing enforces it either |
+| `robustness_protocol.retrain_readout` | E4-E6 dependency, same as injection_stage |
+| `robustness_protocol.drift_applied_after_standardization` | E6 dependency, same as injection_stage |
+| `robustness_protocol.channel_dropout.levels` | E4 dependency: the levels and the mechanism are declared and unimplemented |
+| `robustness_protocol.channel_dropout.mechanism` | E4 dependency: the levels and the mechanism are declared and unimplemented |
+| `robustness_protocol.noise.levels` | E5 dependency: the levels and the units are declared and unimplemented |
+| `robustness_protocol.noise.units` | E5 dependency: the levels and the units are declared and unimplemented |
+| `robustness_protocol.drift.a_t` | E6 dependency, same as channel_dropout |
+| `robustness_protocol.drift.b_t` | E6 dependency, same as channel_dropout |
+| `size_study.sizes` | E9 dependency: declared and unimplemented |
+| `size_study.sampling` | E9 dependency, same as size_study.sizes |
+| `size_study.matching_rules` | E9 dependency, same as size_study.sizes |
+| `compute_degradation.order` | the declared order to shed work under compute pressure; nothing reads it, and nothing would stop a run shedding work in another order |
+| `compute_degradation.seed_reduction_allowed` | the declared order to shed work under compute pressure; nothing reads it, and nothing would stop a run shedding work in another order |
+| `compute_degradation.minimum_seeds` | the declared order to shed work under compute pressure; nothing reads it, and nothing would stop a run shedding work in another order |
+| `experiments.E1_main.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E2_topology.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E3_lowdata.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E3_lowdata.fractions` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E3_lowdata.test_set_fixed_across_fractions` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E3_lowdata.sampling` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E4_robustness.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E4_robustness.p_drop` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E5_noise.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E5_noise.sigma` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E6_drift.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E7_efficiency.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E8_crossfood.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E9_size.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E10_dynamics.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E11_mechanism.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.E12_graph.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `experiments.M1_benchmark.needs_connectome` | the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
+| `results.raw_dir` | the code resolves results paths through drososense/utils/paths.py, not through here. A change to this field would silently not move anything |
+| `results.tables_dir` | see results.raw_dir |
+| `results.figures_dir` | see results.raw_dir |
+
+## Orphaned fields (statements and mirrored declarations)
 
 | Field | Disposition |
 | --- | --- |
@@ -39,9 +100,6 @@ nowhere in the production path at all.
 | `split_protocol.reachability_examples[1].alpha_reachable` | statement — worked examples of the floor arithmetic |
 | `split_protocol.reachability_examples[2].minimum_p` | statement — worked examples of the floor arithmetic |
 | `split_protocol.reachability_examples[2].alpha_reachable` | statement — worked examples of the floor arithmetic |
-| `seeds.root_seeds` | HOLE — the declared seed set. The runner takes seeds from its arguments, so a run outside 0..9 would not be refused |
-| `seeds.primary_seed_count` | HOLE — same as seeds.root_seeds |
-| `seeds.extension_to` | HOLE — same as seeds.root_seeds |
 | `seeds.rng_hierarchy.graph` | mirrored — implemented as drososense/utils/seeding.py; this states the order |
 | `seeds.rng_hierarchy.input_mapping` | mirrored — implemented as drososense/utils/seeding.py; this states the order |
 | `tasks.classification.label_names` | mirrored — the display names live in the dataset configs |
@@ -57,7 +115,6 @@ nowhere in the production path at all.
 | `preprocessing.normalization.save_artifact` | mirrored — implemented by the runner writing scaler.pkl |
 | `preprocessing.normalization.forbidden` | mirrored — leak tests assert the scaler is train-only |
 | `preprocessing.windowing.enabled` | mirrored — implemented as drososense/data/windowing.py |
-| `preprocessing.windowing.length_candidates` | HOLE — declared candidate lengths. The candidate list is read from the run arguments, so a length outside this set would not be refused |
 | `preprocessing.windowing.forbidden` | mirrored — asserted by tests/test_leakage.py |
 | `preprocessing.missing_values.policy` | mirrored — implemented at load time in loaders.py |
 | `pairing.unit` | statement — describes what paired_test builds |
@@ -112,60 +169,15 @@ nowhere in the production path at all.
 | `datasets.D3.endpoint_degrees_of_freedom.df_cap` | mirrored — the operative copy is configs/datasets/d3_rainbow_trout.yaml:label_stratum |
 | `datasets.D3.endpoint_degrees_of_freedom.label_stratum` | mirrored — the operative copy is configs/datasets/d3_rainbow_trout.yaml:label_stratum |
 | `datasets.acquisition_policy` | statement — implemented by drososense/data/manifest.py |
-| `datasets.channel_intersection.channel_count` | HOLE — the matched channel subset for a cross-food comparison. Nothing computes or enforces it, so an M4 'channel-matched' claim would be unchecked |
-| `datasets.channel_intersection.measured_on` | HOLE — the matched channel subset for a cross-food comparison. Nothing computes or enforces it, so an M4 'channel-matched' claim would be unchecked |
 | `model_zoo.interface_contract.predict` | statement — describes the interface drososense/baselines implements |
 | `model_zoo.interface_contract.flattening` | statement — describes the interface drososense/baselines implements |
-| `hyperparameter_selection.grid.readout_regularisation` | HOLE — the declared tuning space. No selector reads it: the M1 runner takes per-model defaults, so nothing today could notice a model tuned outside this grid. Wire it into the M4 selector. |
-| `hyperparameter_selection.grid.reservoir_leak_alpha` | HOLE — the declared tuning space. No selector reads it: the M1 runner takes per-model defaults, so nothing today could notice a model tuned outside this grid. Wire it into the M4 selector. |
-| `hyperparameter_selection.grid.reservoir_gain_g` | HOLE — the declared tuning space. No selector reads it: the M1 runner takes per-model defaults, so nothing today could notice a model tuned outside this grid. Wire it into the M4 selector. |
-| `hyperparameter_selection.grid.input_scale_gamma` | HOLE — the declared tuning space. No selector reads it: the M1 runner takes per-model defaults, so nothing today could notice a model tuned outside this grid. Wire it into the M4 selector. |
-| `hyperparameter_selection.grid.spectral_scaling` | HOLE — the declared tuning space. No selector reads it: the M1 runner takes per-model defaults, so nothing today could notice a model tuned outside this grid. Wire it into the M4 selector. |
-| `hyperparameter_selection.selection_split` | HOLE — same selector; nothing reads it today |
-| `hyperparameter_selection.scope` | HOLE — same selector; nothing reads it today |
 | `hyperparameter_selection.test_touched_once.enabled` | mirrored — read as read as drososense/evaluation/runner.py:prior_touches |
-| `robustness_protocol.injection_stage` | HOLE — E4-E6 dependency. No injection code exists yet, so nothing can violate it, but nothing enforces it either |
-| `robustness_protocol.retrain_readout` | HOLE — E4-E6 dependency, same as injection_stage |
-| `robustness_protocol.drift_applied_after_standardization` | HOLE — E6 dependency, same as injection_stage |
-| `robustness_protocol.channel_dropout.levels` | HOLE — E4 dependency: the levels and the mechanism are declared and unimplemented |
-| `robustness_protocol.channel_dropout.mechanism` | HOLE — E4 dependency: the levels and the mechanism are declared and unimplemented |
-| `robustness_protocol.noise.levels` | HOLE — E5 dependency: the levels and the units are declared and unimplemented |
-| `robustness_protocol.noise.units` | HOLE — E5 dependency: the levels and the units are declared and unimplemented |
-| `robustness_protocol.drift.a_t` | HOLE — E6 dependency, same as channel_dropout |
-| `robustness_protocol.drift.b_t` | HOLE — E6 dependency, same as channel_dropout |
 | `robustness_protocol.single_channel_ablation.method` | statement — an exploratory method, declared not to be in a family |
-| `size_study.sizes` | HOLE — E9 dependency: declared and unimplemented |
-| `size_study.sampling` | HOLE — E9 dependency, same as size_study.sizes |
-| `size_study.matching_rules` | HOLE — E9 dependency, same as size_study.sizes |
 | `stopping_rules.sequential_testing` | statement — no sequential testing is performed; declared to forbid it |
 | `stopping_rules.optional_stopping` | statement — no sequential testing is performed; declared to forbid it |
 | `excluded_specimen_criteria.criteria[0].recorded_as` | statement — the exclusion criteria, applied by a human |
 | `excluded_specimen_criteria.criteria[1].recorded_as` | statement — the exclusion criteria, applied by a human |
-| `compute_degradation.order` | HOLE — the declared order to shed work under compute pressure; nothing reads it, and nothing would stop a run shedding work in another order |
-| `compute_degradation.seed_reduction_allowed` | HOLE — the declared order to shed work under compute pressure; nothing reads it, and nothing would stop a run shedding work in another order |
-| `compute_degradation.minimum_seeds` | HOLE — the declared order to shed work under compute pressure; nothing reads it, and nothing would stop a run shedding work in another order |
-| `experiments.E1_main.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E2_topology.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E3_lowdata.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E3_lowdata.fractions` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E3_lowdata.test_set_fixed_across_fractions` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E3_lowdata.sampling` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E4_robustness.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E4_robustness.p_drop` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E5_noise.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E5_noise.sigma` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E6_drift.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E7_efficiency.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E8_crossfood.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E9_size.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E10_dynamics.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E11_mechanism.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.E12_graph.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
-| `experiments.M1_benchmark.needs_connectome` | HOLE — the experiment register. Nothing reads needs_connectome or the declared fractions, so an experiment cannot be checked against its own declaration |
 | `experiments.environment_reporting.required_fields` | statement — env_report records more than the required minimum |
-| `results.raw_dir` | HOLE — the code resolves results paths through drososense/utils/paths.py, not through here. A change to this field would silently not move anything |
-| `results.tables_dir` | HOLE — see results.raw_dir |
-| `results.figures_dir` | HOLE — see results.raw_dir |
 | `results.separation_rule` | mirrored — implemented by drososense/evaluation/results.py writing two files |
 | `data_verified.verified_on` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D1.source_sha256` | statement — measured at freeze time; the manifests are the machine-readable copy |
