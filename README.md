@@ -451,9 +451,15 @@ make a gate true. Each line carries what the protocol demands beside the p-value
 
 | contrast | metric | dataset | n_pairs | n_clusters | Δ | 95% CI | effect | p (decisive) | p (pair-level, descriptive) |
 | --- | --- | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: |
-| esn vs gru | macro_f1 | D2 | 50 | **5** | −0.227 | [−0.262, −0.190] | −0.970 | **0.0625** | 5.5e−13 |
-| esn vs gru | macro_f1 | D3 | 50 | **5** | −0.0005 | [−0.011, +0.010] | −0.058 | **0.375** | 0.73 |
-| esn vs gru | mae | D3 | 50 | **5** | +0.049 | [+0.040, +0.059] | +0.043 | **0.0625** | <1e−12 |
+| esn vs gru | macro_f1 | D2 | 50 | **5** | −0.227 | [−0.240, −0.211] | −0.970 | **0.0625** | 5.5e−13 |
+| esn vs gru | macro_f1 | D3 | 50 | **5** | −0.0005 | [−0.012, +0.007] | −0.058 | **0.375** | 0.73 |
+| esn vs gru | mae | D3 | 50 | **5** | +0.049 | [+0.045, +0.054] | +0.043 | **0.0625** | <1e−12 |
+
+The intervals moved when the bootstrap was fixed (v1.2 §10): every `delta` is bit-identical,
+because a point estimate does not depend on how it is resampled, but the interval widths
+changed — of the eight rows, six are narrower and two wider. That is what a change in the
+variance decomposition looks like, and it is why the earlier intervals are not reproduced
+verbatim.
 
 Read `n_clusters` before the p-value. The decisive column is the exact sign test over the
 five cluster means; its floor is 2/2⁵ = 0.0625, so a cluster-level claim at α = 0.05 is not
