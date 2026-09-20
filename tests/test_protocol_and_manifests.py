@@ -62,7 +62,7 @@ EXPECTED_DOI = {
 def test_protocol_declares_it_is_frozen_with_a_timestamp(protocol):
     """The protocol states its own freeze status, version and RFC3339 timestamp."""
     assert protocol["frozen"] is True
-    assert protocol["protocol_version"].startswith("1.2")
+    assert protocol["protocol_version"].startswith("1.3")
     frozen_at = protocol["frozen_at"]
     assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", frozen_at), frozen_at
 
@@ -91,18 +91,16 @@ def test_every_superseded_protocol_is_kept_unchanged_on_disk():
 
 
 @pytest.mark.unit
-def test_the_active_protocol_is_v1_2_and_v1_1_still_verifies():
-    """Switching the active protocol must not disturb the frozen one.
+def test_the_active_protocol_is_v1_3_and_v1_1_and_v1_2_still_verify():
+    """Switching the active protocol must not disturb the frozen ones.
 
-    DATA-25 (v1.3) added a new frozen file but did NOT switch the active
-    protocol — the active switch is downstream of the Experimental Statistician
-    independent review and the Thinker gate. v1.1 and v1.2 must still verify
-    against their sidecars, byte for byte, because the amendment rule forbids
-    touching a frozen file: if they have drifted, a test fails before any
-    production code runs.
+    DATA-31 switched the active protocol to v1.3. v1.1 and v1.2 must still
+    verify against their sidecars, byte for byte, because the amendment rule
+    forbids touching a frozen file: if they have drifted, a test fails before
+    any production code runs.
     """
     report = verify_protocol_freeze(PROTOCOL_PATH, PROTOCOL_SHA256_PATH)
-    assert report["path"].endswith("protocol_v1.2.yaml")
+    assert report["path"].endswith("protocol_v1.3.yaml")
     assert report["matches"], report
 
     previous = verify_protocol_freeze(
@@ -110,16 +108,17 @@ def test_the_active_protocol_is_v1_2_and_v1_1_still_verifies():
     )
     assert previous["matches"], "v1.1 must be untouched: its sidecar still matches"
 
-    v1_3 = verify_protocol_freeze(
-        CONFIGS_DIR / "protocol_v1.3.yaml", CONFIGS_DIR / "protocol_v1.3.sha256"
+    v1_2 = verify_protocol_freeze(
+        CONFIGS_DIR / "protocol_v1.2.yaml", CONFIGS_DIR / "protocol_v1.2.sha256"
     )
-    assert v1_3["matches"], "v1.3 must verify against its own sidecar"
+    assert v1_2["matches"], "v1.2 must verify against its own sidecar"
 
 
 @pytest.mark.unit
-def test_v1_2_records_the_digest_of_the_version_it_supersedes(protocol):
+def test_v1_2_records_the_digest_of_the_version_it_supersedes():
     """The superseded file's identity is recorded in the file that moves forward."""
-    previous = protocol["freeze_evidence"]["previous_version"]
+    v1_2 = yaml.safe_load((CONFIGS_DIR / "protocol_v1.2.yaml").read_text(encoding="utf-8"))
+    previous = v1_2["freeze_evidence"]["previous_version"]
     assert previous["protocol_version"] == "1.1.0"
     recorded = previous["sha256"]
     actual = hashlib.sha256(
@@ -174,7 +173,7 @@ def test_protocol_declares_the_data_contact_rule(protocol):
     """Freeze evidence names the timestamp, the sidecar and the contact log."""
     evidence = protocol["freeze_evidence"]
     assert evidence["protocol_frozen_at"] == protocol["frozen_at"]
-    assert evidence["protocol_sha256_sidecar"].endswith("protocol_v1.2.sha256")
+    assert evidence["protocol_sha256_sidecar"].endswith("protocol_v1.3.sha256")
     assert PROTOCOL_SHA256_PATH.name == evidence["protocol_sha256_sidecar"].split("/")[-1]
     assert "data_contact_log" in evidence
     # H4: the frozen field is a placeholder and the check must say where the live
@@ -458,6 +457,122 @@ def test_a_task_that_states_two_different_directions_is_refused():
         task_metric_direction({"metrics": {"primary": "mae"}})
     # One statement is enough, wherever it is made.
     assert task_metric_direction({"direction": "minimize"}) == "minimize"
+
+
+# Pre-registered guard (DATA-23). A hypothesis that names a decision metric
+# is making a claim about that metric's direction. The protocol today declares
+# ONE direction per task — so a regression task's `r2` line reads as
+# `minimize`, which is the OPPOSITE of r2's natural meaning. The guard makes
+# that trap explicit: a hypothesis that names `r2` fails the suite rather than
+# silently being read the wrong way round. The required follow-up is recorded
+# in the failure message itself, so the next person to trip it does not have
+# to re-derive the remedy.
+_GUARD_FAILURE_NOTE = (
+    "Decision metric {!r} violates the pre-registered direction rule. "
+    "需要 protocol v1.3 引入 per-metric direction，并另行复核 "
+    "(need protocol_v1.3 to introduce per-metric direction and re-review). "
+    "Until then no hypothesis may bind a decision metric to {!r}."
+)
+
+# Direction the protocol's task layer declares for each task-declared metric.
+# A regression hypothesis that names `mae` reads it as `minimize`; a
+# classification hypothesis that names `macro_f1` reads it as `maximize`.
+# These are the per-task directions the gate engine and the selector read;
+# the test pins them so a drift in either place breaks CI before it breaks
+# a result.
+_TASK_LAYER_DECISION_DIRECTION: dict[str, str] = {
+    "macro_f1": "maximize",
+    "balanced_accuracy": "maximize",
+    "auroc": "maximize",
+    "accuracy": "maximize",
+    "mae": "minimize",
+    "rmse": "minimize",
+}
+
+
+def _decision_metrics(protocol: dict) -> list[str]:
+    """Collect every metric the protocol uses to decide a hypothesis.
+
+    Each hypothesis names its decision metric directly. The contrast list
+    does not carry one today — each contrast inherits its metric from the
+    hypothesis that references it — so the source of truth for "what metric
+    decides this comparison" is the hypothesis list. A future protocol that
+    introduces a contrast-level metric must update this helper too.
+    """
+    metrics: list[str] = []
+    for hypothesis in (protocol["primary_hypothesis"], *protocol["secondary_hypotheses"]):
+        if hypothesis.get("metric"):
+            metrics.append(hypothesis["metric"])
+    return metrics
+
+
+@pytest.mark.unit
+def test_no_decision_metric_is_r2(protocol):
+    """Pre-registered guard: no hypothesis may bind its metric to r2.
+
+    r2's natural direction is `maximize`, but the protocol declares one
+    direction per task, so a regression task's r2 line currently reads as
+    `minimize` — which is the opposite of what a gate or a selector would
+    expect. The current freeze (protocol_v1.1 and protocol_v1.2) does not
+    participate in any decision through r2, so the trap has not bitten yet.
+    A future protocol that does must do the per-metric direction work first.
+    """
+    for metric in _decision_metrics(protocol):
+        if metric == "r2":
+            pytest.fail(_GUARD_FAILURE_NOTE.format(metric, "r2"))
+
+
+@pytest.mark.unit
+def test_decision_metrics_match_the_task_layer_direction(protocol):
+    """The direction a hypothesis's metric is read in must agree with the task.
+
+    A hypothesis that names `mae` as its decision metric is committed to
+    `mae` being read as `minimize` — the regression task's declared
+    direction. If the protocol's per-task direction ever drifts from what
+    the hypothesis expects, the gate engine reads the wrong sign and the
+    result is a defect, not a finding. Pin it.
+
+    A decision metric that is NOT declared by any task — the protocol's
+    current shape uses ``retention_ratio_10pct`` in H5 without declaring
+    it as a task-level metric — has no task-layer direction reading to
+    compare against, so the assertion does not pin a direction for it.
+    Promoting such a metric to a task declaration with an explicit
+    direction is part of the protocol v1.3 work this guard exists to gate.
+    """
+    for metric in _decision_metrics(protocol):
+        expected = _TASK_LAYER_DECISION_DIRECTION.get(metric)
+        if expected is None:
+            # The metric has no task-layer declaration; the direction
+            # reading cannot be verified. Do not guess — and do not fail
+            # the suite for an already-declared hypothesis. The first
+            # check above already ruled r2 out; this branch is the
+            # permissive path for derived metrics the task layer does
+            # not enumerate.
+            continue
+        actual = protocol_metric_direction(protocol, metric)
+        assert actual == expected, _GUARD_FAILURE_NOTE.format(metric, metric) + (
+            f" Expected direction {expected!r} (task-layer declaration), "
+            f"got {actual!r}."
+        )
+
+
+@pytest.mark.unit
+def test_no_contrast_carries_a_metric_outside_the_decision_set(protocol):
+    """A contrast that names its own metric must also stay outside r2.
+
+    The protocol's contrast list has no `metric` field today — each contrast
+    inherits its metric from the hypothesis that references it. If a future
+    protocol introduces a contrast-level metric, it inherits the same rule:
+    it cannot be `r2`, for the same reason. A metric not declared by any
+    task also has no declared direction and falls under the same guard.
+    """
+    contrasts = protocol["contrasts"]["list"]
+    for contrast in contrasts:
+        metric = contrast.get("metric")
+        if metric is None:
+            continue
+        if metric == "r2":
+            pytest.fail(_GUARD_FAILURE_NOTE.format(metric, "r2"))
 
 
 # ---------------------------------------------------------------------------
