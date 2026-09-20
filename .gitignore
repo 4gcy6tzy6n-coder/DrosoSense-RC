@@ -10,9 +10,6 @@ data/splits/**
 !data/splits/.gitkeep
 
 # Connectome source graphs and derived adjacency matrices (M2+, large binaries)
-# NOTE: raw inputs live OUTSIDE the repo in the shared data root (../data-root,
-# override with $DROSOSENSE_DATA) so the working tree stays small and replayable
-# into isolated task worktrees. Resolved by connectome/paths.py.
 connectome/raw/**
 connectome/adjacency/**
 !connectome/raw/.gitkeep
