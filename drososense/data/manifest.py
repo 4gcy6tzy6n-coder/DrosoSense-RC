@@ -39,16 +39,27 @@ class AvailabilityStatus(str, Enum):
     UNAVAILABLE = "unavailable"
 
 
+# How a file is obtained.
+ORIGIN_DOWNLOAD = "download"
+ORIGIN_REMOTE_ARCHIVE_MEMBER = "remote_archive_member"
+
+
 @dataclass(frozen=True)
 class ManifestFile:
     """One file belonging to a dataset.
 
     Attributes:
-        name: Filename as published.
+        name: Filename as published, or the archive member path.
         sha256: Expected SHA-256 hex digest, when the publisher provides one.
         size_bytes: Expected size in bytes, when known.
         download_url: Direct download URL, when automated retrieval is allowed.
         required: Whether the dataset is usable without this file.
+        origin: ``download`` for a directly fetched file,
+            ``remote_archive_member`` for a member read out of a remote archive.
+        local_name: Basename written under ``data/raw/<dataset>/``. Defaults to
+            the basename of ``name``; archive members are flattened because the
+            archive's directory structure carries no information the filename
+            does not already encode.
         note: Free-text caveat about this file.
     """
 
@@ -57,7 +68,57 @@ class ManifestFile:
     size_bytes: int | None = None
     download_url: str | None = None
     required: bool = True
+    origin: str = ORIGIN_DOWNLOAD
+    local_name: str = ""
     note: str = ""
+
+    @property
+    def resolved_local_name(self) -> str:
+        """Filename this entry is expected to occupy under the raw directory.
+
+        Returns:
+            ``local_name`` when set, else the basename of ``name``.
+        """
+        return self.local_name or Path(self.name).name
+
+
+@dataclass(frozen=True)
+class ManifestArchive:
+    """A published archive whose members are fetched individually.
+
+    This exists because one of the project's datasets is published as a single
+    21.1 GB ZIP of which only 1.04 MB is in scope. Downloading the archive to
+    read 0.005% of it is wasteful, and recording that as a resource blocker was
+    wrong; reading the members through HTTP range requests is the alternative,
+    and it changes what can be verified.
+
+    Attributes:
+        kind: ``remote_zip`` for members fetched by range request.
+        name: Archive filename as published.
+        url: URL the range reader targets.
+        size_bytes: Published archive size.
+        md5_published: The publisher's md5 for the whole archive, if given.
+        sha256: The publisher's SHA-256, if given.
+        member_manifest: Filename (under ``data/manifests``) of the generated
+            per-member listing.
+        member_glob: The selection rule that produced ``member_manifest``.
+        integrity_note: What IS and is NOT verified for this archive.
+    """
+
+    kind: str
+    name: str
+    url: str
+    size_bytes: int | None = None
+    md5_published: str | None = None
+    sha256: str | None = None
+    member_manifest: str = ""
+    member_glob: str = ""
+    integrity_note: str = ""
+
+    @property
+    def sha256_verifiable(self) -> bool:
+        """Whether the archive-level digest can be checked without a full download."""
+        return self.kind != "remote_zip" and bool(self.sha256)
 
 
 @dataclass(frozen=True)
@@ -100,11 +161,20 @@ class DatasetManifest:
     blockers: tuple[str, ...] = ()
     notes: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
+    archive: "ManifestArchive | None" = None
 
     @property
     def is_usable(self) -> bool:
         """Whether the dataset can currently be evaluated."""
         return self.status in {AvailabilityStatus.AUTO, AvailabilityStatus.MANUAL}
+
+    def member_files(self) -> tuple[ManifestFile, ...]:
+        """Return this manifest's archive-member entries.
+
+        Returns:
+            Every file whose origin is ``remote_archive_member``.
+        """
+        return tuple(f for f in self.files if f.origin == ORIGIN_REMOTE_ARCHIVE_MEMBER)
 
 
 def manifest_path(dataset_id: str) -> Path:
@@ -150,10 +220,34 @@ def load_manifest(path: str | Path) -> DatasetManifest:
             size_bytes=entry.get("size_bytes"),
             download_url=entry.get("download_url"),
             required=bool(entry.get("required", True)),
+            origin=str(entry.get("origin", ORIGIN_DOWNLOAD)),
+            local_name=str(entry.get("local_name", "")),
             note=entry.get("note", ""),
         )
         for entry in raw.get("files", [])
     )
+
+    archive_raw = raw.get("archive")
+    archive = (
+        ManifestArchive(
+            kind=str(archive_raw["kind"]),
+            name=str(archive_raw["name"]),
+            url=str(archive_raw["url"]),
+            size_bytes=archive_raw.get("size_bytes"),
+            md5_published=archive_raw.get("md5_published"),
+            sha256=archive_raw.get("sha256"),
+            member_manifest=str(archive_raw.get("member_manifest", "")),
+            member_glob=str(archive_raw.get("member_glob", "")),
+            integrity_note=str(archive_raw.get("integrity_note", "")),
+        )
+        if archive_raw
+        else None
+    )
+    if archive is not None and not archive.member_manifest:
+        raise ValueError(
+            f"{path}: archive is declared without member_manifest, so there is no record of "
+            f"which members were extracted or what they hashed to"
+        )
 
     if status is not AvailabilityStatus.AUTO and not raw.get("blockers") and not raw.get(
         "manual_steps"
@@ -181,6 +275,40 @@ def load_manifest(path: str | Path) -> DatasetManifest:
         blockers=tuple(raw.get("blockers", ())),
         notes=str(raw.get("notes", "")),
         extra=dict(raw.get("extra", {})),
+        archive=archive,
+    )
+
+
+def load_member_manifest(path: str | Path) -> tuple[ManifestFile, ...]:
+    """Load a generated per-member listing.
+
+    The listing is produced by ``scripts/download_data.py`` when it extracts a
+    remote archive, and it is what makes the extraction auditable: every member
+    that was pulled, with the SHA-256 of the bytes actually written.
+
+    Args:
+        path: Path to the member manifest YAML.
+
+    Returns:
+        The member entries.
+
+    Raises:
+        ValueError: If the document is malformed.
+    """
+    raw = load_yaml(path)
+    entries = raw.get("members")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError(f"{path}: member manifest must define a non-empty 'members' list")
+    return tuple(
+        ManifestFile(
+            name=str(entry["member"]),
+            sha256=entry.get("sha256"),
+            size_bytes=entry.get("size_bytes"),
+            origin=ORIGIN_REMOTE_ARCHIVE_MEMBER,
+            local_name=str(entry.get("local_name", "")),
+            note=str(entry.get("note", "")),
+        )
+        for entry in entries
     )
 
 
@@ -220,23 +348,27 @@ def verify_manifest(manifest: DatasetManifest, base_dir: str | Path | None = Non
     missing: list[str] = []
     corrupt: list[dict[str, str]] = []
 
-    for entry in manifest.files:
-        candidate = base / entry.name
+    for entry in _entries_to_check(manifest):
+        candidate = base / entry.resolved_local_name
         if not candidate.is_file():
-            matches = sorted(base.rglob(entry.name)) if base.is_dir() else []
+            matches = sorted(base.rglob(entry.resolved_local_name)) if base.is_dir() else []
             if not matches:
-                missing.append(entry.name)
+                missing.append(entry.resolved_local_name)
                 continue
             candidate = matches[0]
-        present.append(entry.name)
+        present.append(entry.resolved_local_name)
         if entry.sha256:
             actual = sha256_of(candidate)
             if actual.lower() != entry.sha256.lower():
                 corrupt.append(
-                    {"name": entry.name, "expected": entry.sha256.lower(), "actual": actual}
+                    {
+                        "name": entry.resolved_local_name,
+                        "expected": entry.sha256.lower(),
+                        "actual": actual,
+                    }
                 )
 
-    return {
+    report: dict[str, Any] = {
         "dataset_id": manifest.dataset_id,
         "base_dir": str(base),
         "present": present,
@@ -244,6 +376,39 @@ def verify_manifest(manifest: DatasetManifest, base_dir: str | Path | None = Non
         "corrupt": corrupt,
         "ok": not missing and not corrupt,
     }
+    if manifest.archive is not None:
+        report["archive"] = {
+            "name": manifest.archive.name,
+            "kind": manifest.archive.kind,
+            "sha256_verified": False,
+            "member_sha256_verified": not corrupt,
+            "reason": manifest.archive.integrity_note,
+        }
+    return report
+
+
+def _entries_to_check(manifest: DatasetManifest) -> tuple[ManifestFile, ...]:
+    """Return every file entry a verification must account for.
+
+    For a manifest with an archive, the authoritative member list is the
+    generated member manifest — that is where the 210 extracted CSVs are
+    enumerated — so it is used in place of any placeholder entries in the main
+    file.
+
+    Args:
+        manifest: The manifest being verified.
+
+    Returns:
+        The entries to check for presence and integrity.
+    """
+    if manifest.archive is None:
+        return manifest.files
+    member_path = DATA_MANIFESTS_DIR / manifest.archive.member_manifest
+    if member_path.is_file():
+        return tuple(
+            f for f in manifest.files if f.origin != ORIGIN_REMOTE_ARCHIVE_MEMBER
+        ) + load_member_manifest(member_path)
+    return manifest.files
 
 
 def load_all_manifests(directory: str | Path | None = None) -> dict[str, DatasetManifest]:
@@ -258,6 +423,13 @@ def load_all_manifests(directory: str | Path | None = None) -> dict[str, Dataset
     directory = Path(directory) if directory is not None else DATA_MANIFESTS_DIR
     manifests: dict[str, DatasetManifest] = {}
     for path in sorted(directory.glob("*.yaml")):
+        # Generated member listings live in the same directory (they are part of
+        # a dataset's provenance) but are not themselves dataset manifests. They
+        # are recognised by their `members` key and skipped here; the dataset
+        # that owns one pulls it in through `DatasetManifest.archive`.
+        raw = load_yaml(path)
+        if "members" in raw and "status" not in raw:
+            continue
         manifest = load_manifest(path)
         manifests[manifest.dataset_id] = manifest
     return manifests

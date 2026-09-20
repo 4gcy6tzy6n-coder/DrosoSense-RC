@@ -39,7 +39,7 @@ The comparison that decides the paper
   R0 vs R2. R2 preserves node count, edge count and the degree distribution and
   breaks only the specific wiring. If R0 does not beat R2, no topology claim is
   available, and the pre-registered narrative rules in
-  configs/protocol_v1.yaml (section 12) apply.
+  configs/protocol_v1.1.yaml (section 14) apply, as evaluable trigger expressions.
 """
 
 

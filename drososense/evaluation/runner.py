@@ -26,20 +26,42 @@ from drososense.data.loaders import dataset_config_path, load_dataset
 from drososense.data.manifest import load_manifest, manifest_path
 from drososense.data.pipeline import build_fold_tensors, usable_specimens
 from drososense.data.splits import make_folds
-from drososense.evaluation.metrics import classification_metrics, regression_metrics
+from drososense.evaluation.contact_log import record_contact
+from drososense.evaluation.metrics import (
+    EMPTY_CLASS_POLICY,
+    classification_metrics,
+    regression_metrics,
+)
 from drososense.evaluation.results import (
     RunRecord,
     aggregate_records,
     capture_environment,
+    load_records,
     make_run_id,
+    make_test_fingerprint,
     utc_now_iso,
     write_record,
     write_summary_csv,
 )
 from drososense.utils.config import config_hash
+from drososense.utils.env_report import compare_environments
 from drososense.utils.paths import RESULTS_RAW_DIR, RESULTS_TABLES_DIR, ensure_dir
 
-PROTOCOL_VERSION = "1.0.0"
+PROTOCOL_VERSION = "1.1.0"
+
+# The metric fields a failed run still carries, so every run has the same
+# columns and a failed run cannot be mistaken for a missing one.
+NO_METRICS: dict[str, Any] = {
+    "macro_f1": None,
+    "balanced_accuracy": None,
+    "accuracy": None,
+    "auroc": None,
+    "auroc_n_classes_scored": 0,
+    "auroc_defined": False,
+    "mae": None,
+    "rmse": None,
+    "r2": None,
+}
 
 
 @dataclass(frozen=True)
@@ -69,13 +91,14 @@ class BenchmarkConfig:
     tasks: tuple[str, ...] = ("classification", "regression")
     seeds: tuple[int, ...] = (0,)
     window_lengths: tuple[int, ...] = (16,)
-    split_strategy: str = "group_kfold"
+    split_strategy: str = "auto"
     n_splits: int = 5
     stride: int = 1
     label_rule: str = "last"
     model_params: dict[str, dict[str, Any]] = field(default_factory=dict)
     max_folds: int | None = None
     evidence_class: str = "real"
+    enforce_test_touched_once: bool = True
 
     def as_dict(self) -> dict[str, Any]:
         """Return a JSON-serialisable view for the config fingerprint.
@@ -97,6 +120,27 @@ class BenchmarkConfig:
             "model_params": self.model_params,
             "max_folds": self.max_folds,
         }
+
+
+def dataset_split_strategy(config_path: Path) -> tuple[str, int]:
+    """Read a dataset config's declared split strategy.
+
+    The strategy is a property of the dataset — D2 can only do LOSO(5) with its
+    five cuts, D3 has 62 fillets and uses GroupKFold, D1 has no specimen id at
+    all — so it is declared in the config next to the data it describes rather
+    than defaulted at the call site, where it could silently disagree.
+
+    Args:
+        config_path: Path to ``configs/datasets/*.yaml``.
+
+    Returns:
+        ``(strategy, n_splits)``; ``("group_kfold", 5)`` when undeclared.
+    """
+    from drososense.utils.config import load_yaml
+
+    raw = load_yaml(config_path)
+    split = raw.get("split", {})
+    return str(split.get("strategy", "group_kfold")), int(split.get("n_splits", 5))
 
 
 def _evaluate_one(
@@ -155,8 +199,15 @@ def run_benchmark(
     if not config.tasks:
         raise ValueError("no tasks selected")
 
-    dataset = load_dataset(dataset_config_path(config.dataset_id))
+    config_path = dataset_config_path(config.dataset_id)
+    dataset = load_dataset(config_path)
     n_classes = dataset.schema.n_classes
+
+    split_strategy, n_splits = config.split_strategy, config.n_splits
+    if split_strategy == "auto":
+        split_strategy, n_splits_from_config = dataset_split_strategy(config_path)
+        if config.n_splits == 5:
+            n_splits = n_splits_from_config
 
     # A manifest, when present, is authoritative about whether the data is
     # observed. The fixture must never be describable as a real result.
@@ -181,6 +232,15 @@ def run_benchmark(
     records: list[RunRecord] = []
     skipped: list[dict[str, str]] = []
 
+    # test_touched_once: a (test split, model, task) triple may be evaluated once.
+    # Re-scoring saved predictions for another metric is not a new touch; fitting
+    # the model again on the same test split under a different configuration is.
+    prior_touches: dict[str, str] = {}
+    if config.enforce_test_touched_once:
+        for prior in load_records(raw_dir):
+            if prior.test_fingerprint:
+                prior_touches.setdefault(prior.test_fingerprint, prior.config_hash)
+
     for window_length in config.window_lengths:
         specimens = usable_specimens(dataset, window_length)
         if len(specimens) < 3:
@@ -190,9 +250,7 @@ def run_benchmark(
             )
 
         for seed in config.seeds:
-            folds = make_folds(
-                specimens, config.split_strategy, seed=seed, n_splits=config.n_splits
-            )
+            folds = make_folds(specimens, split_strategy, seed=seed, n_splits=n_splits)
             if config.max_folds is not None:
                 folds = folds[: config.max_folds]
 
@@ -221,16 +279,45 @@ def run_benchmark(
                         continue
 
                     for task in config.tasks:
+                        test_fingerprint = make_test_fingerprint(
+                            fold.fingerprint, window_length, model_id, task
+                        )
+                        prior = prior_touches.get(test_fingerprint)
+                        if prior is not None and prior != run_config_hash:
+                            raise RuntimeError(
+                                f"test_touched_once violated: {config.dataset_id} "
+                                f"fold {fold.fold_id} seed {seed} was already evaluated for "
+                                f"{model_id}/{task} under config {prior}, and is now being "
+                                f"re-evaluated under {run_config_hash}. protocol v1.1 "
+                                f"§17 forbids re-fitting on a test split already touched; "
+                                f"a changed protocol requires a new version file, not a re-run."
+                            )
+
                         started = time.perf_counter()
                         params = dict(config.model_params.get(model_id, {}))
-                        model = build_model(
-                            model_id,
-                            task,
-                            seed,
-                            params,
-                            n_channels=dataset.schema.n_features,
-                        )
-                        metrics, _, _ = _evaluate_one(model, fold_tensors, task, n_classes)
+                        status = "ok"
+                        failure_reason = ""
+                        model = None
+                        metrics: dict[str, Any] = {}
+                        try:
+                            model = build_model(
+                                model_id,
+                                task,
+                                seed,
+                                params,
+                                n_channels=dataset.schema.n_features,
+                            )
+                            metrics, _, _ = _evaluate_one(model, fold_tensors, task, n_classes)
+                        except Exception as exc:  # noqa: BLE001 - recorded, not swallowed
+                            # Protocol v1.1 §20: a run that cannot be fitted is
+                            # RECORDED as failed with its reason and counted, never
+                            # silently dropped and never retried with different
+                            # parameters. A whole benchmark aborting on one
+                            # degenerate fold would be the other failure mode:
+                            # it hides how many runs were affected.
+                            status = "failed"
+                            failure_reason = f"{type(exc).__name__}: {exc}"
+                            metrics = {**NO_METRICS, "failure_reason": failure_reason}
                         duration = time.perf_counter() - started
 
                         records.append(
@@ -256,10 +343,16 @@ def run_benchmark(
                                 timestamp_utc=utc_now_iso(),
                                 evidence_class=evidence_class,
                                 protocol_compliant=protocol_compliant,
-                                model_description=model.describe(),
+                                model_description=model.describe() if model is not None else {},
+                                status=status,
+                                failure_reason=failure_reason,
                                 fold_fingerprint=fold.fingerprint,
                                 class_coverage=fold_tensors.class_coverage,
                                 config_hash=run_config_hash,
+                                test_fingerprint=test_fingerprint,
+                                empty_class_policy=EMPTY_CLASS_POLICY,
+                                n_train_sessions=fold_tensors.summarise()["n_train_sessions"],
+                                n_test_sessions=fold_tensors.summarise()["n_test_sessions"],
                                 notes=notes,
                             )
                         )
@@ -267,10 +360,26 @@ def run_benchmark(
     for record in records:
         write_record(record, raw_dir)
 
+    if records:
+        # Record that the test splits were touched, so the freeze claim is backed
+        # by a file the experiment wrote rather than by a note in the protocol.
+        record_contact(
+            experiment=config.experiment,
+            dataset=config.dataset_id,
+            split_strategy=split_strategy,
+            protocol_compliant=protocol_compliant,
+            evidence_class=evidence_class,
+            n_models=len(records),
+            base_dir=tables_dir,
+        )
+
     summary = aggregate_records(records)
     if not summary.empty:
         write_summary_csv(summary, config.experiment, tables_dir)
         summary.attrs["skipped_models"] = skipped
+        summary.attrs["split_strategy"] = split_strategy
+        summary.attrs["environment"] = environment
+        summary.attrs["environment_report"] = compare_environments().as_dict()
     return summary
 
 

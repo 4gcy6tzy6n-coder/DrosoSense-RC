@@ -5,9 +5,14 @@ Raw records and summaries stay separate: this script reads
 ``results/raw/**/*.json`` and writes ``results/tables/*.csv``. It never edits a
 raw record.
 
-The summary carries ``evidence_class`` and ``protocol_compliant`` through from
-the records, so a synthetic or non-compliant number cannot be averaged into a
-real one and cannot lose its label on the way to a table.
+The summary carries ``evidence_class``, ``protocol_compliant`` and ``status``
+through from the records, so a synthetic or non-compliant or failed number cannot
+be averaged into a real one and cannot lose its label on the way to a table.
+
+It also writes two side files that qualify every number in the tables:
+``environment_report.json`` compares the declared environment with the local one,
+and ``data_contact_log.json`` (written by the runner) records when a test split
+was first evaluated.
 
 Examples
 --------
@@ -26,6 +31,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from drososense.evaluation.contact_log import load_contact_log  # noqa: E402
 from drososense.evaluation.results import (  # noqa: E402
     aggregate_records,
     capture_environment,
@@ -33,6 +39,7 @@ from drososense.evaluation.results import (  # noqa: E402
     records_to_frame,
     write_summary_csv,
 )
+from drososense.utils.env_report import compare_environments  # noqa: E402
 from drososense.utils.paths import RESULTS_TABLES_DIR, ensure_dir  # noqa: E402
 
 
@@ -104,6 +111,25 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(capture_environment(), indent=2, sort_keys=True), encoding="utf-8"
     )
     print(f"{environment_path}")
+
+    # The comparison against environment.yml, so a number in the tables can be
+    # attributed to the environment it was produced in. `capture_environment`
+    # above records what IS installed; this records what the project DECLARED and
+    # which parts of that are absent here.
+    report = compare_environments()
+    report_path = RESULTS_TABLES_DIR / "environment_report.json"
+    report_path.write_text(
+        json.dumps(report.as_dict(), indent=2, sort_keys=True), encoding="utf-8"
+    )
+    print(f"{report_path}")
+    print(f"  {report.summary()}")
+
+    contact = load_contact_log()
+    print(
+        f"data contact: first test evaluation "
+        f"{contact.first_test_evaluation_at or 'not started'}"
+        + (f", datasets {list(contact.datasets_touched)}" if contact.datasets_touched else "")
+    )
     return 0
 
 

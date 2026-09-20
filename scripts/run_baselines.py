@@ -1,21 +1,34 @@
 #!/usr/bin/env python
 """Run the frozen benchmark over one dataset.
 
+The split strategy defaults to ``auto``, which reads it from the dataset's own
+config. That is deliberate: D2 can only do LOSO(5) with its five cuts, D3 has 62
+fillets and uses GroupKFold, and D1 has no specimen id at all and must use the
+explicitly non-compliant time-block stand-in. Defaulting at the call site would
+let a run silently disagree with the dataset's declared protocol.
+
 Examples
 --------
-Smoke test on the synthetic fixture (protocol-compliant split, all nine models)::
+Smoke test on the synthetic fixture (protocol-compliant split, every model whose
+backend is installed)::
 
     python scripts/make_fixture.py
     python scripts/run_baselines.py --dataset synthetic_enose --experiment smoke \\
         --models all --tasks classification regression --seeds 0 1 \\
         --window-lengths 16 --max-folds 1 --smoke
 
-Real-data pipeline validation (D1 publishes no specimen ids, so the split is a
-documented time-block stand-in and every record is flagged non-compliant)::
+The compliant M1 benchmark (D2 and D3 satisfy split_unit: specimen)::
+
+    python scripts/run_baselines.py --dataset d2_beef_uncontrolled \\
+        --experiment m1_benchmark --models all --seeds 0 1 2 3 4 5 6 7 8 9
+    python scripts/run_baselines.py --dataset d3_rainbow_trout \\
+        --experiment m1_benchmark --models all --seeds 0 1 2 3 4 5 6 7 8 9
+
+D1's split is a documented time-block stand-in, so every record it produces is
+flagged non-compliant and is excluded from every gate::
 
     python scripts/run_baselines.py --dataset d1_beef_controlled \\
-        --experiment m1_real_validation --models all \\
-        --tasks classification regression --seeds 0 --window-lengths 16 --max-folds 1
+        --experiment m1_real_validation --models all --seeds 0
 """
 
 from __future__ import annotations
@@ -74,11 +87,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--window-lengths", nargs="+", type=int, default=[16])
     parser.add_argument(
         "--split-strategy",
-        default="group_kfold",
-        choices=["group_kfold", "loso", "time_block_holdout"],
-        help="time_block_holdout is NOT protocol-compliant; use it only for pipeline validation",
+        default="auto",
+        choices=["auto", "group_kfold", "loso", "time_block_holdout"],
+        help="'auto' reads split.strategy from the dataset config; time_block_holdout is NOT "
+        "protocol-compliant and exists only for D1's documented stand-in",
     )
-    parser.add_argument("--n-splits", type=int, default=5)
+    parser.add_argument(
+        "--n-splits",
+        type=int,
+        default=5,
+        help="ignored when --split-strategy auto, which takes the config's value",
+    )
     parser.add_argument("--stride", type=int, default=1)
     parser.add_argument(
         "--label-rule", default="last", choices=["last", "majority"],
@@ -151,13 +170,21 @@ def main(argv: list[str] | None = None) -> int:
     columns = [
         c
         for c in ("dataset", "model", "task", "window_length", "macro_f1_mean", "macro_f1_std",
-                  "balanced_accuracy_mean", "auroc_mean", "mae_mean", "rmse_mean", "r2_mean",
-                  "protocol_compliant", "n_seeds")
+                  "balanced_accuracy_mean", "auroc_mean", "n_auroc_defined", "mae_mean",
+                  "rmse_mean", "r2_mean", "protocol_compliant", "n_seeds", "n_runs")
         if c in summary.columns
     ]
     print(summary[columns].to_string(index=False))
     print(f"\nraw records: results/raw/{args.experiment}/")
     print(f"summary:     results/tables/{args.experiment}_summary.csv")
+    environment = summary.attrs.get("environment_report", {})
+    if environment and not environment.get("complete", True):
+        print(
+            f"\nNOTE — this run's environment is not the declared one "
+            f"(missing: {', '.join(environment.get('missing', []))}). Install the missing "
+            f"backends or report the result for this environment explicitly; see "
+            f"`python -m drososense.utils.env_report`."
+        )
     return 0
 
 

@@ -7,7 +7,11 @@ import json
 import numpy as np
 import pytest
 
-from drososense.evaluation.metrics import classification_metrics, regression_metrics
+from drososense.evaluation.metrics import (
+    EMPTY_CLASS_POLICY,
+    classification_metrics,
+    regression_metrics,
+)
 from drososense.evaluation.results import (
     REQUIRED_RECORD_FIELDS,
     RunRecord,
@@ -78,13 +82,42 @@ def test_auroc_is_absent_rather_than_invented_without_scores():
 
 
 @pytest.mark.unit
-def test_auroc_reports_how_many_classes_it_scored():
-    """A class missing from the test split is excluded and counted."""
+def test_auroc_is_null_unless_every_class_is_present():
+    """The declared policy: four classes or nothing, never a partial average.
+
+    R0 audit item X5: the protocol named a four-class macro-over-one-vs-rest
+    AUROC while the implementation averaged over whichever two or three classes
+    happened to be scorable, so a two-class number was being reported under a
+    four-class name and folds were not comparable with each other.
+    """
     y_true = np.array([0, 1, 0, 1])
     scores = np.random.default_rng(0).random((4, 4))
     metrics = classification_metrics(y_true, y_true, scores, n_classes=4)
-    assert metrics["auroc_n_classes_scored"] == 2
-    assert metrics["auroc"] is not None
+    assert metrics["auroc"] is None
+    assert metrics["auroc_n_classes_scored"] == 0
+    assert metrics["auroc_defined"] is False
+    assert metrics["empty_class_policy"] == EMPTY_CLASS_POLICY
+
+
+@pytest.mark.unit
+def test_auroc_n_classes_scored_is_either_four_or_zero():
+    """There is no third value: the policy admits no partial average."""
+    rng = np.random.default_rng(3)
+    for n_present in (2, 3, 4):
+        y_true = np.repeat(np.arange(n_present), 3)
+        scores = rng.random((y_true.size, 4))
+        metrics = classification_metrics(y_true, y_true, scores, n_classes=4)
+        assert metrics["auroc_n_classes_scored"] in (0, 4)
+        assert (metrics["auroc"] is None) == (metrics["auroc_n_classes_scored"] == 0)
+
+
+@pytest.mark.unit
+def test_macro_f1_stays_defined_when_a_class_is_absent():
+    """macro-F1 uses the fixed label set, so AUROC's dropped coverage is not shared."""
+    y_true = np.array([0, 0, 1, 1])
+    metrics = classification_metrics(y_true, y_true, None, n_classes=4)
+    assert metrics["macro_f1"] is not None
+    assert metrics["auroc"] is None
 
 
 @pytest.mark.unit

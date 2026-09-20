@@ -1,91 +1,140 @@
-# D2 — Beef-Uncontrolled. Environmental robustness.
+# D2 — Beef-Uncontrolled. Environmental robustness task.
 #
-# Acquired automatically; SHA-256 verified on download.
+# Binding (R0 rework, DATA-16): D2 = 10.17632/mwmhh766fc.3, version 3.
+# The provider's own title is "Electronic nose dataset for beef quality
+# monitoring under an uncontrolled environment" — which is why this DOI is D2
+# and not D1. The previous revision of this file used version 1 (a single
+# 4553-row session with no sample grouping) and concluded that no specimen-level
+# split was possible. Version 3 publishes the same measurements as five series,
+# one per beef cut, and the split problem disappears.
 #
-# Same protocol deviation as D1: no specimen identifier is published. `sl no`
-# and `minutes` are both strictly increasing with zero resets (20815 rows over
-# 1735 distinct minutes), so the file is one continuous measurement session.
-# `specimen.source: time_block` is an assumption, not a published grouping, and
-# results built on it are flagged non-compliant.
+# ---------------------------------------------------------------------------
+# WHY THIS DATASET IS THE COMPLIANT ONE
+#
+# The v3 archive contains TS1.csv .. TS5.csv, each 2160 rows covering 2160
+# distinct minutes. The provider's description states the five series "correspond
+# to five beef cuts", so the grouping is the provider's own, not an assumption
+# this project invented. `specimen.source: series_file` records that provenance,
+# and `split_unit: specimen` is satisfied by LOSO(5) with one cut held out at a
+# time.
+#
+# The five files do NOT share one column order: TS1 ends with
+# `..., Humidity, Temperature` while TS2–TS5 end with `..., Temperature,
+# Humidity`. Every column is therefore addressed by NAME through feature_map.
+# Nothing in this project reads a column by position, and a unit test asserts it.
+# ---------------------------------------------------------------------------
 
 dataset_id: d2_beef_uncontrolled
 display_name: "Beef-Uncontrolled (e-nose)"
 role: "environmental robustness"
 
 source:
-  url: "https://data.mendeley.com/datasets/n8mc3nspfn/1"
-  doi: "10.17632/n8mc3nspfn.1"
-  version: "1"
+  url: "https://data.mendeley.com/datasets/mwmhh766fc/3"
+  doi: "10.17632/mwmhh766fc.3"
+  version: "3"
   license: "CC BY 4.0"
   citation: >
-    e-nose beef quality dataset (4 classes, TVC). Mendeley Data, V1.
-    doi:10.17632/n8mc3nspfn.1
+    Wijaya, Dedy Rahman; Sarno, Riyanarto; Zulaika, Enny (2018). Electronic nose
+    dataset for beef quality monitoring under an uncontrolled environment.
+    Mendeley Data, V3. doi:10.17632/mwmhh766fc.3
 
 raw:
-  file: beef_uncontrolled.csv
+  glob: "TS*.csv"
+  glob_specimen_pattern: '^(?P<specimen>TS\d+)\.csv$'
   strip_whitespace: true
   column_map:
-    time_index: minutes
+    time_index: minute
     freshness_class: class
-    tvc: tvc
+    tvc: TVC
   features:
-    - Mq-2
-    - Mq-3
-    - Mq-4
-    - Mq-5
-    - Mq-135
-    - Mq-136
-    - Mq-137
-    - Mq-138
-    - Temperature
-    - Humidity
+    - MQ2
+    - MQ3
+    - MQ4
+    - MQ5
+    - MQ6
+    - MQ8
+    - MQ9
+    - MQ135
+    - MQ136
+    - temperature
+    - humidity
+  feature_map:
+    MQ2: "MQ2"
+    MQ3: "MQ3"
+    MQ4: "MQ4"
+    MQ5: "MQ5"
+    MQ6: "MQ6"
+    MQ8: "MQ8"
+    MQ9: "MQ9"
+    MQ135: "MQ135"
+    MQ136: "MQ136"
+    temperature: "Temperature"
+    humidity: "Humidity"
   class_label_map:
-    "1": 0
-    "2": 1
-    "3": 2
-    "4": 3
+    excellent: 0
+    good: 1
+    acceptable: 2
+    spoiled: 3
 
 labels:
   class_names: [Excellent, Good, Acceptable, Spoiled]
+  naming_caveat: >
+    These ARE provider-stated names: the `class` column ships the words
+    excellent / good / acceptable / spoiled directly. D2 is the only dataset in
+    the project whose four-level freshness names are the provider's own.
   derivation: >
-    The dataset publishes integer classes 1..4 without names. Verified that they
-    partition TVC (log10 CFU/g) at the same 3/4/5 thresholds used by D1:
-    class 1 tvc in [2.002, 2.988], class 2 [3.092, 3.999], class 3 [4.026,
-    4.997], class 4 [5.100, 6.314]. The Excellent/Good/Acceptable/Spoiled names
-    above are INFERRED from those thresholds and are not stated by the provider.
+    Verified against the downloaded v3 files that the four names partition TVC at
+    the same 3 / 4 / 5 log10 CFU/g thresholds used elsewhere: excellent
+    [2.233, 2.989], good [3.044, 3.847], acceptable [4.762, 5.000], spoiled
+    [4.875, 5.098]. The names are the provider's; the thresholds describe them.
   independence_caveat: >
-    Same as D1 — the class label is a threshold of TVC, so classification and
-    regression are not independent evidence.
+    Same as D1 — the class is a discretisation of TVC, so classification and
+    regression are not independent evidence. Note also that v3's TVC range stops
+    at ~5.10, so the "spoiled" stratum here is narrower than D1's.
 
 specimen:
-  source: assumed_time_block
-  block_by: time
-  block_size: 150
+  source: series_file
   note: >
-    ASSUMED, not published. 150 distinct `minutes` values per block (~12 rows
-    each at the observed sampling rate), yielding ~12 blocks over the 1735
-    distinct minutes. Assumption, not a real independent sample.
+    PROVIDER-PUBLISHED grouping, not an assumption. One file per beef cut;
+    `raw.glob_specimen_pattern` takes the file stem (TS1..TS5) as the specimen
+    id. Five specimens, five folds — LOSO(5) is exhaustive here rather than a
+    convenience.
+
+sessions:
+  source: per_file
+  note: >
+    Each file is one uninterrupted 2160-minute acquisition, so the session and
+    the specimen coincide. Recorded explicitly so that a later multi-session
+    dataset cannot inherit the wrong boundary rule by default.
 
 features:
   columns:
-    - Mq-2
-    - Mq-3
-    - Mq-4
-    - Mq-5
-    - Mq-135
-    - Mq-136
-    - Mq-137
-    - Mq-138
-    - Temperature
-    - Humidity
+    - MQ2
+    - MQ3
+    - MQ4
+    - MQ5
+    - MQ6
+    - MQ8
+    - MQ9
+    - MQ135
+    - MQ136
+    - temperature
+    - humidity
 
 tasks: [classification, regression]
 
 preprocessing_overrides: {}
 
+split:
+  strategy: loso
+  n_splits: 5
+  protocol_compliant: true
+
 notes: >
-  Row 2827 carries Temperature = 0 and a simultaneous ~85-unit jump in Humidity,
-  consistent with a sensor warm-up or logging discontinuity rather than a real
-  ambient reading. It is retained (it is finite, so the loader keeps it) and is
-  left visible rather than silently repaired; if it distorts results the fix is
-  a documented preprocessing rule in a protocol amendment, not an ad-hoc edit.
+  The v3 files carry nine MQ channels; there is no MQ7 and no MQ137, and the
+  channel set is not identical to D1's. The cross-dataset channel intersection
+  (MQ2, MQ3, MQ4, MQ5, MQ135, MQ136, temperature, humidity) is recorded in the
+  protocol so that a cross-food comparison is described on a matched subset when
+  one is claimed. Version 1 of this DOI — the single 4553-row file — is NOT used
+  by this project; its SHA-256 remains recorded in the v1 manifest for audit
+  purposes only.

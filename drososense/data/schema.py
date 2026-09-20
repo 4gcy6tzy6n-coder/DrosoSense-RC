@@ -24,9 +24,15 @@ from drososense.utils.config import load_yaml
 
 # Canonical column names every loaded dataset is normalised to.
 SPECIMEN_COLUMN = "specimen_id"
+SESSION_COLUMN = "session_id"
 TIME_COLUMN = "time_index"
 CLASS_COLUMN = "freshness_class"
 REGRESSION_COLUMN = "tvc"
+
+# Internal, loader-only column carrying the series a row was read from. It is
+# prefixed so it cannot collide with a dataset's own column names and is dropped
+# before the canonical frame is returned.
+SERIES_SPECIMEN_COLUMN = "__series_specimen__"
 
 
 class SpecimenSource(str, Enum):
@@ -34,6 +40,11 @@ class SpecimenSource(str, Enum):
 
     Attributes:
         PUBLISHED: The dataset ships a specimen/sample identifier column.
+        SERIES_FILE: No identifier *column* exists, but the provider publishes
+            the measurements as separate files, one per independent physical
+            sample (D2's five beef cuts). The grouping is the provider's own,
+            not one the project invented, so it satisfies the protocol just as a
+            published column does.
         ASSUMED_TIME_BLOCK: No identifier exists; contiguous time blocks are
             used as a stand-in grouping. This does NOT satisfy the frozen
             protocol and any result built on it is non-compliant.
@@ -42,13 +53,14 @@ class SpecimenSource(str, Enum):
     """
 
     PUBLISHED = "published"
+    SERIES_FILE = "series_file"
     ASSUMED_TIME_BLOCK = "assumed_time_block"
     UNAVAILABLE = "unavailable"
 
     @property
     def protocol_compliant(self) -> bool:
         """Whether this source satisfies ``split_unit: specimen``."""
-        return self is SpecimenSource.PUBLISHED
+        return self in (SpecimenSource.PUBLISHED, SpecimenSource.SERIES_FILE)
 
 
 # Config files use short, readable spellings; the enum values are the canonical
@@ -57,6 +69,8 @@ class SpecimenSource(str, Enum):
 _SPECIMEN_SOURCE_ALIASES: dict[str, SpecimenSource] = {
     "column": SpecimenSource.PUBLISHED,
     "published": SpecimenSource.PUBLISHED,
+    "series_file": SpecimenSource.SERIES_FILE,
+    "file": SpecimenSource.SERIES_FILE,
     "time_block": SpecimenSource.ASSUMED_TIME_BLOCK,
     "assumed_time_block": SpecimenSource.ASSUMED_TIME_BLOCK,
     "none": SpecimenSource.UNAVAILABLE,
@@ -96,6 +110,12 @@ class DatasetSchema:
         specimen_source: Provenance of the specimen identifier.
         specimen_column_raw: Raw column used as specimen id, if any.
         specimen_note: Free-text justification, surfaced in reports.
+        session_source: How the acquisition-session identifier is derived.
+            A session is one uninterrupted acquisition block; a window may not
+            span two of them, because a session boundary inside a fillet is a
+            different day of storage and mixing the two would build a window
+            whose channels and label describe no single measurement.
+        session_note: Free-text justification for the session rule.
         class_derivation: How the class label was produced (e.g. TVC thresholds).
         license: License string as published by the data provider.
         source_url: Canonical landing page.
@@ -109,6 +129,8 @@ class DatasetSchema:
     specimen_source: SpecimenSource = SpecimenSource.PUBLISHED
     specimen_column_raw: str | None = None
     specimen_note: str = ""
+    session_source: str = "specimen"
+    session_note: str = ""
     class_derivation: str = ""
     license: str = ""
     source_url: str = ""
@@ -155,7 +177,13 @@ class Dataset:
     provenance: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        required = {SPECIMEN_COLUMN, TIME_COLUMN, CLASS_COLUMN, REGRESSION_COLUMN}
+        required = {
+            SPECIMEN_COLUMN,
+            SESSION_COLUMN,
+            TIME_COLUMN,
+            CLASS_COLUMN,
+            REGRESSION_COLUMN,
+        }
         missing = required - set(self.frame.columns)
         if missing:
             raise ValueError(f"{self.schema.dataset_id}: frame missing {sorted(missing)}")
@@ -176,6 +204,14 @@ class Dataset:
         """
         return tuple(sorted(self.frame[SPECIMEN_COLUMN].astype(str).unique()))
 
+    def sessions(self) -> tuple[str, ...]:
+        """Return every acquisition-session identifier, sorted for determinism.
+
+        Returns:
+            Tuple of unique session ids as strings.
+        """
+        return tuple(sorted(self.frame[SESSION_COLUMN].astype(str).unique()))
+
     def features(self) -> pd.DataFrame:
         """Return only the feature channels, in schema order.
 
@@ -188,13 +224,18 @@ class Dataset:
         """Summarise label distribution and per-specimen counts.
 
         Returns:
-            Mapping with ``n_rows``, ``n_specimens``, ``class_counts`` and
-            ``rows_per_specimen`` statistics.
+            Mapping with ``n_rows``, ``n_specimens``, ``n_sessions``,
+            ``class_counts`` and ``rows_per_specimen`` statistics.
         """
         per_specimen = self.frame.groupby(SPECIMEN_COLUMN, observed=True).size()
+        per_session = self.frame.groupby(SESSION_COLUMN, observed=True).size()
         return {
             "n_rows": int(len(self.frame)),
             "n_specimens": int(per_specimen.size),
+            "n_sessions": int(per_session.size),
+            "sessions_per_specimen": float(
+                per_session.size / per_specimen.size if per_specimen.size else float("nan")
+            ),
             "class_counts": {
                 str(k): int(v)
                 for k, v in self.frame[CLASS_COLUMN].value_counts().sort_index().items()
@@ -241,6 +282,8 @@ def schema_from_config(config: dict[str, Any]) -> DatasetSchema:
         specimen_source=specimen_source,
         specimen_column_raw=specimen.get("column"),
         specimen_note=specimen.get("note", ""),
+        session_source=str(config.get("sessions", {}).get("source", "specimen")),
+        session_note=config.get("sessions", {}).get("note", ""),
         class_derivation=config.get("labels", {}).get("derivation", ""),
         license=config.get("license", ""),
         source_url=config.get("source", {}).get("url", ""),

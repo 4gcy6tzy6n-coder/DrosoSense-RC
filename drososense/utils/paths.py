@@ -20,7 +20,19 @@ RESULTS_RAW_DIR: Path = PROJECT_ROOT / "results" / "raw"
 RESULTS_TABLES_DIR: Path = PROJECT_ROOT / "results" / "tables"
 RESULTS_FIGURES_DIR: Path = PROJECT_ROOT / "results" / "figures"
 
-PROTOCOL_PATH: Path = CONFIGS_DIR / "protocol_v1.yaml"
+# v1 is kept unchanged on disk: the freeze rule is that an amendment adds a new
+# version file rather than editing the old one, so that results produced under an
+# earlier protocol stay attributable to the text that produced them.
+PROTOCOL_V1_PATH: Path = CONFIGS_DIR / "protocol_v1.yaml"
+PROTOCOL_V1_1_PATH: Path = CONFIGS_DIR / "protocol_v1.1.yaml"
+
+# The active protocol. Everything that reads "the protocol" reads this.
+PROTOCOL_PATH: Path = PROTOCOL_V1_1_PATH
+
+# A protocol cannot contain its own hash. The digest of the frozen YAML lives in
+# a sidecar file next to it, which is what makes a post-freeze edit detectable:
+# `python -m drososense.utils.protocol --check` recomputes it.
+PROTOCOL_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.1.sha256"
 
 
 def ensure_dir(path: Path) -> Path:

@@ -19,6 +19,7 @@ non-compliant or synthetic number cannot be mistaken for a protocol result.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import platform
 import sys
@@ -82,6 +83,15 @@ class RunRecord:
         fold_fingerprint: Identifier of the exact partition used.
         class_coverage: Classes absent from train or test.
         config_hash: Fingerprint of the run configuration.
+        test_fingerprint: Identifier of the (test split, window length, model,
+            task) evaluation this run represents. Protocol v1.1 requires each
+            such evaluation to happen exactly once; a second record with the
+            same fingerprint and a different configuration is a violation.
+        empty_class_policy: The declared AUROC empty-class policy in force.
+        n_train_sessions: Acquisition sessions in the training split.
+        n_test_sessions: Acquisition sessions in the test split.
+        status: ``ok``, ``failed``, ``skipped``, ``oom`` or ``timeout``.
+        failure_reason: Populated whenever ``status`` is not ``ok``.
         notes: Free-text caveats attached to this run.
     """
 
@@ -108,6 +118,12 @@ class RunRecord:
     fold_fingerprint: str = ""
     class_coverage: dict[str, Any] = field(default_factory=dict)
     config_hash: str = ""
+    test_fingerprint: str = ""
+    empty_class_policy: str = ""
+    n_train_sessions: int = 0
+    n_test_sessions: int = 0
+    status: str = "ok"
+    failure_reason: str = ""
     notes: str = ""
 
     def __post_init__(self) -> None:
@@ -262,12 +278,16 @@ def records_to_frame(records: list[RunRecord]) -> pd.DataFrame:
             "seed": record.seed,
             "fold_id": record.fold_id,
             "window_length": record.window_length,
+            "protocol_version": record.protocol_version,
             "evidence_class": record.evidence_class,
             "protocol_compliant": record.protocol_compliant,
+            "status": record.status,
             "n_train_windows": record.n_train_windows,
             "n_test_windows": record.n_test_windows,
             "n_train_specimens": len(record.train_specimens),
             "n_test_specimens": len(record.test_specimens),
+            "n_train_sessions": record.n_train_sessions,
+            "n_test_sessions": record.n_test_sessions,
             "duration_s": record.duration_s,
         }
         for name in metric_names:
@@ -284,16 +304,18 @@ def aggregate_records(
         "model",
         "task",
         "window_length",
+        "protocol_version",
         "evidence_class",
         "protocol_compliant",
+        "status",
     ),
 ) -> pd.DataFrame:
     """Aggregate per-run metrics into mean and SD across seeds.
 
-    The grouping deliberately includes ``evidence_class`` and
-    ``protocol_compliant``: aggregating a synthetic run together with real ones,
-    or a non-compliant split together with a compliant one, would produce a
-    number that describes neither.
+    The grouping deliberately includes ``evidence_class``, ``protocol_compliant``
+    and ``status``: aggregating a synthetic run together with real ones, a
+    non-compliant split together with a compliant one, or a failed run together
+    with a successful one would produce a number that describes none of them.
 
     Args:
         records: Records to aggregate.
@@ -306,6 +328,9 @@ def aggregate_records(
     if frame.empty:
         return frame
 
+    # Failed runs stay in the frame under their own status group so the summary
+    # can state how many runs were lost, rather than averaging over survivors and
+    # implying complete coverage.
     metric_columns = [
         c
         for c in frame.columns
@@ -314,21 +339,42 @@ def aggregate_records(
             "run_id",
             "seed",
             "fold_id",
+            "protocol_version",
+            "evidence_class",
+            "protocol_compliant",
+            "status",
             "n_train_windows",
             "n_test_windows",
             "n_train_specimens",
             "n_test_specimens",
+            "n_train_sessions",
+            "n_test_sessions",
             "duration_s",
             *group_by,
         }
     ]
+
+    # Only numeric metrics are averaged. A record's `metrics` mapping also
+    # carries descriptive entries (the empty-class policy in force, for example);
+    # taking a mean of those is meaningless, and silently coercing them would be
+    # worse than leaving them out.
+    metric_columns = [
+        c for c in metric_columns if pd.api.types.is_numeric_dtype(frame[c])
+    ]
+    metric_columns = [c for c in metric_columns if c != "auroc_defined"]
 
     grouped = frame.groupby(list(group_by), dropna=False)
     summary = grouped[metric_columns].agg(["mean", "std"])
     summary.columns = [f"{metric}_{stat}" for metric, stat in summary.columns]
     summary["n_seeds"] = grouped["seed"].nunique()
     summary["n_runs"] = grouped.size()
+    summary["n_specimens_tested"] = grouped["n_test_specimens"].sum()
     summary["mean_duration_s"] = grouped["duration_s"].mean()
+    # AUROC is defined only on folds where every class is present, so the number
+    # of runs that contributed to `auroc_mean` is reported next to it rather than
+    # left for a reader to assume equals n_runs.
+    if "auroc_defined" in frame.columns:
+        summary["n_auroc_defined"] = grouped["auroc_defined"].sum()
     summary = summary.reset_index()
 
     # Pin the summary schema explicitly rather than relying on how the installed
@@ -339,7 +385,15 @@ def aggregate_records(
     # that a summary built from one seed and one built from ten have identical
     # columns, so they can be concatenated.
     expected = [f"{metric}_{stat}" for metric in metric_columns for stat in ("mean", "std")]
-    ordered = [*group_by, *expected, "n_seeds", "n_runs", "mean_duration_s"]
+    ordered = [
+        *group_by,
+        *expected,
+        "n_seeds",
+        "n_runs",
+        "n_specimens_tested",
+        "n_auroc_defined",
+        "mean_duration_s",
+    ]
     summary = summary.reindex(columns=ordered)
     for column in expected:
         summary[column] = summary[column].astype(float)
@@ -387,6 +441,29 @@ def make_run_id(dataset: str, model: str, task: str, seed: int, fold_id: int) ->
         Identifier string.
     """
     return f"{dataset}|{model}|{task}|seed{seed:02d}|fold{fold_id:02d}"
+
+
+def make_test_fingerprint(
+    fold_fingerprint: str, window_length: int, model: str, task: str
+) -> str:
+    """Build the identifier of one test-set evaluation.
+
+    The fold fingerprint already identifies the exact partition, so combining it
+    with the window length, model and task identifies a single scored evaluation.
+    Two runs sharing this value have scored the same held-out data with the same
+    model and task, which protocol v1.1 §17 permits only once.
+
+    Args:
+        fold_fingerprint: The fold's partition fingerprint.
+        window_length: Window length used.
+        model: Model identifier.
+        task: Task name.
+
+    Returns:
+        Short hex identifier.
+    """
+    payload = f"{fold_fingerprint}|w{window_length}|{model}|{task}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
 def metric_float(record: RunRecord, name: str) -> float | None:

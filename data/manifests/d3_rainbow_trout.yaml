@@ -1,11 +1,31 @@
 # D3 — Rainbow Trout. Acquisition manifest.
 #
-# STATUS: BLOCKED. The record is real and public; the payload has not been
-# fetched. Nothing below about the internal schema is verified.
+# STATUS: ACQUIRED. The R0 audit found that this dataset had been recorded as a
+# resource blocker on the grounds that "the only artifact is a single 21.1 GB
+# archive dominated by images". Both halves of that are true and neither is a
+# blocker: the sensor tables are 210 CSV files totalling 1,092,874 bytes, and
+# they can be read straight out of the archive with HTTP range requests. They
+# have been, and the result is recorded in d3_sensor_files.yaml.
+#
+# ---------------------------------------------------------------------------
+# WHAT THIS MANIFEST DOES *NOT* CLAIM
+#
+# The archive is never downloaded whole, so the publisher's md5 for
+# dataset.zip CANNOT be verified. That is a real gap and it is stated rather than
+# glossed. What is verified instead, on every acquisition:
+#
+#   * the CRC-32 the archive's own central directory declares for each member
+#     (checked during extraction; a corrupted transfer cannot pass), and
+#   * the SHA-256 of every extracted member, recorded in d3_sensor_files.yaml
+#     and re-checked by `download_data.py --verify-only`.
+#
+# So the claim is about the 210 files this project actually uses, not about the
+# archive as a whole.
+# ---------------------------------------------------------------------------
 
 dataset_id: d3_rainbow_trout
 display_name: "Rainbow Trout (e-nose + TVC)"
-status: blocked
+status: auto
 synthetic: false
 
 license: "CC BY 4.0"
@@ -16,64 +36,95 @@ version: "v1"
 
 citation: >
   Bolaños Ledezma, Mauricio; Peluffo-Ordóñez, Diego Hernán; Arciniegas Herrera,
-  Jose Luis; Guachi Guachi, Lorena de los Angeles (2026). A multimodal dataset
-  of images, gas sensor responses, and microbiological measurements for
-  assessing the freshness of rainbow trout fillets. Zenodo. doi:10.5281/zenodo.20649184
+  Jose Luis; Guachi Guachi, Lorena de los Angeles (2026). A multimodal dataset of
+  images, gas sensor responses, and microbiological measurements for assessing
+  the freshness of rainbow trout fillets. Zenodo.
+  doi:10.5281/zenodo.20649184
+
+archive:
+  kind: remote_zip
+  name: dataset.zip
+  url: "https://zenodo.org/api/records/20649184/files/dataset.zip/content"
+  size_bytes: 21134576519
+  md5_published: "32749a6232515bd3c3b50e2e848f1b15"
+  sha256: null
+  member_manifest: "d3_sensor_files.yaml"
+  member_glob: "dataset/day*/sensors/*.csv"
+  integrity_note: >
+    The archive is 21.1 GB and is never fetched whole; only 210 members of
+    1,092,874 bytes are read, by HTTP range request. Its publisher md5 is
+    therefore NOT verified. Integrity is anchored per member: the archive's own
+    CRC-32 for each member is checked during extraction, and a SHA-256 for every
+    extracted file is recorded in d3_sensor_files.yaml.
 
 files:
-  - name: dataset.zip
-    sha256: null
-    size_bytes: 21134576519
+  - name: "dataset/day*/sensors/*.csv"
+    origin: remote_archive_member
     required: true
-    download_url: "https://zenodo.org/records/20649184/files/dataset.zip"
     note: >
-      21.1 GB. The publisher lists an md5 checksum
-      (32749a6232515bd3c3b50e2e848f1b15), not a SHA-256; md5 is recorded here
-      for reference but is not used as the project's integrity check. Once the
-      archive is fetched, extract the sensor CSV, compute its SHA-256 and add it
-      to this manifest before any D3 run.
+      Placeholder for the 210 sensor tables; the authoritative per-file list,
+      with sizes, CRC-32 and SHA-256, is generated into d3_sensor_files.yaml
+      when the members are extracted. The loader globs these files directly.
 
 schema_notes: >
-  UNVERIFIED — the archive has not been downloaded, so no column has been
-  confirmed. The Zenodo description states the collection contains high-resolution
-  RAW camera images (CR2), gas-sensor responses and microbiological measurements
-  from rainbow trout fillets stored at 4 C for seven consecutive days with daily
-  acquisition. The archive is dominated by the image data, which phase 1 excludes.
-  configs/datasets/d3_rainbow_trout.yaml declares an EXPECTED schema so the
-  harness is ready; that file carries schema_verified: false and must be corrected
-  against the real archive before use.
+  VERIFIED by reading the extracted files, not inferred from the record
+  description. All 210 share one header:
+  'MQ3,MQ5,MQ9,MQ135,MQ137,Temperature(°C),Humidity(%),TVC( log CFU/g),Label',
+  54-121 rows per file, 25,080 rows in total, zero missing values.
+  There is NO time column: rows are a bare sequence, so the loader synthesises
+  `time_index` as the row's position inside its own file.
+  `TVC` is constant within a file and takes exactly seven values —
+  {4.16, 4.46, 5.48, 5.56, 6.08, 7.75, 7.86} — one per storage day.
+  `Label` is constant within a file and is BINARY: Fresh (150 files) or Spoiled
+  (60 files), with the provider's boundary falling between TVC 6.08 and 7.75.
+  The images (820 CR2 + 820 JPG) and the two .txt / one .py helper files in the
+  archive are out of scope for phase 1 and are not extracted.
+
+label_provenance: >
+  The provider publishes only Fresh/Spoiled. The project needs four classes for
+  the cross-dataset macro-F1 comparison to be a like-for-like quantity, and the
+  beef thresholds (3/4/5 log10 CFU/g) collapse this archive to two classes
+  because its TVC never goes below 2.23 and clusters in 4.16-7.86. Protocol
+  v1.1 therefore froze trout-specific thresholds 4.3 / 5.0 / 6.5 BEFORE any D3
+  model was run, giving four non-empty strata (3,479 / 3,601 / 10,800 / 7,200
+  rows). The four names are the project's; they are not the dataset's own
+  freshness classes.
 
 specimen_note: >
-  UNVERIFIED. Daily acquisition over seven days across multiple fillets implies
-  independent specimens exist physically, but whether the archive exposes a
-  stable per-fillet identifier is unknown until extraction. If it does not, D3
-  has the same blocker as D1/D2 and cannot support a specimen-level split.
+  SPECIMEN IDENTIFIER IS PUBLISHED, in the filename. Each file is
+  `<YYYYMMDD><fillet>.csv` with the fillet token `F<group><F><index>`; the token
+  reappears across storage days with a strictly larger TVC each time, which is
+  what makes this a repeated-measures panel of 63 fillets rather than 210 one-off
+  measurements. 62 distinct specimen ids result after the two filename aliases
+  recorded in configs/datasets/d3_rainbow_trout.yaml are applied. A session is
+  one file, so a fillet measured on seven days has seven sessions and no window
+  straddles a day boundary.
 
-blockers:
-  - "The only published artifact is a single 21.1 GB multimodal archive dominated
-     by CR2 images that phase 1 does not use. Downloading and staging it is a
-     resource decision that has not been taken."
-  - "The archive's internal layout is unknown, so no column name in
-     configs/datasets/d3_rainbow_trout.yaml is verified."
-  - "Whether per-fillet specimen identifiers exist inside the archive is unknown;
-     without them D3 cannot satisfy split_unit: specimen."
+files_skipped:
+  - "820 .CR2 raw images and 820 .JPG images — phase 1 uses sensor channels only"
+  - "dataset/tvc.txt — a list of third-party certificate links, not a data source"
+  - "dataset/day6/raw/listado_fechas.txt — capture timestamps for the image files"
+  - "dataset/raw_to_jpg.py — the authors' conversion helper"
+
+blockers: []
 
 manual_steps:
-  - "Confirm the download is acceptable: python scripts/download_data.py --dataset d3_rainbow_trout (without --accept-large-download it reports the size, the license and the blocker, then exits without fetching)."
-  - "To fetch: python scripts/download_data.py --dataset d3_rainbow_trout --accept-large-download"
-  - "Verify the archive md5 against 32749a6232515bd3c3b50e2e848f1b15, then extract."
-  - "Identify the sensor/microbiology table inside the archive (an .xlsx or .csv; the description mentions sensor responses, temperature, humidity and microbiological measurements)."
-  - "Record its real columns and specimen identifier. Update raw.column_map and raw.features in configs/datasets/d3_rainbow_trout.yaml, set schema_verified: true, and add the extracted CSV's SHA-256 to this manifest."
-  - "Only then run D3. Until then D3 is reported as UNAVAILABLE in every table."
+  - "Automated path: python scripts/download_data.py --dataset d3_rainbow_trout"
+  - "The script lists the archive's central directory, extracts only the 210 members matching the glob, verifies each member's CRC-32 against the archive, and writes their SHA-256 into data/manifests/d3_sensor_files.yaml."
+  - "It never downloads the whole archive. There is no --accept-large-download path for D3 any more; that flag was needed only while the archive was assumed to be the unit of acquisition."
+  - "Re-verify at any time without touching the network beyond the central directory: python scripts/download_data.py --dataset d3_rainbow_trout --verify-only"
 
 notes: >
-  Record metadata verified reachable on 2026-09-20 via
-  https://zenodo.org/api/records/20649184: title, CC BY 4.0 license, four
-  creators, version v1, one file 'dataset.zip' of 21134576519 bytes with md5
-  32749a6232515bd3c3b50e2e848f1b15. No substitute dataset is used in its place.
+  Metadata verified 2026-09-20 via https://zenodo.org/api/records/20649184:
+  title, CC BY 4.0 license, four creators, version v1, and one file 'dataset.zip'
+  of 21,134,576,519 bytes with md5 32749a6232515bd3c3b50e2e848f1b15.
+  Archive structure read from its own ZIP64 central directory: 1,882 entries —
+  820 .cr2, 820 .jpg, 210 .csv, 2 .txt, 1 .py, 29 directory entries.
 
 extra:
   provider_api: "https://zenodo.org/api/records/20649184"
   verified_on: "2026-09-20"
-  md5_published: "32749a6232515bd3c3b50e2e848f1b15"
   archive_bytes: 21134576519
+  zip_entries: 1882
+  extracted_members: 210
+  extracted_bytes: 1092874

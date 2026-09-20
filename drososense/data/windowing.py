@@ -1,14 +1,20 @@
-"""Sliding-window construction that never crosses a specimen boundary.
+"""Sliding-window construction that never crosses a specimen or session boundary.
 
-Windows are built independently inside each specimen: the frame is grouped by
-specimen, each group is sorted by time, and the sliding window is applied to
+Windows are built independently inside each (specimen, session) group: the frame
+is grouped, each group is sorted by time, and the sliding window is applied to
 that group alone. A trailing remainder shorter than the window is discarded
 rather than padded, exactly as the frozen protocol requires.
 
-Every :class:`WindowSet` carries the per-row specimen labels and source row
-indices of every window, which is what lets
+The session boundary matters wherever one specimen is measured on more than one
+occasion (D3 stores each fillet across seven days and every day has its own
+TVC). Without it, a window could contain sensor readings from one storage day
+and take its label from another — a physically incoherent input that no audit
+about specimens would catch.
+
+Every :class:`WindowSet` carries the per-row specimen and session labels and the
+source row indices of every window, which is what lets
 :func:`drososense.data.leakage.audit_windows` and
-:func:`drososense.data.leakage.audit_no_row_reuse` verify the invariant from
+:func:`drososense.data.leakage.audit_no_row_reuse` verify the invariants from
 the produced data instead of trusting the code path.
 """
 
@@ -20,7 +26,13 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
-from drososense.data.schema import CLASS_COLUMN, REGRESSION_COLUMN, SPECIMEN_COLUMN, TIME_COLUMN
+from drososense.data.schema import (
+    CLASS_COLUMN,
+    REGRESSION_COLUMN,
+    SESSION_COLUMN,
+    SPECIMEN_COLUMN,
+    TIME_COLUMN,
+)
 
 LabelRule = Literal["last", "majority"]
 
@@ -36,7 +48,11 @@ class WindowSet:
         y_class: Integer freshness label per window.
         y_reg: Continuous reference value (log10 TVC) per window.
         specimen_ids: Owning specimen of each window, shape ``(n_windows,)``.
+        session_ids: Owning acquisition session of each window, shape
+            ``(n_windows,)``.
         row_specimens: Specimen of every timestep inside each window, shape
+            ``(n_windows, window_length)``.
+        row_sessions: Session of every timestep inside each window, shape
             ``(n_windows, window_length)``.
         row_index: Source frame row positions, shape ``(n_windows, window_length)``.
         end_time: The ``time_index`` of each window's last timestep.
@@ -49,7 +65,9 @@ class WindowSet:
     y_class: np.ndarray
     y_reg: np.ndarray
     specimen_ids: np.ndarray
+    session_ids: np.ndarray
     row_specimens: np.ndarray
+    row_sessions: np.ndarray
     row_index: np.ndarray
     end_time: np.ndarray
     window_length: int
@@ -64,11 +82,11 @@ class WindowSet:
             raise ValueError(
                 f"X second axis {self.X.shape[1]} != window_length {self.window_length}"
             )
-        for name in ("y_class", "y_reg", "specimen_ids", "end_time"):
+        for name in ("y_class", "y_reg", "specimen_ids", "session_ids", "end_time"):
             if getattr(self, name).shape[0] != n:
                 raise ValueError(f"{name} has {getattr(self, name).shape[0]} entries, expected {n}")
         expected_rows = (n, self.window_length)
-        for name in ("row_specimens", "row_index"):
+        for name in ("row_specimens", "row_sessions", "row_index"):
             if getattr(self, name).shape != expected_rows:
                 raise ValueError(
                     f"{name} has shape {getattr(self, name).shape}, expected {expected_rows}"
@@ -115,7 +133,9 @@ class WindowSet:
             y_class=self.y_class[mask],
             y_reg=self.y_reg[mask],
             specimen_ids=self.specimen_ids[mask],
+            session_ids=self.session_ids[mask],
             row_specimens=self.row_specimens[mask],
+            row_sessions=self.row_sessions[mask],
             row_index=self.row_index[mask],
             end_time=self.end_time[mask],
             window_length=self.window_length,
@@ -127,54 +147,58 @@ class WindowSet:
         """Summarise window counts and label distribution.
 
         Returns:
-            Mapping with ``n_windows``, ``class_counts`` and ``per_specimen``.
+            Mapping with ``n_windows``, ``class_counts``, ``per_specimen`` and
+            ``per_session``.
         """
         counts = pd.Series(self.y_class).value_counts().sort_index()
         per_specimen = pd.Series(self.specimen_ids).value_counts().sort_index()
+        per_session = pd.Series(self.session_ids).value_counts().sort_index()
         return {
             "n_windows": len(self),
             "class_counts": {str(int(k)): int(v) for k, v in counts.items()},
             "per_specimen": {str(k): int(v) for k, v in per_specimen.items()},
+            "per_session": {str(k): int(v) for k, v in per_session.items()},
         }
 
 
-def _window_one_specimen(
+def _window_one_group(
     group: pd.DataFrame,
     feature_columns: list[str],
     window_length: int,
     stride: int,
     label_rule: str,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Build windows for a single specimen's rows.
+) -> tuple[np.ndarray, ...]:
+    """Build windows for one (specimen, session) group's rows.
 
     Args:
-        group: Rows of one specimen, pre-sorted by time.
+        group: Rows of one group, pre-sorted by time.
         feature_columns: Feature columns in schema order.
         window_length: Window length ``L``.
         stride: Step between window starts.
         label_rule: ``last`` or ``majority``.
 
     Returns:
-        Tuple ``(X, y_class, y_reg, row_specimens, row_index, end_time)``.
+        Tuple ``(X, y_class, y_reg, row_specimens, row_sessions, row_index,
+        end_time)``.
     """
     values = group.loc[:, feature_columns].to_numpy(dtype=np.float64)
     classes = group[CLASS_COLUMN].to_numpy()
     regression = group[REGRESSION_COLUMN].to_numpy(dtype=np.float64)
     specimens = group[SPECIMEN_COLUMN].astype(str).to_numpy()
+    sessions = group[SESSION_COLUMN].astype(str).to_numpy() if SESSION_COLUMN in group else specimens
     times = group[TIME_COLUMN].to_numpy()
     positions = group.index.to_numpy()
 
     n_rows = values.shape[0]
-    starts = range(0, n_rows - window_length + 1, stride)
     n_windows = len(range(0, n_rows - window_length + 1, stride))
     if n_windows == 0:
         empty_x = np.empty((0, window_length, values.shape[1]), dtype=np.float64)
         empty_scalar = np.empty((0,), dtype=np.float64)
-        empty_str = np.empty((0, window_length), dtype=object)
         return (
             empty_x,
             np.empty((0,), dtype=np.int64),
             empty_scalar,
+            np.empty((0, window_length), dtype=object),
             np.empty((0, window_length), dtype=object),
             np.empty((0, window_length), dtype=np.int64),
             np.empty((0,), dtype=np.float64),
@@ -184,26 +208,28 @@ def _window_one_specimen(
     y_class = np.empty(n_windows, dtype=np.int64)
     y_reg = np.empty(n_windows, dtype=np.float64)
     row_specimens = np.empty((n_windows, window_length), dtype=object)
+    row_sessions = np.empty((n_windows, window_length), dtype=object)
     row_index = np.empty((n_windows, window_length), dtype=np.int64)
     end_time = np.empty(n_windows, dtype=np.float64)
 
-    for w, start in enumerate(starts):
+    for w, start in enumerate(range(0, n_rows - window_length + 1, stride)):
         stop = start + window_length
         x_out[w] = values[start:stop]
         row_specimens[w] = specimens[start:stop]
+        row_sessions[w] = sessions[start:stop]
         row_index[w] = positions[start:stop]
         end_time[w] = times[stop - 1]
         if label_rule == "last":
             y_class[w] = int(classes[stop - 1])
             y_reg[w] = float(regression[stop - 1])
-        else:  # majority — ties resolved toward the later (fresher-degraded) label
+        else:  # majority — ties resolved toward the later (more degraded) label
             labels, counts = np.unique(classes[start:stop], return_counts=True)
             top = counts.max()
             candidates = labels[counts == top]
             y_class[w] = int(candidates[-1])
             y_reg[w] = float(np.mean(regression[start:stop]))
 
-    return x_out, y_class, y_reg, row_specimens, row_index, end_time
+    return x_out, y_class, y_reg, row_specimens, row_sessions, row_index, end_time
 
 
 def make_windows(
@@ -213,7 +239,7 @@ def make_windows(
     stride: int = 1,
     label_rule: LabelRule = "last",
 ) -> WindowSet:
-    """Build sliding windows that never span two specimens.
+    """Build sliding windows that never span two specimens or two sessions.
 
     Args:
         frame: Tidy frame with canonical columns.
@@ -228,8 +254,15 @@ def make_windows(
         The assembled :class:`WindowSet`.
 
     Raises:
-        ValueError: If inputs are malformed or a specimen has fewer rows than
-            the window length.
+        ValueError: If inputs are malformed or a group has fewer rows than the
+            window length.
+
+    Note:
+        A group with fewer rows than ``window_length`` contributes no windows
+        only when it is a *session* inside a longer specimen; a whole specimen
+        that is too short raises, because silently dropping a specimen would
+        change the split's meaning. ``usable_specimens`` exists so the caller
+        makes that exclusion deliberately and records it.
     """
     if window_length < 1:
         raise ValueError(f"window_length must be >= 1, got {window_length}")
@@ -239,41 +272,60 @@ def make_windows(
         raise ValueError(f"label_rule must be one of {SUPPORTED_LABEL_RULES}, got {label_rule!r}")
 
     feature_columns = list(feature_columns)
-    for column in (SPECIMEN_COLUMN, TIME_COLUMN, CLASS_COLUMN, REGRESSION_COLUMN, *feature_columns):
+    required = [SPECIMEN_COLUMN, TIME_COLUMN, CLASS_COLUMN, REGRESSION_COLUMN]
+    for column in required:
+        if column not in frame.columns:
+            raise ValueError(f"frame is missing required column {column!r}")
+    has_sessions = SESSION_COLUMN in frame.columns
+    group_keys = [SPECIMEN_COLUMN, SESSION_COLUMN] if has_sessions else [SPECIMEN_COLUMN]
+    for column in feature_columns:
         if column not in frame.columns:
             raise ValueError(f"frame is missing required column {column!r}")
 
-    # Sorting is local to each specimen; the group key keeps specimens apart.
-    ordered = frame.sort_values([SPECIMEN_COLUMN, TIME_COLUMN], kind="stable")
-
-    parts = []
-    for specimen, group in ordered.groupby(SPECIMEN_COLUMN, sort=True, observed=True):
-        if len(group) < window_length:
-            raise ValueError(
-                f"specimen {specimen!r} has {len(group)} rows, fewer than window_length "
-                f"{window_length}; it cannot contribute a window. Lower the window length or "
-                f"the split must place this specimen in a split that tolerates it."
-            )
-        parts.append(
-            _window_one_specimen(group, feature_columns, window_length, stride, label_rule)
+    specimens_too_short = sorted(
+        {
+            str(specimen)
+            for specimen, group in frame.groupby(SPECIMEN_COLUMN, observed=True)
+            if len(group) < window_length
+        }
+    )
+    if specimens_too_short:
+        raise ValueError(
+            f"specimens {specimens_too_short[:5]} have fewer than window_length "
+            f"{window_length} rows; exclude them via usable_specimens() before windowing"
         )
 
+    # Sorting is local to each group; the group keys keep specimens and sessions apart.
+    ordered = frame.sort_values([*group_keys, TIME_COLUMN], kind="stable")
+
+    parts = []
+    for _, group in ordered.groupby(group_keys, sort=True, observed=True):
+        if len(group) < window_length:
+            # A session too short to hold a window is dropped, which is the
+            # protocol's boundary rule; the specimen itself is still represented
+            # by its other sessions.
+            continue
+        parts.append(_window_one_group(group, feature_columns, window_length, stride, label_rule))
+
     if not parts:
-        raise ValueError("no specimens produced windows")
+        raise ValueError("no groups produced windows")
 
     x = np.concatenate([p[0] for p in parts], axis=0)
     y_class = np.concatenate([p[1] for p in parts], axis=0)
     y_reg = np.concatenate([p[2] for p in parts], axis=0)
     row_specimens = np.concatenate([p[3] for p in parts], axis=0)
-    row_index = np.concatenate([p[4] for p in parts], axis=0)
-    end_time = np.concatenate([p[5] for p in parts], axis=0)
+    row_sessions = np.concatenate([p[4] for p in parts], axis=0)
+    row_index = np.concatenate([p[5] for p in parts], axis=0)
+    end_time = np.concatenate([p[6] for p in parts], axis=0)
 
     return WindowSet(
         X=x,
         y_class=y_class,
         y_reg=y_reg,
         specimen_ids=row_specimens[:, 0].astype(str),
+        session_ids=row_sessions[:, 0].astype(str),
         row_specimens=row_specimens,
+        row_sessions=row_sessions,
         row_index=row_index,
         end_time=end_time,
         window_length=window_length,

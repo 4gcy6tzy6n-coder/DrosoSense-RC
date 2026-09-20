@@ -106,6 +106,59 @@ def protocol() -> dict:
 
 
 @pytest.fixture()
+def temporary_dataset(tmp_path: Path, fixture_frame: pd.DataFrame, monkeypatch):
+    """Redirect the loader and the runner at a throwaway dataset.
+
+    The fixture is materialised in ``tmp_path`` and both lookups are patched, so
+    a test that drives the real benchmark never touches ``data/raw`` and never
+    depends on which datasets happen to be downloaded.
+
+    Args:
+        tmp_path: pytest temporary directory.
+        fixture_frame: Session-scoped generated frame.
+        monkeypatch: pytest monkeypatch fixture.
+
+    Returns:
+        ``(dataset_id, config_path)``.
+    """
+    dataset_id = "unit_fixture"
+    raw_dir = tmp_path / "raw" / dataset_id
+    raw_dir.mkdir(parents=True)
+    fixture_frame.to_csv(raw_dir / "unit_fixture.csv", index=False)
+
+    config = {
+        "dataset_id": dataset_id,
+        "display_name": "Unit fixture",
+        "raw": {
+            "file": "unit_fixture.csv",
+            "strip_whitespace": True,
+            "column_map": {
+                "time_index": "time_index",
+                "freshness_class": "freshness_class",
+                "tvc": "tvc",
+            },
+            "features": ["s1", "s2", "s3", "temperature", "humidity"],
+            "class_label_map": {"0": 0, "1": 1, "2": 2, "3": 3},
+        },
+        "labels": {"class_names": ["Excellent", "Good", "Acceptable", "Spoiled"]},
+        "specimen": {"source": "column", "column": "specimen_id"},
+        "sessions": {"source": "specimen"},
+        "features": {"columns": ["s1", "s2", "s3", "temperature", "humidity"]},
+        "source": {"url": "generated", "citation": "n/a"},
+        "license": "n/a",
+    }
+    config_path = tmp_path / "unit_fixture.yaml"
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    import drososense.data.loaders as loaders_module
+    import drososense.evaluation.runner as runner_module
+
+    monkeypatch.setattr(loaders_module, "dataset_raw_dir", lambda _: raw_dir)
+    monkeypatch.setattr(runner_module, "dataset_config_path", lambda _: config_path)
+    return dataset_id, config_path
+
+
+@pytest.fixture()
 def write_config(tmp_path: Path):
     """Return a helper that writes a dataset config YAML to disk.
 

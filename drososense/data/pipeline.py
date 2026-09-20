@@ -88,6 +88,9 @@ class FoldTensors:
             "n_train_specimens": len(self.fold.train),
             "n_val_specimens": len(self.fold.val),
             "n_test_specimens": len(self.fold.test),
+            "n_train_sessions": len(set(self.train.session_ids.tolist())),
+            "n_val_sessions": len(set(self.val.session_ids.tolist())),
+            "n_test_sessions": len(set(self.test.session_ids.tolist())),
             "train_specimens": list(self.fold.train),
             "val_specimens": list(self.fold.val),
             "test_specimens": list(self.fold.test),
@@ -186,6 +189,10 @@ def build_fold_tensors(
     # 4. Verify the produced windows, not the intention behind them.
     for name, window_set in windows.items():
         audit_windows(window_set.specimen_ids, window_set.row_specimens, window_length)
+        # The same audit, run on the session key: a window that stays inside one
+        # specimen can still straddle two acquisition occasions, and that is a
+        # defect the specimen audit alone cannot see.
+        audit_windows(window_set.session_ids, window_set.row_sessions, window_length)
         audit_window_split_membership(window_set.specimen_ids, fold, name)
     audit_no_row_reuse(
         windows["train"].row_index.ravel().tolist(),
