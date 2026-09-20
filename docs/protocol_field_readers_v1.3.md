@@ -17,8 +17,8 @@ nowhere in the production path at all.
 | Read elsewhere, by a named exception | 2 |
 | Prose (no reader expected) | 206 |
 | Orphaned (a recorded disposition) | 277 |
-| — of which statements or mirrored declarations | 206 |
-| — of which awaiting human determination | 16 |
+| — of which statements or mirrored declarations | 208 |
+| — of which awaiting human determination | 14 |
 | **— of which real holes (nothing reads them and something should)** | **55** |
 
 ## Real holes
@@ -110,8 +110,6 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `pairing.reported_alongside` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/evaluation/gates.py:393`, `drososense/evaluation/gates.py:394`, `drososense/evaluation/gates.py:406`, `drososense/evaluation/gates.py:444`, `drososense/evaluation/gates.py:65`, `drososense/evaluation/results.py:434`, `drososense/evaluation/results.py:467`, `drososense/evaluation/stats.py:281`, `drososense/evaluation/stats.py:283`, `drososense/evaluation/stats.py:284`, `scripts/analyze.py:733`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
 | `statistical_tests.effect_size.selection_key` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/baselines/base.py:167`, `drososense/evaluation/results.py:43`, `drososense/evaluation/results.py:555`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
 | `results.raw_record_schema.v1_1_additions` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/data/manifest.py:206`, `drososense/data/manifest.py:211`, `drososense/data/manifest.py:431`, `drososense/data/pipeline.py:83`, `drososense/data/pipeline.py:98`, `drososense/evaluation/contact_log.py:72`, `drososense/evaluation/contact_log.py:73`, `drososense/evaluation/metrics.py:98`, `drososense/evaluation/results.py:367`, `drososense/evaluation/results.py:368`, `drososense/evaluation/results.py:560`, `drososense/evaluation/results.py:561`, `drososense/evaluation/results.py:563`, `drososense/evaluation/results.py:572`, `drososense/evaluation/results.py:573`, `drososense/evaluation/results.py:574`, `drososense/evaluation/results.py:575`, `drososense/evaluation/results.py:607`, `drososense/evaluation/results.py:711`, `drososense/evaluation/runner.py:377`, `drososense/utils/__init__.py:27`, `scripts/preprocess.py:111`, `scripts/preprocess.py:121`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
-| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_protocol_versions` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/__init__.py:17`, `drososense/evaluation/runner.py:57`, `drososense/utils/paths.py:79`, `drososense/utils/paths.py:80`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
-| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_strategy` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/data/splits.py:20`, `drososense/data/splits.py:282`, `drososense/data/splits.py:290`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
 
 ## Orphaned fields (statements and mirrored declarations)
 
@@ -315,14 +313,16 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `amendment_v1_2.unchanged` | statement — the amendment record, for a human reader |
 | `amendment_v1_2.open_decisions[0].options` | statement — the amendment record, for a human reader |
 | `amendment_v1_2.open_decisions[0].decision_owner` | statement — the amendment record, for a human reader |
-| `amendment_v1_3.decision_recorded.od1_ruling` | NOT TRIAGED — needs a disposition |
-| `amendment_v1_3.decision_recorded.decided_at` | NOT TRIAGED — needs a disposition |
-| `amendment_v1_3.decision_recorded.decided_by` | NOT TRIAGED — needs a disposition |
-| `amendment_v1_3.changed` | NOT TRIAGED — needs a disposition |
-| `amendment_v1_3.unchanged` | NOT TRIAGED — needs a disposition |
-| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_n_splits` | NOT TRIAGED — needs a disposition |
-| `amendment_v1_3.open_decisions[0].options` | NOT TRIAGED — needs a disposition |
-| `amendment_v1_3.open_decisions[0].decision_owner` | NOT TRIAGED — needs a disposition |
+| `amendment_v1_3.decision_recorded.od1_ruling` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
+| `amendment_v1_3.decision_recorded.decided_at` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
+| `amendment_v1_3.decision_recorded.decided_by` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
+| `amendment_v1_3.changed` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
+| `amendment_v1_3.unchanged` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
+| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_protocol_versions` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
+| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_strategy` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
+| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_n_splits` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
+| `amendment_v1_3.open_decisions[0].options` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
+| `amendment_v1_3.open_decisions[0].decision_owner` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
 
 ## Every declared field
 
@@ -1030,8 +1030,8 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `amendment_v1_3.integrity_disclosures.rule` | The amendment rule requires that the trigger, the change … | _prose — no reader expected_ |
 | `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.first_test_evaluation_at` | 2026-09-20T06:05:40.492008+00:00 | `drososense/evaluation/contact_log.py:102`, `drososense/evaluation/contact_log.py:141`, `drososense/utils/protocol.py:90` |
 | `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.source` | results/tables/data_contact_log.json — first counting ent… | _prose — no reader expected_ |
-| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_protocol_versions` | ['1.1.0', '1.2.0'] | _awaiting determination — see above_ |
-| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_strategy` | group_kfold | _awaiting determination — see above_ |
+| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_protocol_versions` | ['1.1.0', '1.2.0'] | **NO READER** |
+| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_strategy` | group_kfold | **NO READER** |
 | `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_n_splits` | 5 | **NO READER** |
 | `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.detail` | The D3 test split has been touched under v1.1 and v1.2 — … | _prose — no reader expected_ |
 | `amendment_v1_3.integrity_disclosures.v1_1_v1_2_d3_runs_preserved_unchanged.rule` | v1.1 D3 runs stay labelled protocol_version = 1.1.0; v1.2… | _prose — no reader expected_ |
