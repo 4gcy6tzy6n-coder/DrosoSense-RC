@@ -99,15 +99,28 @@ read it.** That class had now appeared three times (gate symbols, `model_params`
 declarative field and its reader — see [`docs/protocol_field_readers.md`](docs/protocol_field_readers.md),
 regenerate with `python scripts/protocol_field_readers.py --write`.
 
-682 declared leaves: 253 read by the production path, 189 free text, and 239 orphaned with a
-recorded disposition — 190 of them statements or declarations whose operative copy lives
-elsewhere, and **49 real holes** where nothing reads the field and something should. The holes
-are mostly dependencies on work not yet started (the M4 hyperparameter selector, the E4–E6
-robustness protocol, the E9 size study, the experiment register), plus three that have already
-diverged from the code: `results.raw_dir`/`tables_dir`/`figures_dir` (paths are resolved through
-`drososense/utils/paths.py`), `seeds.root_seeds` (the runner takes seeds from its arguments, so
-a run outside 0–9 would not be refused) and `preprocessing.windowing.length_candidates` (same,
-for window lengths). `tests/test_protocol_field_readers.py` makes the inventory a gate: a newly
+682 declared leaves: 225 read by the production path, 2 read through a named exception, 189
+free text, and 266 orphaned with a recorded disposition — 195 of them statements or
+declarations whose operative copy lives elsewhere, 16 **awaiting human determination**, and
+**55 real holes** where nothing reads the field and something should.
+
+The reader criterion was tightened in DATA-21, and the numbers above are the tightened ones. A
+reader is now a string literal equal to the field's NAME, parsed out of the module so that a
+literal inside a docstring or a comment does not count, and never a match on the field's
+declared VALUE. Both retired rules had been certifying coincidences: `tasks.*.label_column`
+was "read" by the constant `schema.py` hardcodes, `gates.Gate_C.evaluated_on` by the `D2`
+inside a docstring. Thirty-nine rows lost their reader; 17 were already recorded as gaps and
+became holes, and the other 22 are listed under *awaiting human determination* with the match
+the retired rule used printed beside them, because that match is what has to be adjudicated.
+The hole count is a lower bound, and the point of the bucket is that it is now a stated one.
+
+The holes are mostly dependencies on work not yet started (the E4–E6 robustness protocol, the
+E9 size study, the experiment register), plus the three that have already diverged from the
+code: `results.raw_dir`/`tables_dir`/`figures_dir`, whose paths are resolved through
+`drososense/utils/paths.py`. DATA-21 closed ten of them: `hyperparameter_selection.grid.*`,
+`selection_split` and `scope` are read by `drososense/evaluation/selection.py`, `seeds.*` by
+`drososense/utils/seeding.py`, and `preprocessing.windowing.length_candidates` by the same
+window-length check. `tests/test_protocol_field_readers.py` makes the inventory a gate: a newly
 declared field with no reader and no disposition fails the suite.
 
 | Item | Was | Now |
@@ -126,6 +139,15 @@ otherwise have to work it out. The gate verdicts that do **not** depend on the d
 present are the ones covered by the tests in `tests/test_e2e_gate_evaluation.py`, including
 one that evaluates the rules with `results/raw` made unavailable and asserts the outcome is
 unchanged.
+
+The same applies to the test suite, more quietly. Twelve of the tests in
+`tests/test_dataset_bindings.py` load D1/D2/D3 from `data/raw/**` and **skip** when the raw
+files are absent, so a clean clone runs a smaller suite than the author's checkout without
+saying so in the pass count: the twelve move from passed to skipped, and the total is only
+comparable between two environments that agree on whether the data is on disk. They are the
+tests that pin the R0 audit's X1 and X2 — the DOI bindings, D2's five cuts, D3's fillet token,
+and the rule that nothing reads a column by position — so a green run without them is not
+evidence about the data layer.
 
 ---
 
@@ -183,7 +205,7 @@ byte as frozen, and `protocol_v1.1.sha256` still matches.
 | --- | --- |
 | Split unit | `specimen` — **red line** |
 | Session unit | `session_id` — a second boundary: no window spans two acquisition sessions |
-| Seeds | `0..9`, with a declared RNG hierarchy (split / graph / input mapping / readout) |
+| Seeds | `0..9`, with a declared RNG hierarchy (split / graph / input mapping / readout); extendable to 20 only as a whole block, and the two designs are never pooled |
 | Classification primary / secondary | `macro_f1` / balanced accuracy, AUROC, accuracy |
 | AUROC empty-class policy | `require_all_classes` — four classes or `null` |
 | Regression primary / secondary | `mae` / RMSE, R² |
@@ -331,7 +353,8 @@ drososense/
                   remote_zip, acquisition, synthetic
   baselines/      classic (SVM/RF/XGBoost/PCA+SVM) and sequence (GRU/LSTM/CNN/TCN)
   reservoir/      ESN — the R4 control, NOT a connectome
-  evaluation/     metrics, paired statistics, gates, contact log, records, driver
+  evaluation/     metrics, paired statistics, gates, hyperparameter selection,
+                  contact log, records, driver
   utils/          paths, seeding, config, protocol freeze checks, environment report
 scripts/          download, fixture, preprocess, benchmarks, summarize
 tests/            unit + integration; leakage audits carry positive controls
@@ -393,6 +416,26 @@ All nine baselines implement one interface and receive identical tensors for a g
 
 `--smoke` selects deliberately tiny hyperparameters. Smoke numbers are a pipeline check,
 **not** tuned results, and are never reported as findings.
+
+### Hyperparameters come from the declared grid
+
+Both paths are checked against `hyperparameter_selection.grid` before any data is touched:
+
+* **Supplied parameters** — every run, including every M1 run and every smoke run. A declared
+  knob carrying an undeclared value is refused with an `OutOfGridError`, and so is a window
+  length outside `grid.window_length`. The knob names are the protocol's; the binding to the
+  names the models use (`reservoir_leak_alpha` → `leak`, `spectral_scaling` →
+  `spectral_radius`, …) is declared in `drososense/evaluation/selection.py:KNOB_BINDINGS`, and
+  a protocol knob that no model parameter answers to raises at load time.
+* **Selection** — a run that passes a grid as `BenchmarkConfig.selection_grid` selects each
+  model's parameters per fold on that fold's **validation** specimens, by the metric
+  `selection_metric` names for the task. The test split is not read during selection. The
+  spectral scaling is chosen once per `(dataset, seed, fold)` and reused across every reservoir
+  in the group, so R0 and its control cannot end up on differently scaled graphs; the choice is
+  recorded on every run record and in the committed fingerprint table.
+
+M1 supplies its parameters and does not select. The selector exists so that M4 does not have to
+invent one, and the grid gate exists so that neither path can tune past the frozen space.
 
 `params(model)` in a gate means **trainable** parameters — the count updated by fitting, not
 the reservoir's node count. Frozen reservoir weights are reported separately and never
@@ -582,18 +625,22 @@ Coverage is reported in the run log; the suite is required to stay above 80 %.
 **Test counts are environment-qualified.** The suite's size and its pass/skip split depend on
 which optional backends are installed. On the machine this revision was prepared on — macOS
 arm64, CPython 3.12.13, `numpy` 2.4.4, `pandas` 3.0.2, `scikit-learn` 1.8.0, `torch` 2.11.0,
-**`xgboost` not importable** (its native library needs `libomp`, which is not present) — the
-result is:
+**`xgboost` not importable** (its native library needs `libomp`, which is not present) — and
+with `data/raw/**` absent, the result is:
 
 ```text
-253 passed, 3 skipped
+340 passed, 15 skipped
 ```
 
-The three skips are the xgboost model tests, and each skip names the missing backend. The
-same suite in the environment declared by `environment.yml` — which pins xgboost — runs
-those three as well. A bare "N passed" is not a portable statement, which is why the runner
-attaches `environment_report.json` to every summary and prints a caveat when the local
-environment is not the declared one.
+Three of the skips are the xgboost model tests, and each skip names the missing backend. The
+other twelve are `tests/test_dataset_bindings.py`, which skips when the raw data is not on
+disk — see *Reproducing the delivered artifacts needs the local data* above. The same suite
+in the environment declared by `environment.yml` — which pins xgboost — runs the first three
+as well, and a checkout with `data/raw/**` populated runs all fifteen: **the pass count of
+this suite is qualified by both the installed backends and the presence of the raw data**, and
+a bare "N passed" is portable under neither. That is why the runner attaches
+`environment_report.json` to every summary and prints a caveat when the local environment is
+not the declared one.
 
 ---
 
