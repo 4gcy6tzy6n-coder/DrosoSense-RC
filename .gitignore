@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# Raw and derived data MUST NOT be committed (see docs/data_policy in README).
+# Only manifests and code live in Git.
+# ---------------------------------------------------------------------------
+data/raw/**
+data/processed/**
+data/splits/**
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/splits/.gitkeep
+
+# Connectome source graphs and derived adjacency matrices (M2+, large binaries)
+connectome/raw/**
+connectome/adjacency/**
+!connectome/raw/.gitkeep
+!connectome/adjacency/.gitkeep
+
+# Raw run outputs are large; summaries under results/tables are committed.
+results/raw/**
+results/figures/**
+!results/raw/.gitkeep
+!results/figures/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+.venv/
+venv/
+*.pkl
+*.joblib
+*.pt
+*.ckpt
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
