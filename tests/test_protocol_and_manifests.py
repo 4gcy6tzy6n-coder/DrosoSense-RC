@@ -27,7 +27,9 @@ from drososense.data.schema import SpecimenSource, load_dataset_config, resolve_
 from drososense.evaluation.gates import GateEvaluator, build_symbols
 from drososense.utils.config import (
     load_protocol,
+    protocol_metric_direction,
     protocol_metric_properties,
+    task_metric_direction,
     verify_protocol_freeze,
 )
 from drososense.utils.paths import (
@@ -380,6 +382,52 @@ def test_protocol_records_the_d1_power_limitation_before_any_result(protocol):
     note = protocol["split_protocol"]["power_note"]
     assert "0.0625" in note
     assert "underpowered" in note
+
+
+# ---------------------------------------------------------------------------
+# Protocol — the declared metric directions
+# ---------------------------------------------------------------------------
+@pytest.mark.unit
+def test_the_declared_metric_directions_are_read_from_the_protocol(protocol):
+    """The direction a metric is read in has to come from where it is declared.
+
+    `tasks.classification` declares it under `metrics`; `tasks.regression`
+    declares it at the task level instead. Only the first was read, so MAE and
+    RMSE — which are minimised — were reported as metrics to maximise, and
+    GateEvaluator's `favourable` test and the selector's argmax/argmin both read
+    that value.
+    """
+    assert protocol_metric_direction(protocol, "macro_f1") == "maximize"
+    assert protocol_metric_direction(protocol, "mae") == "minimize"
+    assert protocol_metric_direction(protocol, "rmse") == "minimize"
+
+    # The protocol declares ONE direction per task, so every regression metric
+    # carries `minimize` — including r2, whose natural direction is the other
+    # way. That is what the protocol says, and reading it faithfully is what
+    # this test pins. It is flagged rather than corrected: making r2 maximised
+    # needs a per-metric declaration in the protocol, which is frozen. Until
+    # then a gate or a selector that reads a direction for r2 reads `minimize`.
+    assert protocol_metric_direction(protocol, "r2") == "minimize"
+
+    properties = protocol_metric_properties(protocol)
+    for metric in ("mae", "rmse", "r2"):
+        assert properties[metric]["direction"] == protocol_metric_direction(protocol, metric)
+
+
+@pytest.mark.unit
+def test_a_task_that_states_two_different_directions_is_refused():
+    """A protocol that contradicts itself stops the analysis rather than guessing."""
+    with pytest.raises(ValueError, match="conflicting metric directions"):
+        task_metric_direction(
+            {
+                "metrics": {"primary": "mae", "direction": "maximize"},
+                "direction": "minimize",
+            }
+        )
+    with pytest.raises(ValueError, match="no metric direction"):
+        task_metric_direction({"metrics": {"primary": "mae"}})
+    # One statement is enough, wherever it is made.
+    assert task_metric_direction({"direction": "minimize"}) == "minimize"
 
 
 # ---------------------------------------------------------------------------

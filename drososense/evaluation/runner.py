@@ -43,9 +43,16 @@ from drososense.evaluation.results import (
     write_record,
     write_summary_csv,
 )
+from drososense.evaluation.selection import (
+    HyperparameterGrid,
+    SelectionSpec,
+    select_hyperparameters,
+    validate_run_hyperparameters,
+)
 from drososense.utils.config import config_hash
 from drososense.utils.env_report import compare_environments
 from drososense.utils.paths import RESULTS_RAW_DIR, RESULTS_TABLES_DIR, ensure_dir
+from drososense.utils.seeding import load_seed_policy
 
 PROTOCOL_VERSION = "1.1.0"
 
@@ -83,6 +90,10 @@ class BenchmarkConfig:
         max_folds: Cap on folds per seed, for smoke runs.
         evidence_class: ``real`` or ``synthetic_fixture``; overridden from the
             manifest when one exists.
+        selection_grid: When supplied, the runner selects each model's
+            hyperparameters on that fold's validation split, drawing only from
+            this grid. ``None`` keeps the M1 behaviour of taking the supplied
+            parameters; the declared grid is enforced either way.
     """
 
     dataset_id: str
@@ -99,6 +110,7 @@ class BenchmarkConfig:
     max_folds: int | None = None
     evidence_class: str = "real"
     enforce_test_touched_once: bool = True
+    selection_grid: HyperparameterGrid | None = None
 
     def as_dict(self) -> dict[str, Any]:
         """Return a JSON-serialisable view for the config fingerprint.
@@ -119,6 +131,7 @@ class BenchmarkConfig:
             "label_rule": self.label_rule,
             "model_params": self.model_params,
             "max_folds": self.max_folds,
+            "selection_grid": None if self.selection_grid is None else self.selection_grid.as_dict(),
         }
 
 
@@ -192,12 +205,32 @@ def run_benchmark(
         The aggregated summary frame.
 
     Raises:
-        ValueError: If no models or tasks are selected.
+        ValueError: If no models or tasks are selected, or if the requested
+            seeds are not a set the protocol declares.
+        OutOfGridError: If a requested window length or model parameter falls
+            outside the grid the protocol pre-registered.
     """
     if not config.models:
         raise ValueError("no models selected")
     if not config.tasks:
         raise ValueError("no tasks selected")
+
+    # The declared design, checked before any data is touched. The seed set was
+    # previously whatever the caller passed — a run outside 0..9 would have been
+    # accepted — and the grid was read by nothing at all, so a model tuned
+    # outside it was indistinguishable from one tuned inside it.
+    load_seed_policy().validate(config.seeds)
+    declared_grid = (
+        config.selection_grid
+        if config.selection_grid is not None
+        else HyperparameterGrid.from_protocol()
+    )
+    validate_run_hyperparameters(
+        window_lengths=config.window_lengths,
+        model_params=config.model_params,
+        grid=declared_grid,
+    )
+    selection_spec = SelectionSpec.from_protocol() if config.selection_grid is not None else None
 
     config_path = dataset_config_path(config.dataset_id)
     dataset = load_dataset(config_path)
@@ -231,6 +264,13 @@ def run_benchmark(
     run_config_hash = config_hash(config.as_dict())
     records: list[RunRecord] = []
     skipped: list[dict[str, str]] = []
+
+    # §17's spectral-scaling rule: the value is chosen once per
+    # (dataset, seed, fold) and applied identically to every reservoir, or the
+    # primary contrast would compare two differently-scaled graphs. The run is
+    # single-dataset, so (seed, fold) identifies the group; the first model in
+    # the group selects and every later one is handed the same value.
+    shared_choices: dict[tuple[int, int], dict[str, Any]] = {}
 
     # test_touched_once: a (test split, model, task) triple may be evaluated once.
     # Re-scoring saved predictions for another metric is not a new touch; fitting
@@ -295,11 +335,28 @@ def run_benchmark(
 
                         started = time.perf_counter()
                         params = dict(config.model_params.get(model_id, {}))
+                        selection: dict[str, Any] = {}
                         status = "ok"
                         failure_reason = ""
                         model = None
                         metrics: dict[str, Any] = {}
+                        group = (seed, fold.fold_id)
                         try:
+                            if selection_spec is not None:
+                                chosen = select_hyperparameters(
+                                    model_id=model_id,
+                                    task=task,
+                                    seed=seed,
+                                    fold_tensors=fold_tensors,
+                                    n_channels=dataset.schema.n_features,
+                                    n_classes=n_classes,
+                                    grid=declared_grid,
+                                    spec=selection_spec,
+                                    shared=shared_choices.get(group),
+                                )
+                                shared_choices.setdefault(group, dict(chosen.shared))
+                                params = {**params, **chosen.params}
+                                selection = chosen.as_dict()
                             model = build_model(
                                 model_id,
                                 task,
@@ -354,6 +411,7 @@ def run_benchmark(
                                 n_train_sessions=fold_tensors.summarise()["n_train_sessions"],
                                 n_test_sessions=fold_tensors.summarise()["n_test_sessions"],
                                 notes=notes,
+                                selection=selection,
                             )
                         )
 

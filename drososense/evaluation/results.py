@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 from drososense.utils.paths import RESULTS_RAW_DIR, RESULTS_TABLES_DIR, ensure_dir
+from drososense.utils.seeding import SeedPolicy
 
 # Fields the frozen protocol requires on every record (section 14).
 REQUIRED_RECORD_FIELDS: tuple[str, ...] = (
@@ -93,6 +94,9 @@ class RunRecord:
         status: ``ok``, ``failed``, ``skipped``, ``oom`` or ``timeout``.
         failure_reason: Populated whenever ``status`` is not ``ok``.
         notes: Free-text caveats attached to this run.
+        selection: The hyperparameters chosen for this run, the split and metric
+            they were chosen on, and the grid point they came from. Empty when
+            the run supplied its own parameters instead of selecting.
     """
 
     run_id: str
@@ -125,6 +129,7 @@ class RunRecord:
     status: str = "ok"
     failure_reason: str = ""
     notes: str = ""
+    selection: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.evidence_class not in ("real", "synthetic_fixture"):
@@ -300,6 +305,56 @@ def records_to_frame(records: list[RunRecord]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def assert_seed_blocks_are_not_pooled(
+    records: list[RunRecord],
+    policy: SeedPolicy | None = None,
+) -> None:
+    """Refuse to aggregate the two declared seed blocks into one number.
+
+    ``seeds.extension_rule`` says results computed over 10 and over 20 seeds are
+    reported separately and never pooled. Aggregation is where pooling would
+    actually happen: the mean across seeds is taken over whatever seeds the
+    records carry, so a set of records spanning both blocks would produce one
+    number describing neither design. The rule is therefore enforced here, at
+    the point of pooling, rather than left as a note in the protocol.
+
+    Args:
+        records: Records about to be aggregated.
+        policy: The declared seed policy; loaded from the protocol when omitted.
+
+    Raises:
+        ValueError: If the records span the primary seeds and the extension
+            block.
+    """
+    if not records:
+        return
+    resolved = policy if policy is not None else SeedPolicy.from_protocol()
+
+    # One invocation per configuration hash, so the seed set each invocation
+    # used is recoverable from the records themselves. A set that is not a
+    # declared design is refused by validate(), which also catches a seed set
+    # that took the extension block in part.
+    seeds_by_run: dict[str, set[int]] = {}
+    for record in records:
+        seeds_by_run.setdefault(str(record.config_hash), set()).add(int(record.seed))
+
+    blocks: dict[str, list[int]] = {}
+    for config_hash, seeds in seeds_by_run.items():
+        resolved.validate(sorted(seeds))
+        blocks.setdefault(resolved.classify(sorted(seeds)), []).append(len(seeds))
+
+    if len(blocks) > 1:
+        described = ", ".join(
+            f"{name} ({sizes[0]} seeds)" for name, sizes in sorted(blocks.items())
+        )
+        raise ValueError(
+            f"these records pool {len(blocks)} seed designs: {described}. "
+            f"seeds.extension_rule reports results over {resolved.primary_seed_count} and over "
+            f"{resolved.extension_to} seeds separately and never pools them; aggregate each block "
+            f"on its own and report them side by side."
+        )
+
+
 def aggregate_records(
     records: list[RunRecord],
     group_by: tuple[str, ...] = (
@@ -327,7 +382,12 @@ def aggregate_records(
 
     Returns:
         Frame with ``<metric>_mean``, ``<metric>_sd`` and ``n_seeds`` columns.
+
+    Raises:
+        ValueError: If the records span two declared seed designs; see
+            :func:`assert_seed_blocks_are_not_pooled`.
     """
+    assert_seed_blocks_are_not_pooled(records)
     frame = records_to_frame(records)
     if frame.empty:
         return frame
@@ -545,6 +605,12 @@ def fingerprint_rows(records: list[RunRecord]) -> list[dict[str, Any]]:
             row[name] = value
         coverage = record.class_coverage or {}
         row["class_coverage"] = json.dumps(coverage, sort_keys=True, default=str)
+        # §17's spectral-scaling rule asks for the chosen value to be recorded on
+        # every run so the sharing across R0..R6 is checkable. The raw records
+        # are git-ignored, so the choice travels in the committed fingerprint
+        # table too, for the same reason `params(...)` needed the model
+        # parameter table.
+        row["selection"] = json.dumps(record.selection or {}, sort_keys=True, default=str)
         rows.append(row)
     return rows
 

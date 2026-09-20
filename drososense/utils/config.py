@@ -171,6 +171,49 @@ def verify_protocol_freeze(
     }
 
 
+def task_metric_direction(task: Mapping[str, Any]) -> str:
+    """Return the direction a task's metrics are read in.
+
+    The protocol states a task's direction in up to three places: under
+    ``metrics``, at the task level, and as ``primary_metric_direction``. Only the
+    first was ever read, and ``tasks.regression`` does not carry it — so MAE and
+    RMSE, which are minimised, were reported as metrics to maximise. The gate
+    engine's ``favourable`` test and the selector's argmax/argmin both read this,
+    so the wrong value is not cosmetic.
+
+    All three are therefore read, and required to agree when more than one is
+    present: a task that says two different things has to be resolved by
+    amending the protocol, not by preferring whichever key the code happens to
+    look at first.
+
+    Args:
+        task: A task entry from the protocol's ``tasks`` block.
+
+    Returns:
+        ``maximize`` or ``minimize``.
+
+    Raises:
+        ValueError: If the task declares no direction, or declares conflicting
+            ones.
+    """
+    metrics = task.get("metrics", {})
+    declared = {
+        "tasks.*.metrics.direction": metrics.get("direction"),
+        "tasks.*.direction": task.get("direction"),
+        "tasks.*.primary_metric_direction": task.get("primary_metric_direction"),
+    }
+    present = {key: str(value) for key, value in declared.items() if value is not None}
+    if not present:
+        raise ValueError("task declares no metric direction in any of the three declared places")
+    distinct = sorted(set(present.values()))
+    if len(distinct) > 1:
+        raise ValueError(
+            f"task declares conflicting metric directions {present}; the protocol must state "
+            f"one direction per task"
+        )
+    return distinct[0]
+
+
 def protocol_metric_properties(protocol: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     """Collect each declared metric's direction and equivalence margin.
 
@@ -185,12 +228,13 @@ def protocol_metric_properties(protocol: Mapping[str, Any]) -> dict[str, dict[st
     properties: dict[str, dict[str, Any]] = {}
     for task in protocol["tasks"].values():
         metrics = task.get("metrics", {})
+        direction = task_metric_direction(task)
         names = [metrics.get("primary"), *metrics.get("secondary", [])]
         for name in names:
             if not name:
                 continue
             properties[str(name)] = {
-                "direction": str(metrics.get("direction", "maximize")),
+                "direction": direction,
                 "margin": float(margins.get(str(name), 0.0)),
                 "alpha": alpha,
             }

@@ -45,6 +45,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from drososense.baselines.registry import MODEL_IDS  # noqa: E402
 from drososense.data.loaders import dataset_config_path  # noqa: E402
 from drososense.evaluation.runner import BenchmarkConfig, describe_models, run_benchmark  # noqa: E402
+from drososense.evaluation.selection import HyperparameterGrid, OutOfGridError  # noqa: E402
+from drososense.utils.seeding import load_seed_policy  # noqa: E402
 
 # Deliberately tiny hyperparameters for smoke runs, so the pipeline is exercised
 # end to end in seconds rather than hours. These are NOT the tuning configs used
@@ -138,6 +140,24 @@ def main(argv: list[str] | None = None) -> int:
     unknown = [m for m in models if m not in MODEL_IDS]
     if unknown:
         print(f"unknown models {unknown}; registered: {list(MODEL_IDS)}", file=sys.stderr)
+        return 2
+
+    # The declared design is checked here as well as in run_benchmark, so a bad
+    # argument is a message about the argument rather than a traceback from
+    # three frames down. run_benchmark keeps its own check: it is the entry both
+    # this script and the tests go through, and a rule enforced only at a call
+    # site is a rule the next call site does not have.
+    try:
+        load_seed_policy().validate(args.seeds)
+        HyperparameterGrid.from_protocol().check_window_lengths(args.window_lengths)
+    except (ValueError, OutOfGridError) as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        print(
+            f"declared seeds: {list(load_seed_policy().root_seeds)} (extendable to "
+            f"{load_seed_policy().extension_to} as a whole block); declared window lengths: "
+            f"{list(HyperparameterGrid.from_protocol().window_length_candidates)}",
+            file=sys.stderr,
+        )
         return 2
 
     config = BenchmarkConfig(
