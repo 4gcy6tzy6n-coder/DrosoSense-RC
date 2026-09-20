@@ -94,6 +94,7 @@ KNOWN_READERS: dict[str, str] = {
 DISPOSITION_PREFIXES: tuple[tuple[str, str], ...] = (
     # --- written for a human reader -----------------------------------------
     ("amendment_v1_2", "statement — the amendment record, for a human reader"),
+    ("amendment_v1_3", "statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader"),
     ("rework_log", "statement — history of what changed and why"),
     ("open_decisions", "statement — an open decision for the project owner"),
     ("freeze_evidence.freeze_policy", "statement — a human rule; nothing enforces it in code"),
