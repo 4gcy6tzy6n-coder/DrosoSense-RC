@@ -460,6 +460,122 @@ def test_a_task_that_states_two_different_directions_is_refused():
     assert task_metric_direction({"direction": "minimize"}) == "minimize"
 
 
+# Pre-registered guard (DATA-23). A hypothesis that names a decision metric
+# is making a claim about that metric's direction. The protocol today declares
+# ONE direction per task — so a regression task's `r2` line reads as
+# `minimize`, which is the OPPOSITE of r2's natural meaning. The guard makes
+# that trap explicit: a hypothesis that names `r2` fails the suite rather than
+# silently being read the wrong way round. The required follow-up is recorded
+# in the failure message itself, so the next person to trip it does not have
+# to re-derive the remedy.
+_GUARD_FAILURE_NOTE = (
+    "Decision metric {!r} violates the pre-registered direction rule. "
+    "需要 protocol v1.3 引入 per-metric direction，并另行复核 "
+    "(need protocol_v1.3 to introduce per-metric direction and re-review). "
+    "Until then no hypothesis may bind a decision metric to {!r}."
+)
+
+# Direction the protocol's task layer declares for each task-declared metric.
+# A regression hypothesis that names `mae` reads it as `minimize`; a
+# classification hypothesis that names `macro_f1` reads it as `maximize`.
+# These are the per-task directions the gate engine and the selector read;
+# the test pins them so a drift in either place breaks CI before it breaks
+# a result.
+_TASK_LAYER_DECISION_DIRECTION: dict[str, str] = {
+    "macro_f1": "maximize",
+    "balanced_accuracy": "maximize",
+    "auroc": "maximize",
+    "accuracy": "maximize",
+    "mae": "minimize",
+    "rmse": "minimize",
+}
+
+
+def _decision_metrics(protocol: dict) -> list[str]:
+    """Collect every metric the protocol uses to decide a hypothesis.
+
+    Each hypothesis names its decision metric directly. The contrast list
+    does not carry one today — each contrast inherits its metric from the
+    hypothesis that references it — so the source of truth for "what metric
+    decides this comparison" is the hypothesis list. A future protocol that
+    introduces a contrast-level metric must update this helper too.
+    """
+    metrics: list[str] = []
+    for hypothesis in (protocol["primary_hypothesis"], *protocol["secondary_hypotheses"]):
+        if hypothesis.get("metric"):
+            metrics.append(hypothesis["metric"])
+    return metrics
+
+
+@pytest.mark.unit
+def test_no_decision_metric_is_r2(protocol):
+    """Pre-registered guard: no hypothesis may bind its metric to r2.
+
+    r2's natural direction is `maximize`, but the protocol declares one
+    direction per task, so a regression task's r2 line currently reads as
+    `minimize` — which is the opposite of what a gate or a selector would
+    expect. The current freeze (protocol_v1.1 and protocol_v1.2) does not
+    participate in any decision through r2, so the trap has not bitten yet.
+    A future protocol that does must do the per-metric direction work first.
+    """
+    for metric in _decision_metrics(protocol):
+        if metric == "r2":
+            pytest.fail(_GUARD_FAILURE_NOTE.format(metric, "r2"))
+
+
+@pytest.mark.unit
+def test_decision_metrics_match_the_task_layer_direction(protocol):
+    """The direction a hypothesis's metric is read in must agree with the task.
+
+    A hypothesis that names `mae` as its decision metric is committed to
+    `mae` being read as `minimize` — the regression task's declared
+    direction. If the protocol's per-task direction ever drifts from what
+    the hypothesis expects, the gate engine reads the wrong sign and the
+    result is a defect, not a finding. Pin it.
+
+    A decision metric that is NOT declared by any task — the protocol's
+    current shape uses ``retention_ratio_10pct`` in H5 without declaring
+    it as a task-level metric — has no task-layer direction reading to
+    compare against, so the assertion does not pin a direction for it.
+    Promoting such a metric to a task declaration with an explicit
+    direction is part of the protocol v1.3 work this guard exists to gate.
+    """
+    for metric in _decision_metrics(protocol):
+        expected = _TASK_LAYER_DECISION_DIRECTION.get(metric)
+        if expected is None:
+            # The metric has no task-layer declaration; the direction
+            # reading cannot be verified. Do not guess — and do not fail
+            # the suite for an already-declared hypothesis. The first
+            # check above already ruled r2 out; this branch is the
+            # permissive path for derived metrics the task layer does
+            # not enumerate.
+            continue
+        actual = protocol_metric_direction(protocol, metric)
+        assert actual == expected, _GUARD_FAILURE_NOTE.format(metric, metric) + (
+            f" Expected direction {expected!r} (task-layer declaration), "
+            f"got {actual!r}."
+        )
+
+
+@pytest.mark.unit
+def test_no_contrast_carries_a_metric_outside_the_decision_set(protocol):
+    """A contrast that names its own metric must also stay outside r2.
+
+    The protocol's contrast list has no `metric` field today — each contrast
+    inherits its metric from the hypothesis that references it. If a future
+    protocol introduces a contrast-level metric, it inherits the same rule:
+    it cannot be `r2`, for the same reason. A metric not declared by any
+    task also has no declared direction and falls under the same guard.
+    """
+    contrasts = protocol["contrasts"]["list"]
+    for contrast in contrasts:
+        metric = contrast.get("metric")
+        if metric is None:
+            continue
+        if metric == "r2":
+            pytest.fail(_GUARD_FAILURE_NOTE.format(metric, "r2"))
+
+
 # ---------------------------------------------------------------------------
 # Protocol — gates and narrative rules are evaluable
 # ---------------------------------------------------------------------------

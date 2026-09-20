@@ -186,7 +186,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `gates.Gate_A.if_failed` | statement — guidance for the write-up |
 | `gates.Gate_B.evaluated_on` | statement — the expression itself names the datasets it uses, and the field is descriptive |
 | `gates.Gate_B.if_failed` | statement — guidance for the write-up |
-| `gates.Gate_C.evaluated_on` | statement — the expression itself names the datasets it uses |
+| `gates.Gate_C.evaluated_on` | known inconsistency — declared `[D3, E3, E4, E5]` but the expression's `sig_any(..., [D2, D3], ...)` reads `D2`; Gate_A / Gate_B are internally consistent (their `evaluated_on` lists match what the expression reads). Disposition: deferred to M4 gate-expression finalisation; this guard does NOT block M4. See the `Gate_C evaluated_on vs expression` note under *Known limitations* below for the full reading. |
 | `gates.Gate_C.if_failed` | statement — guidance for the write-up |
 | `datasets.D1.provider_title` | statement — provenance, repeated in the manifest |
 | `datasets.D1.role` | statement — a label for the write-up |
@@ -997,3 +997,82 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `amendment_v1_2.open_decisions[0].decision_owner` | project owner (Mika) / Thinker at the R0.1 gate | **NO READER** |
 | `amendment_v1_2.open_decisions[0].not_taken_here` | Deliberately not decided in this amendment. Changing a sp… | _prose — no reader expected_ |
 | `amendment_v1_2.open_decisions[0].owner_note` | RAISED IN THE DATA-16 REPLY, NOT RESOLVED HERE | _prose — no reader expected_ |
+
+## Known limitations (carried forward, not fixed in this freeze)
+
+These are documented defects that the frozen protocol does NOT correct. They are
+recorded here so a reader does not have to re-derive them, and so the next
+amendment knows what to take up. Nothing in this section changes
+`configs/protocol_v1.1.yaml` or `configs/protocol_v1.2.yaml`; both files remain
+frozen and identical to the bytes that produced the recorded digests.
+
+### Bucket math is self-consistent
+
+The bucket counts in the table at the top of this document are stated by the
+generator and verified by hand. The sums are:
+
+- `682 = 227 + 2 + 189 + 264` — every declared leaf falls in exactly one of
+  {literal reader, named-exception reader, prose, orphaned}.
+- `264 = 195 + 14 + 55` — every orphan is classified as one of {statement,
+  awaiting determination, real hole}.
+- `55 = 49 − 11 + 17` — the 55 holes are 49 carried over from the pre-DATA-21
+  inventory, less 11 wired or otherwise resolved by DATA-21, plus 17 that the
+  tightened reader rule (DATA-21 commit `3be1d99`) promoted from the loose
+  "matched a comment or a docstring" bucket. The promotion count is 17; the
+  reduction count is 11; the net is +6. (DATA-23 reconciles the +1 row
+  discrepancy against earlier estimates: the move of
+  `tasks.regression.primary_metric_direction` from "awaiting" to "literal
+  reader" was the row that the previous count missed. The
+  `tasks.classification.primary_metric_direction` move was the matched pair
+  that did NOT change the hole set — the two together explain the +1.)
+
+### r2 direction is task-scoped (DATA-23, pre-flight item)
+
+`protocol_metric_direction(p, "r2")` returns `minimize` because the regression
+task declares one direction (`minimize`) and every metric declared under it
+inherits it. R²'s natural direction is the opposite: a higher r2 means a better
+fit. Reading r2 as `minimize` therefore flips the sign of every "favourable"
+test and selector argmax/argmin that consults it.
+
+What the protocol currently uses r2 for:
+
+- Reported as a secondary regression metric (no decision is taken on it).
+- Margins in `equivalence.margins.r2` for TOST.
+- Effective size reads via `protocol_effect_size_name(protocol, "regression")`,
+  which is keyed on TASK and therefore sends r2 through `hodges_lehmann`,
+  the right estimator.
+
+What the protocol does NOT use r2 for:
+
+- No `contrasts[*].metric` is `r2`.
+- No hypothesis (`primary_hypothesis.metric`, `secondary_hypotheses[*].metric`)
+  names `r2`.
+- `hyperparameter_selection.selection_metric` does not name `r2` for any task.
+- No gate expression names `r2`.
+
+So the wrong-direction reading has zero effect on the current freeze. A future
+protocol that promotes r2 to a decision metric MUST first introduce per-metric
+direction declarations — that work is protocol v1.3 and is NOT a one-line edit.
+The pre-registered guard
+(`tests/test_protocol_and_manifests.py::test_no_decision_metric_is_r2`) makes
+the rule mechanical: any future `r2` on a decision metric fails the suite
+with a message that names the remedy.
+
+### Gate_C evaluated_on vs expression (DATA-23, pre-flight item)
+
+`gates.Gate_C.evaluated_on` is declared as `[D3, E3, E4, E5]`, but the gate's
+expression includes `sig_any(R0, R4, macro_f1, [D2, D3], [...])` — that is,
+the expression reads `D2` even though `evaluated_on` does not list it. Gate_A
+and Gate_B are internally consistent: their `evaluated_on` lists match the
+datasets their expression references.
+
+The disposition is deferred to the M4 gate-expression finalisation pass; this
+guard does not block M4 from opening. Possible remedies the owner will weigh:
+
+- Drop `D2` from the `sig_any` clause (Gate_C is documented as not requiring
+  D2 because D2's five-cluster floor makes its `sig` term unreachable).
+- Add `D2` to `evaluated_on` so the declared scope matches what the expression
+  actually consults.
+
+Either remedy is a protocol amendment and must be filed as `protocol_v1.3`
+when taken.
