@@ -13,12 +13,12 @@ nowhere in the production path at all.
 | Bucket | Count |
 | --- | ---: |
 | Declared leaves | 682 |
-| With a literal reader in the production path | 225 |
+| With a literal reader in the production path | 227 |
 | Read elsewhere, by a named exception | 2 |
 | Prose (no reader expected) | 189 |
-| Orphaned (a recorded disposition) | 266 |
+| Orphaned (a recorded disposition) | 264 |
 | — of which statements or mirrored declarations | 195 |
-| — of which awaiting human determination | 16 |
+| — of which awaiting human determination | 14 |
 | **— of which real holes (nothing reads them and something should)** | **55** |
 
 ## Real holes
@@ -99,15 +99,13 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `split_protocol.grouping_variable` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/data/leakage.py:266`, `drososense/data/schema.py:26`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
 | `split_protocol.session_variable` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/data/schema.py:27`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
 | `tasks.classification.label_column` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/data/schema.py:29`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
-| `tasks.classification.primary_metric_direction` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/evaluation/gates.py:377`, `drososense/evaluation/gates.py:385`, `drososense/evaluation/gates.py:416`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
 | `tasks.regression.label_column` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/data/schema.py:30`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
-| `tasks.regression.primary_metric_direction` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/evaluation/stats.py:72`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
-| `contrasts.list[0].role` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/utils/config.py:188`, `drososense/utils/seeding.py:26`, `scripts/analyze.py:665`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
-| `contrasts.list[1].role` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/utils/config.py:188`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
-| `contrasts.list[2].role` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/utils/config.py:188`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
-| `contrasts.list[3].role` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/utils/config.py:188`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
-| `contrasts.list[4].role` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/utils/config.py:188`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
-| `contrasts.list[5].role` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/utils/config.py:188`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
+| `contrasts.list[0].role` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/utils/config.py:232`, `drososense/utils/seeding.py:26`, `scripts/analyze.py:665`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
+| `contrasts.list[1].role` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/utils/config.py:232`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
+| `contrasts.list[2].role` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/utils/config.py:232`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
+| `contrasts.list[3].role` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/utils/config.py:232`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
+| `contrasts.list[4].role` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/utils/config.py:232`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
+| `contrasts.list[5].role` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/utils/config.py:232`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
 | `pairing.pairing_key` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/baselines/base.py:168`, `drososense/data/pipeline.py:81`, `drososense/data/pipeline.py:84`, `drososense/evaluation/contact_log.py:70`, `drososense/evaluation/results.py:41`, `drososense/evaluation/results.py:44`, `drososense/evaluation/results.py:45`, `drososense/evaluation/results.py:47`, `drososense/evaluation/results.py:553`, `drososense/evaluation/results.py:556`, `drososense/evaluation/results.py:557`, `drososense/evaluation/results.py:558`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
 | `pairing.reported_alongside` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/evaluation/gates.py:393`, `drososense/evaluation/gates.py:394`, `drososense/evaluation/gates.py:406`, `drososense/evaluation/gates.py:444`, `drososense/evaluation/gates.py:65`, `drososense/evaluation/results.py:434`, `drososense/evaluation/results.py:467`, `drososense/evaluation/stats.py:281`, `drososense/evaluation/stats.py:283`, `drososense/evaluation/stats.py:284`, `scripts/analyze.py:733`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
 | `statistical_tests.effect_size.selection_key` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/baselines/base.py:167`, `drososense/evaluation/results.py:43`, `drososense/evaluation/results.py:555`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
@@ -395,21 +393,21 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `tasks.classification.label_names` | ['Excellent', 'Good', 'Acceptable', 'Spoiled'] | **NO READER** |
 | `tasks.classification.n_classes` | 4 | **NO READER** |
 | `tasks.classification.label_provenance` | The four-level label is a TVC-threshold discretisation on… | _prose — no reader expected_ |
-| `tasks.classification.metrics.primary` | macro_f1 | `drososense/utils/config.py:188`, `drososense/utils/seeding.py:26`, `scripts/analyze.py:665` |
-| `tasks.classification.metrics.secondary` | ['balanced_accuracy', 'auroc', 'accuracy'] | `drososense/utils/config.py:188` |
-| `tasks.classification.metrics.direction` | maximize | `drososense/evaluation/gates.py:377`, `drososense/evaluation/selection.py:484`, `drososense/utils/config.py:416` |
+| `tasks.classification.metrics.primary` | macro_f1 | `drososense/utils/config.py:232`, `drososense/utils/seeding.py:26`, `scripts/analyze.py:665` |
+| `tasks.classification.metrics.secondary` | ['balanced_accuracy', 'auroc', 'accuracy'] | `drososense/utils/config.py:232` |
+| `tasks.classification.metrics.direction` | maximize | `drososense/evaluation/gates.py:377`, `drososense/evaluation/selection.py:484`, `drososense/utils/config.py:201` |
 | `tasks.classification.metrics.auroc.scheme` | macro_ovr | **NO READER** |
 | `tasks.classification.metrics.auroc.averaging` | unweighted mean of the one-vs-rest AUROC over all four cl… | **NO READER** |
 | `tasks.classification.metrics.auroc.empty_class_policy` | require_all_classes | `drososense/evaluation/metrics.py:98`, `drososense/evaluation/results.py:575` |
 | `tasks.classification.metrics.auroc.empty_class_policy_detail` | AUROC is defined ONLY when all four classes are present i… | _prose — no reader expected_ |
 | `tasks.classification.metrics.macro_f1_empty_class_policy` | macro-F1 is always scored over the fixed label set 0..3 w… | _prose — no reader expected_ |
-| `tasks.classification.primary_metric_direction` | maximize | _awaiting determination — see above_ |
+| `tasks.classification.primary_metric_direction` | maximize | `drososense/utils/config.py:203` |
 | `tasks.regression.label_column` | tvc | _awaiting determination — see above_ |
 | `tasks.regression.definition` | Total Viable Count, log10 CFU/g (see dataset manifests fo… | **NO READER** |
-| `tasks.regression.metrics.primary` | mae | `drososense/utils/config.py:188`, `drososense/utils/seeding.py:26`, `scripts/analyze.py:665` |
-| `tasks.regression.metrics.secondary` | ['rmse', 'r2'] | `drososense/utils/config.py:188` |
-| `tasks.regression.primary_metric_direction` | minimize | _awaiting determination — see above_ |
-| `tasks.regression.direction` | minimize | `drososense/evaluation/gates.py:377`, `drososense/evaluation/selection.py:484`, `drososense/utils/config.py:416` |
+| `tasks.regression.metrics.primary` | mae | `drososense/utils/config.py:232`, `drososense/utils/seeding.py:26`, `scripts/analyze.py:665` |
+| `tasks.regression.metrics.secondary` | ['rmse', 'r2'] | `drososense/utils/config.py:232` |
+| `tasks.regression.primary_metric_direction` | minimize | `drososense/utils/config.py:203` |
+| `tasks.regression.direction` | minimize | `drososense/evaluation/gates.py:377`, `drososense/evaluation/selection.py:484`, `drososense/utils/config.py:201` |
 | `co_primary_policy.policy` | both_required_no_alpha_split | **NO READER** |
 | `co_primary_policy.detail` | macro-F1 and MAE are co-primary and are declared together… | _prose — no reader expected_ |
 | `co_primary_policy.independence_caveat` | The class label is a threshold of TVC on every dataset, s… | _prose — no reader expected_ |
@@ -430,84 +428,84 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `preprocessing.windowing.forbidden` | ['a window containing timesteps from two different specim… | **NO READER** |
 | `preprocessing.missing_values.policy` | reject | **NO READER** |
 | `preprocessing.missing_values.note` | Rows with missing sensor channels are dropped at load tim… | _prose — no reader expected_ |
-| `contrasts.primary` | R0_vs_R2 | `drososense/utils/config.py:188`, `drososense/utils/seeding.py:26`, `scripts/analyze.py:665` |
-| `contrasts.list[0].id` | R0_vs_R2 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `contrasts.list[0].first` | R0 | `drososense/utils/config.py:348`, `scripts/analyze.py:147` |
-| `contrasts.list[0].second` | R2 | `drososense/utils/config.py:349`, `scripts/analyze.py:147` |
+| `contrasts.primary` | R0_vs_R2 | `drososense/utils/config.py:232`, `drososense/utils/seeding.py:26`, `scripts/analyze.py:665` |
+| `contrasts.list[0].id` | R0_vs_R2 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `contrasts.list[0].first` | R0 | `drososense/utils/config.py:392`, `scripts/analyze.py:147` |
+| `contrasts.list[0].second` | R2 | `drososense/utils/config.py:393`, `scripts/analyze.py:147` |
 | `contrasts.list[0].role` | primary | _awaiting determination — see above_ |
 | `contrasts.list[0].note` | Real olfactory connectome vs degree-preserving rewired co… | _prose — no reader expected_ |
-| `contrasts.list[1].id` | R0_vs_R4 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `contrasts.list[1].first` | R0 | `drososense/utils/config.py:348`, `scripts/analyze.py:147` |
-| `contrasts.list[1].second` | R4 | `drososense/utils/config.py:349`, `scripts/analyze.py:147` |
+| `contrasts.list[1].id` | R0_vs_R4 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `contrasts.list[1].first` | R0 | `drososense/utils/config.py:392`, `scripts/analyze.py:147` |
+| `contrasts.list[1].second` | R4 | `drososense/utils/config.py:393`, `scripts/analyze.py:147` |
 | `contrasts.list[1].role` | secondary | _awaiting determination — see above_ |
 | `contrasts.list[1].note` | Real connectome vs matched echo-state network. | _prose — no reader expected_ |
-| `contrasts.list[2].id` | R0_vs_R3 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `contrasts.list[2].first` | R0 | `drososense/utils/config.py:348`, `scripts/analyze.py:147` |
-| `contrasts.list[2].second` | R3 | `drososense/utils/config.py:349`, `scripts/analyze.py:147` |
+| `contrasts.list[2].id` | R0_vs_R3 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `contrasts.list[2].first` | R0 | `drososense/utils/config.py:392`, `scripts/analyze.py:147` |
+| `contrasts.list[2].second` | R3 | `drososense/utils/config.py:393`, `scripts/analyze.py:147` |
 | `contrasts.list[2].role` | secondary | _awaiting determination — see above_ |
 | `contrasts.list[2].note` | Real connectome vs random sparse reservoir. | _prose — no reader expected_ |
-| `contrasts.list[3].id` | R0_vs_GRU | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `contrasts.list[3].first` | R0 | `drososense/utils/config.py:348`, `scripts/analyze.py:147` |
-| `contrasts.list[3].second` | GRU | `drososense/utils/config.py:349`, `scripts/analyze.py:147` |
+| `contrasts.list[3].id` | R0_vs_GRU | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `contrasts.list[3].first` | R0 | `drososense/utils/config.py:392`, `scripts/analyze.py:147` |
+| `contrasts.list[3].second` | GRU | `drososense/utils/config.py:393`, `scripts/analyze.py:147` |
 | `contrasts.list[3].role` | secondary | _awaiting determination — see above_ |
 | `contrasts.list[3].note` | Real connectome vs tuned GRU. | _prose — no reader expected_ |
-| `contrasts.list[4].id` | R0_vs_R5 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `contrasts.list[4].first` | R0 | `drososense/utils/config.py:348`, `scripts/analyze.py:147` |
-| `contrasts.list[4].second` | R5 | `drososense/utils/config.py:349`, `scripts/analyze.py:147` |
+| `contrasts.list[4].id` | R0_vs_R5 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `contrasts.list[4].first` | R0 | `drososense/utils/config.py:392`, `scripts/analyze.py:147` |
+| `contrasts.list[4].second` | R5 | `drososense/utils/config.py:393`, `scripts/analyze.py:147` |
 | `contrasts.list[4].role` | secondary | _awaiting determination — see above_ |
 | `contrasts.list[4].note` | Real connectome vs small-world control. | _prose — no reader expected_ |
-| `contrasts.list[5].id` | R0_vs_R1 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `contrasts.list[5].first` | R0 | `drososense/utils/config.py:348`, `scripts/analyze.py:147` |
-| `contrasts.list[5].second` | R1 | `drososense/utils/config.py:349`, `scripts/analyze.py:147` |
+| `contrasts.list[5].id` | R0_vs_R1 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `contrasts.list[5].first` | R0 | `drososense/utils/config.py:392`, `scripts/analyze.py:147` |
+| `contrasts.list[5].second` | R1 | `drososense/utils/config.py:393`, `scripts/analyze.py:147` |
 | `contrasts.list[5].role` | secondary | _awaiting determination — see above_ |
 | `contrasts.list[5].note` | Real connectome vs weight-shuffled control. | _prose — no reader expected_ |
 | `pairing.unit` | (seed, fold) | **NO READER** |
 | `pairing.detail` | One observation is a paired difference on one (seed, fold… | _prose — no reader expected_ |
 | `pairing.pairing_key` | ['dataset', 'window_length', 'seed', 'fold_id'] | _awaiting determination — see above_ |
-| `pairing.resample_unit` | fold | `drososense/utils/config.py:472` |
+| `pairing.resample_unit` | fold | `drososense/utils/config.py:516` |
 | `pairing.resample_unit_detail` | The bootstrap resamples FOLD IDENTIFIERS — the specimen-d… | _prose — no reader expected_ |
-| `pairing.stratification` | seed | `drososense/utils/config.py:473` |
+| `pairing.stratification` | seed | `drososense/utils/config.py:517` |
 | `pairing.stratification_detail` | Seeds are averaged INSIDE each cluster before the cluster… | _prose — no reader expected_ |
 | `pairing.n_pairs_formula` | n_folds * n_seeds | **NO READER** |
 | `pairing.n_clusters_formula` | n_folds | **NO READER** |
 | `pairing.reported_alongside` | ['n_pairs', 'n_clusters', 'n_seeds', 'n_nonzero'] | _awaiting determination — see above_ |
 | `pairing.minimum_reported_clusters` | 5 | **NO READER** |
 | `pairing.matching_requirements` | ['same split_id (identical fold fingerprint)', 'same W_in… | **NO READER** |
-| `primary_hypothesis.id` | H1 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `primary_hypothesis.id` | H1 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `primary_hypothesis.contrast` | R0_vs_R2 | **NO READER** |
-| `primary_hypothesis.metric` | macro_f1 | `drososense/evaluation/selection.py:483`, `drososense/evaluation/stats.py:277`, `drososense/utils/config.py:431` |
-| `primary_hypothesis.datasets` | ['D2', 'D3'] | `drososense/data/loaders.py:626`, `drososense/utils/config.py:215`, `drososense/utils/config.py:29` |
+| `primary_hypothesis.metric` | macro_f1 | `drososense/evaluation/selection.py:483`, `drososense/evaluation/stats.py:277`, `drososense/utils/config.py:475` |
+| `primary_hypothesis.datasets` | ['D2', 'D3'] | `drososense/data/loaders.py:626`, `drososense/utils/config.py:259`, `drososense/utils/config.py:29` |
 | `primary_hypothesis.statement` | On the datasets whose published grouping satisfies split_… | _prose — no reader expected_ |
-| `primary_hypothesis.direction` | two_sided | `drososense/evaluation/gates.py:377`, `drososense/evaluation/selection.py:484`, `drososense/utils/config.py:416` |
-| `primary_hypothesis.alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:184`, `drososense/utils/config.py:195` |
-| `secondary_hypotheses[0].id` | H2 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `primary_hypothesis.direction` | two_sided | `drososense/evaluation/gates.py:377`, `drososense/evaluation/selection.py:484`, `drososense/utils/config.py:201` |
+| `primary_hypothesis.alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:227`, `drososense/utils/config.py:239` |
+| `secondary_hypotheses[0].id` | H2 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `secondary_hypotheses[0].contrast` | R0_vs_R4 | **NO READER** |
-| `secondary_hypotheses[0].metric` | macro_f1 | `drososense/evaluation/selection.py:483`, `drososense/evaluation/stats.py:277`, `drososense/utils/config.py:431` |
+| `secondary_hypotheses[0].metric` | macro_f1 | `drososense/evaluation/selection.py:483`, `drososense/evaluation/stats.py:277`, `drososense/utils/config.py:475` |
 | `secondary_hypotheses[0].statement` | R0 achieves higher macro-F1 than an echo-state network (R… | _prose — no reader expected_ |
-| `secondary_hypotheses[1].id` | H3 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `secondary_hypotheses[1].id` | H3 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `secondary_hypotheses[1].contrast` | R0_vs_R3 | **NO READER** |
-| `secondary_hypotheses[1].metric` | macro_f1 | `drososense/evaluation/selection.py:483`, `drososense/evaluation/stats.py:277`, `drososense/utils/config.py:431` |
+| `secondary_hypotheses[1].metric` | macro_f1 | `drososense/evaluation/selection.py:483`, `drososense/evaluation/stats.py:277`, `drososense/utils/config.py:475` |
 | `secondary_hypotheses[1].statement` | R0 achieves higher macro-F1 than a random sparse reservoi… | _prose — no reader expected_ |
-| `secondary_hypotheses[2].id` | H4 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `secondary_hypotheses[2].id` | H4 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `secondary_hypotheses[2].contrast` | R0_vs_GRU | **NO READER** |
-| `secondary_hypotheses[2].metric` | macro_f1 | `drososense/evaluation/selection.py:483`, `drososense/evaluation/stats.py:277`, `drososense/utils/config.py:431` |
+| `secondary_hypotheses[2].metric` | macro_f1 | `drososense/evaluation/selection.py:483`, `drososense/evaluation/stats.py:277`, `drososense/utils/config.py:475` |
 | `secondary_hypotheses[2].statement` | R0 achieves higher macro-F1 than a tuned GRU baseline. | **NO READER** |
-| `secondary_hypotheses[3].id` | H5 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `secondary_hypotheses[3].id` | H5 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `secondary_hypotheses[3].contrast` | R0_vs_R4 | **NO READER** |
-| `secondary_hypotheses[3].metric` | retention_ratio_10pct | `drososense/evaluation/selection.py:483`, `drososense/evaluation/stats.py:277`, `drososense/utils/config.py:431` |
+| `secondary_hypotheses[3].metric` | retention_ratio_10pct | `drososense/evaluation/selection.py:483`, `drososense/evaluation/stats.py:277`, `drososense/utils/config.py:475` |
 | `secondary_hypotheses[3].statement` | R0 retains a larger fraction of its full-data macro-F1 th… | _prose — no reader expected_ |
-| `secondary_hypotheses[4].id` | H6 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `secondary_hypotheses[4].id` | H6 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `secondary_hypotheses[4].contrast` | R0_vs_R4 | **NO READER** |
-| `secondary_hypotheses[4].metric` | macro_f1 | `drososense/evaluation/selection.py:483`, `drososense/evaluation/stats.py:277`, `drososense/utils/config.py:431` |
-| `secondary_hypotheses[4].condition` | sensor_dropout | `drososense/evaluation/stats.py:279`, `drososense/utils/config.py:433`, `scripts/analyze.py:295` |
+| `secondary_hypotheses[4].metric` | macro_f1 | `drososense/evaluation/selection.py:483`, `drososense/evaluation/stats.py:277`, `drososense/utils/config.py:475` |
+| `secondary_hypotheses[4].condition` | sensor_dropout | `drososense/evaluation/stats.py:279`, `drososense/utils/config.py:477`, `scripts/analyze.py:295` |
 | `secondary_hypotheses[4].statement` | R0 degrades less than R4 under sensor-channel dropout at … | **NO READER** |
 | `exploratory_note` | Any comparison not listed in `contrasts` is exploratory, … | _prose — no reader expected_ |
-| `statistical_tests.alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:184`, `drososense/utils/config.py:195` |
+| `statistical_tests.alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:227`, `drososense/utils/config.py:239` |
 | `statistical_tests.primary_test.name` | cluster_sign_test | `drososense/data/manifest.py:218`, `drososense/data/manifest.py:234`, `drososense/data/manifest.py:381` |
 | `statistical_tests.primary_test.applied_to` | one mean paired difference per held-out cluster (fold), s… | _prose — no reader expected_ |
 | `statistical_tests.primary_test.statistic` | number of clusters whose mean difference favours the firs… | `drososense/evaluation/stats.py:289`, `scripts/analyze.py:734` |
 | `statistical_tests.primary_test.null_hypothesis` | the cluster means are symmetric about zero | **NO READER** |
-| `statistical_tests.primary_test.alternative` | two-sided | `drososense/utils/config.py:464` |
+| `statistical_tests.primary_test.alternative` | two-sided | `drososense/utils/config.py:508` |
 | `statistical_tests.primary_test.exact` | True | **NO READER** |
 | `statistical_tests.primary_test.zero_handling` | A cluster whose mean difference is exactly zero carries n… | _prose — no reader expected_ |
 | `statistical_tests.primary_test.minimum_p_formula` | 2 / 2**n_clusters_nonzero | **NO READER** |
@@ -516,19 +514,19 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `statistical_tests.paired_descriptive_test.name` | wilcoxon_signed_rank | `drososense/data/manifest.py:218`, `drososense/data/manifest.py:234`, `drososense/data/manifest.py:381` |
 | `statistical_tests.paired_descriptive_test.applied_to` | paired differences, one per (seed, fold) — DESCRIPTIVE ONLY | **NO READER** |
 | `statistical_tests.paired_descriptive_test.decisive` | False | **NO READER** |
-| `statistical_tests.paired_descriptive_test.alternative` | two-sided | `drososense/utils/config.py:464` |
-| `statistical_tests.paired_descriptive_test.zero_method` | wilcox | `drososense/utils/config.py:465` |
-| `statistical_tests.paired_descriptive_test.correction` | False | `drososense/utils/config.py:466` |
-| `statistical_tests.paired_descriptive_test.mode` | auto | `drososense/utils/config.py:467` |
+| `statistical_tests.paired_descriptive_test.alternative` | two-sided | `drososense/utils/config.py:508` |
+| `statistical_tests.paired_descriptive_test.zero_method` | wilcox | `drososense/utils/config.py:509` |
+| `statistical_tests.paired_descriptive_test.correction` | False | `drososense/utils/config.py:510` |
+| `statistical_tests.paired_descriptive_test.mode` | auto | `drososense/utils/config.py:511` |
 | `statistical_tests.paired_descriptive_test.note` | Reported beside the decisive test so a reader can see bot… | _prose — no reader expected_ |
 | `statistical_tests.paired_descriptive_test.tie_handling` | zero_method 'wilcox' drops pairs whose difference is exac… | _prose — no reader expected_ |
 | `statistical_tests.bootstrap.enabled` | True | **NO READER** |
-| `statistical_tests.bootstrap.n_resamples` | 10000 | `drososense/utils/config.py:468` |
+| `statistical_tests.bootstrap.n_resamples` | 10000 | `drososense/utils/config.py:512` |
 | `statistical_tests.bootstrap.seed` | 20260920 | `drososense/baselines/base.py:168`, `drososense/evaluation/results.py:44`, `drososense/evaluation/results.py:556` |
-| `statistical_tests.bootstrap.resample_unit` | fold | `drososense/utils/config.py:472` |
-| `statistical_tests.bootstrap.stratification` | seed | `drososense/utils/config.py:473` |
-| `statistical_tests.bootstrap.ci_type` | percentile | `drososense/utils/config.py:471` |
-| `statistical_tests.bootstrap.ci_level` | 0.95 | `drososense/evaluation/stats.py:288`, `drososense/utils/config.py:470` |
+| `statistical_tests.bootstrap.resample_unit` | fold | `drososense/utils/config.py:516` |
+| `statistical_tests.bootstrap.stratification` | seed | `drososense/utils/config.py:517` |
+| `statistical_tests.bootstrap.ci_type` | percentile | `drososense/utils/config.py:515` |
+| `statistical_tests.bootstrap.ci_level` | 0.95 | `drososense/evaluation/stats.py:288`, `drososense/utils/config.py:514` |
 | `statistical_tests.bootstrap.statistic` | mean_of_cluster_means | `drososense/evaluation/stats.py:289`, `scripts/analyze.py:734` |
 | `statistical_tests.bootstrap.sampling_order` | cluster_after_seed_averaging | **NO READER** |
 | `statistical_tests.bootstrap.seed_invariance_required` | True | **NO READER** |
@@ -557,45 +555,45 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `equivalence.margins.r2` | 0.05 | `drososense/evaluation/metrics.py:143`, `drososense/evaluation/runner.py:70` |
 | `equivalence.rationale` | The classification margins are 2 absolute macro-F1 points… | _prose — no reader expected_ |
 | `multiplicity.method` | holm | **NO READER** |
-| `multiplicity.alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:184`, `drososense/utils/config.py:195` |
-| `multiplicity.families[0].id` | F_primary | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `multiplicity.families[0].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:184`, `drososense/utils/config.py:195` |
-| `multiplicity.families[0].tests` | ['R0_vs_R2'] | `drososense/utils/config.py:280` |
+| `multiplicity.alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:227`, `drososense/utils/config.py:239` |
+| `multiplicity.families[0].id` | F_primary | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `multiplicity.families[0].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:227`, `drososense/utils/config.py:239` |
+| `multiplicity.families[0].tests` | ['R0_vs_R2'] | `drososense/utils/config.py:324` |
 | `multiplicity.families[0].note` | A single pre-registered primary comparison; no correction… | _prose — no reader expected_ |
-| `multiplicity.families[1].id` | F_secondary_topology | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `multiplicity.families[1].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:184`, `drososense/utils/config.py:195` |
-| `multiplicity.families[1].tests` | ['R0_vs_R3', 'R0_vs_R4', 'R0_vs_R5', 'R0_vs_R1'] | `drososense/utils/config.py:280` |
+| `multiplicity.families[1].id` | F_secondary_topology | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `multiplicity.families[1].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:227`, `drososense/utils/config.py:239` |
+| `multiplicity.families[1].tests` | ['R0_vs_R3', 'R0_vs_R4', 'R0_vs_R5', 'R0_vs_R1'] | `drososense/utils/config.py:324` |
 | `multiplicity.families[1].note` | Topology controls within one dataset and condition. | _prose — no reader expected_ |
-| `multiplicity.families[2].id` | F_secondary_baselines | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `multiplicity.families[2].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:184`, `drososense/utils/config.py:195` |
-| `multiplicity.families[2].tests` | ['R0_vs_GRU'] | `drososense/utils/config.py:280` |
-| `multiplicity.families[3].id` | F_lowdata | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `multiplicity.families[3].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:184`, `drososense/utils/config.py:195` |
-| `multiplicity.families[3].tests` | ['R0_vs_R4'] | `drososense/utils/config.py:280` |
-| `multiplicity.families[3].conditions` | ['train10pct', 'train25pct', 'train50pct', 'train75pct'] | `drososense/utils/config.py:283`, `drososense/utils/config.py:370` |
+| `multiplicity.families[2].id` | F_secondary_baselines | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `multiplicity.families[2].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:227`, `drososense/utils/config.py:239` |
+| `multiplicity.families[2].tests` | ['R0_vs_GRU'] | `drososense/utils/config.py:324` |
+| `multiplicity.families[3].id` | F_lowdata | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `multiplicity.families[3].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:227`, `drososense/utils/config.py:239` |
+| `multiplicity.families[3].tests` | ['R0_vs_R4'] | `drososense/utils/config.py:324` |
+| `multiplicity.families[3].conditions` | ['train10pct', 'train25pct', 'train50pct', 'train75pct'] | `drososense/utils/config.py:327`, `drososense/utils/config.py:414` |
 | `multiplicity.families[3].note` | E3. One family across the four fractions, not one family … | _prose — no reader expected_ |
-| `multiplicity.families[4].id` | F_dropout | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `multiplicity.families[4].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:184`, `drososense/utils/config.py:195` |
-| `multiplicity.families[4].tests` | ['R0_vs_R4'] | `drososense/utils/config.py:280` |
-| `multiplicity.families[4].conditions` | ['dropout_p0.1', 'dropout_p0.2', 'dropout_p0.3', 'dropout… | `drososense/utils/config.py:283`, `drososense/utils/config.py:370` |
-| `multiplicity.families[5].id` | F_noise | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `multiplicity.families[5].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:184`, `drososense/utils/config.py:195` |
-| `multiplicity.families[5].tests` | ['R0_vs_R4'] | `drososense/utils/config.py:280` |
-| `multiplicity.families[5].conditions` | ['noise_s0.01', 'noise_s0.05', 'noise_s0.1', 'noise_s0.2'] | `drososense/utils/config.py:283`, `drososense/utils/config.py:370` |
-| `multiplicity.families[6].id` | F_drift | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `multiplicity.families[6].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:184`, `drososense/utils/config.py:195` |
-| `multiplicity.families[6].tests` | ['R0_vs_R4'] | `drososense/utils/config.py:280` |
-| `multiplicity.families[6].conditions` | ['drift_gain', 'drift_offset', 'drift_combined'] | `drososense/utils/config.py:283`, `drososense/utils/config.py:370` |
-| `multiplicity.families[7].id` | F_size | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
-| `multiplicity.families[7].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:184`, `drososense/utils/config.py:195` |
-| `multiplicity.families[7].tests` | ['R0_vs_R4'] | `drososense/utils/config.py:280` |
-| `multiplicity.families[7].conditions` | ['size250', 'size500', 'size1000', 'size2000', 'size4000'] | `drososense/utils/config.py:283`, `drososense/utils/config.py:370` |
+| `multiplicity.families[4].id` | F_dropout | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `multiplicity.families[4].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:227`, `drososense/utils/config.py:239` |
+| `multiplicity.families[4].tests` | ['R0_vs_R4'] | `drososense/utils/config.py:324` |
+| `multiplicity.families[4].conditions` | ['dropout_p0.1', 'dropout_p0.2', 'dropout_p0.3', 'dropout… | `drososense/utils/config.py:327`, `drososense/utils/config.py:414` |
+| `multiplicity.families[5].id` | F_noise | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `multiplicity.families[5].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:227`, `drososense/utils/config.py:239` |
+| `multiplicity.families[5].tests` | ['R0_vs_R4'] | `drososense/utils/config.py:324` |
+| `multiplicity.families[5].conditions` | ['noise_s0.01', 'noise_s0.05', 'noise_s0.1', 'noise_s0.2'] | `drososense/utils/config.py:327`, `drososense/utils/config.py:414` |
+| `multiplicity.families[6].id` | F_drift | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `multiplicity.families[6].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:227`, `drososense/utils/config.py:239` |
+| `multiplicity.families[6].tests` | ['R0_vs_R4'] | `drososense/utils/config.py:324` |
+| `multiplicity.families[6].conditions` | ['drift_gain', 'drift_offset', 'drift_combined'] | `drososense/utils/config.py:327`, `drososense/utils/config.py:414` |
+| `multiplicity.families[7].id` | F_size | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
+| `multiplicity.families[7].alpha` | 0.05 | `drososense/evaluation/gates.py:384`, `drososense/utils/config.py:227`, `drososense/utils/config.py:239` |
+| `multiplicity.families[7].tests` | ['R0_vs_R4'] | `drososense/utils/config.py:324` |
+| `multiplicity.families[7].conditions` | ['size250', 'size500', 'size1000', 'size2000', 'size4000'] | `drososense/utils/config.py:327`, `drososense/utils/config.py:414` |
 | `multiplicity.family_rule` | The unit of correction is a (contrast, condition) pair, n… | _prose — no reader expected_ |
 | `gates.Gate_A.name` | Project is viable | `drososense/data/manifest.py:218`, `drososense/data/manifest.py:234`, `drososense/data/manifest.py:381` |
 | `gates.Gate_A.evaluated_on` | ['D2', 'D3'] | **NO READER** |
-| `gates.Gate_A.terms[0].id` | A1 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `gates.Gate_A.terms[0].id` | A1 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `gates.Gate_A.terms[0].rule` | R0 is not meaningfully worse than R4 on D2 and on D3 | _prose — no reader expected_ |
-| `gates.Gate_A.terms[1].id` | A2 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `gates.Gate_A.terms[1].id` | A2 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `gates.Gate_A.terms[1].rule` | R0 has strictly fewer trainable parameters than a tuned GRU | _prose — no reader expected_ |
 | `gates.Gate_A.expression` | sum([   ci_contains_zero(R0, R4, macro_f1, D2) or noninfe… | _prose — no reader expected_ |
 | `gates.Gate_A.if_failed` | Do not proceed to claim a connectome contribution; report… | **NO READER** |
@@ -620,40 +618,40 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `gates.gate_reachability.per_gate.Gate_C` | NOT REACHABLE as configured, for the same reason: `sig(R0… | _prose — no reader expected_ |
 | `gates.gate_reachability.effect_on_the_project` | Stated plainly because it is a finding, not a technicalit… | _prose — no reader expected_ |
 | `gates.gate_rules` | ['A gate whose expression cannot be evaluated (missing co… | `read by tests/test_protocol_and_manifests.py, not by production code` |
-| `narrative_adjustment_rules.list[0].id` | N1 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `narrative_adjustment_rules.list[0].id` | N1 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `narrative_adjustment_rules.list[0].trigger_expression` | equiv(R0, R2, macro_f1, D3) and sig(R0, R3, macro_f1, D3)  | _prose — no reader expected_ |
 | `narrative_adjustment_rules.list[0].action` | Conclude that degree / statistical structure matters, not… | _prose — no reader expected_ |
-| `narrative_adjustment_rules.list[1].id` | N2 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `narrative_adjustment_rules.list[1].id` | N2 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `narrative_adjustment_rules.list[1].trigger_expression` | equiv(R0, R4, macro_f1, D3) and sig_any(R0, R4, macro_f1,… | _prose — no reader expected_ |
 | `narrative_adjustment_rules.list[1].action` | Reframe the paper as a robust sparse biological reservoir… | _prose — no reader expected_ |
-| `narrative_adjustment_rules.list[2].id` | N3 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `narrative_adjustment_rules.list[2].id` | N3 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `narrative_adjustment_rules.list[2].trigger_expression` | sig(R4, R0, macro_f1, D3) | `scripts/analyze.py:514`, `scripts/analyze.py:593` |
 | `narrative_adjustment_rules.list[2].action` | Report the negative result honestly. Reframe as an invest… | _prose — no reader expected_ |
-| `narrative_adjustment_rules.list[3].id` | N4 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `narrative_adjustment_rules.list[3].id` | N4 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `narrative_adjustment_rules.list[3].trigger_expression` | (sig(R0, R2, macro_f1, D2) and sig(R2, R0, macro_f1, D3))… | _prose — no reader expected_ |
 | `narrative_adjustment_rules.list[3].action` | Report both. Cross-food generalization is claimed only if… | _prose — no reader expected_ |
-| `narrative_adjustment_rules.list[4].id` | N5 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `narrative_adjustment_rules.list[4].id` | N5 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `narrative_adjustment_rules.list[4].trigger_expression` | unavailable(D1) or unavailable(D2) or unavailable(D3) | `scripts/analyze.py:514`, `scripts/analyze.py:593` |
 | `narrative_adjustment_rules.list[4].action` | Report the blocker with the exact manual acquisition step… | _prose — no reader expected_ |
 | `narrative_adjustment_rules.evaluation_note` | Exactly one branch of N1–N5 is expected to fire; if more … | _prose — no reader expected_ |
-| `datasets.D1.id` | d1_beef_controlled | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `datasets.D1.id` | d1_beef_controlled | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `datasets.D1.name` | Beef-Controlled | `drososense/data/manifest.py:218`, `drososense/data/manifest.py:234`, `drososense/data/manifest.py:381` |
 | `datasets.D1.doi` | 10.17632/n8mc3nspfn.1 | `drososense/data/manifest.py:268` |
 | `datasets.D1.provider_title` | e nose based Beef Quality Classification Dataset(4classes) | **NO READER** |
 | `datasets.D1.role` | primary food task | **NO READER** |
 | `datasets.D1.config` | configs/datasets/d1_beef_controlled.yaml | **NO READER** |
-| `datasets.D1.tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:186`, `drososense/utils/config.py:24` |
+| `datasets.D1.tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:229`, `drososense/utils/config.py:24` |
 | `datasets.D1.split_strategy` | time_block_holdout | `drososense/evaluation/contact_log.py:71`, `drososense/evaluation/runner.py:128`, `drososense/evaluation/runner.py:438` |
 | `datasets.D1.protocol_compliant` | False | `drososense/evaluation/contact_log.py:72`, `drososense/evaluation/results.py:368`, `drososense/evaluation/results.py:561` |
 | `datasets.D1.label_provenance` | provider integers 1..4; the four names are the project's … | _prose — no reader expected_ |
 | `datasets.D1.notes` | The provider publishes no sample identifier, so split_uni… | _prose — no reader expected_ |
-| `datasets.D2.id` | d2_beef_uncontrolled | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `datasets.D2.id` | d2_beef_uncontrolled | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `datasets.D2.name` | Beef-Uncontrolled | `drososense/data/manifest.py:218`, `drososense/data/manifest.py:234`, `drososense/data/manifest.py:381` |
 | `datasets.D2.doi` | 10.17632/mwmhh766fc.3 | `drososense/data/manifest.py:268` |
 | `datasets.D2.provider_title` | Electronic nose dataset for beef quality monitoring under… | _prose — no reader expected_ |
 | `datasets.D2.role` | environmental robustness | **NO READER** |
 | `datasets.D2.config` | configs/datasets/d2_beef_uncontrolled.yaml | **NO READER** |
-| `datasets.D2.tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:186`, `drososense/utils/config.py:24` |
+| `datasets.D2.tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:229`, `drososense/utils/config.py:24` |
 | `datasets.D2.split_strategy` | loso | `drososense/evaluation/contact_log.py:71`, `drososense/evaluation/runner.py:128`, `drososense/evaluation/runner.py:438` |
 | `datasets.D2.protocol_compliant` | True | `drososense/evaluation/contact_log.py:72`, `drososense/evaluation/results.py:368`, `drososense/evaluation/results.py:561` |
 | `datasets.D2.group_semantics_verified` | False | **NO READER** |
@@ -670,13 +668,13 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `datasets.D2.campaign_confound.mandatory_decomposition` | E1 MUST report leave-TS1-out and leave-{TS2..TS5}-out sep… | _prose — no reader expected_ |
 | `datasets.D2.campaign_confound.status` | MANDATORY REPORTING ITEM, NOT OPTIONAL — review item H1 | _prose — no reader expected_ |
 | `datasets.D2.notes` | Version 3 publishes five beef cuts as five series, so LOS… | _prose — no reader expected_ |
-| `datasets.D3.id` | d3_rainbow_trout | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `datasets.D3.id` | d3_rainbow_trout | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `datasets.D3.name` | Rainbow Trout | `drososense/data/manifest.py:218`, `drososense/data/manifest.py:234`, `drososense/data/manifest.py:381` |
 | `datasets.D3.doi` | 10.5281/zenodo.20649184 | `drososense/data/manifest.py:268` |
 | `datasets.D3.provider_title` | A multimodal dataset of images, gas sensor responses, and… | _prose — no reader expected_ |
 | `datasets.D3.role` | cross-food validation | **NO READER** |
 | `datasets.D3.config` | configs/datasets/d3_rainbow_trout.yaml | **NO READER** |
-| `datasets.D3.tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:186`, `drososense/utils/config.py:24` |
+| `datasets.D3.tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:229`, `drososense/utils/config.py:24` |
 | `datasets.D3.split_strategy` | group_kfold | `drososense/evaluation/contact_log.py:71`, `drososense/evaluation/runner.py:128`, `drososense/evaluation/runner.py:438` |
 | `datasets.D3.protocol_compliant` | True | `drososense/evaluation/contact_log.py:72`, `drososense/evaluation/results.py:368`, `drososense/evaluation/results.py:561` |
 | `datasets.D3.group_semantics_verified` | True | **NO READER** |
@@ -697,36 +695,36 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `datasets.channel_intersection.per_dataset_channels.D2` | ['MQ2', 'MQ3', 'MQ4', 'MQ5', 'MQ6', 'MQ8', 'MQ9', 'MQ135'… | **NO READER** |
 | `datasets.channel_intersection.per_dataset_channels.D3` | ['MQ3', 'MQ5', 'MQ9', 'MQ135', 'MQ137', 'temperature', 'h… | **NO READER** |
 | `datasets.channel_intersection.note` | A cross-food comparison is described on the matched chann… | _prose — no reader expected_ |
-| `model_zoo.classical[0].id` | svm_rbf | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `model_zoo.classical[0].id` | svm_rbf | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `model_zoo.classical[0].family` | classical | `drososense/evaluation/runner.py:471`, `scripts/analyze.py:305`, `scripts/analyze.py:308` |
-| `model_zoo.classical[0].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:186`, `drososense/utils/config.py:24` |
-| `model_zoo.classical[1].id` | random_forest | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `model_zoo.classical[0].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:229`, `drososense/utils/config.py:24` |
+| `model_zoo.classical[1].id` | random_forest | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `model_zoo.classical[1].family` | classical | `drososense/evaluation/runner.py:471`, `scripts/analyze.py:305`, `scripts/analyze.py:308` |
-| `model_zoo.classical[1].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:186`, `drososense/utils/config.py:24` |
-| `model_zoo.classical[2].id` | xgboost | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `model_zoo.classical[1].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:229`, `drososense/utils/config.py:24` |
+| `model_zoo.classical[2].id` | xgboost | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `model_zoo.classical[2].family` | classical | `drososense/evaluation/runner.py:471`, `scripts/analyze.py:305`, `scripts/analyze.py:308` |
-| `model_zoo.classical[2].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:186`, `drososense/utils/config.py:24` |
-| `model_zoo.classical[3].id` | pca_svm | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `model_zoo.classical[2].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:229`, `drososense/utils/config.py:24` |
+| `model_zoo.classical[3].id` | pca_svm | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `model_zoo.classical[3].family` | classical | `drososense/evaluation/runner.py:471`, `scripts/analyze.py:305`, `scripts/analyze.py:308` |
-| `model_zoo.classical[3].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:186`, `drososense/utils/config.py:24` |
-| `model_zoo.sequence[0].id` | gru | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `model_zoo.classical[3].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:229`, `drososense/utils/config.py:24` |
+| `model_zoo.sequence[0].id` | gru | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `model_zoo.sequence[0].family` | sequence | `drososense/evaluation/runner.py:471`, `scripts/analyze.py:305`, `scripts/analyze.py:308` |
-| `model_zoo.sequence[0].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:186`, `drososense/utils/config.py:24` |
-| `model_zoo.sequence[0].protocol_id` | GRU | `drososense/utils/config.py:318`, `drososense/utils/config.py:319`, `drososense/utils/config.py:344` |
+| `model_zoo.sequence[0].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:229`, `drososense/utils/config.py:24` |
+| `model_zoo.sequence[0].protocol_id` | GRU | `drososense/utils/config.py:362`, `drososense/utils/config.py:363`, `drososense/utils/config.py:388` |
 | `model_zoo.sequence[0].id_binding` | The protocol writes `GRU`; the registry registers `gru`. … | _prose — no reader expected_ |
-| `model_zoo.sequence[1].id` | lstm | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `model_zoo.sequence[1].id` | lstm | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `model_zoo.sequence[1].family` | sequence | `drososense/evaluation/runner.py:471`, `scripts/analyze.py:305`, `scripts/analyze.py:308` |
-| `model_zoo.sequence[1].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:186`, `drososense/utils/config.py:24` |
-| `model_zoo.sequence[2].id` | cnn1d | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `model_zoo.sequence[1].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:229`, `drososense/utils/config.py:24` |
+| `model_zoo.sequence[2].id` | cnn1d | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `model_zoo.sequence[2].family` | sequence | `drososense/evaluation/runner.py:471`, `scripts/analyze.py:305`, `scripts/analyze.py:308` |
-| `model_zoo.sequence[2].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:186`, `drososense/utils/config.py:24` |
-| `model_zoo.sequence[3].id` | tcn | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `model_zoo.sequence[2].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:229`, `drososense/utils/config.py:24` |
+| `model_zoo.sequence[3].id` | tcn | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `model_zoo.sequence[3].family` | sequence | `drososense/evaluation/runner.py:471`, `scripts/analyze.py:305`, `scripts/analyze.py:308` |
-| `model_zoo.sequence[3].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:186`, `drososense/utils/config.py:24` |
-| `model_zoo.reservoir[0].id` | esn | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `model_zoo.sequence[3].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:229`, `drososense/utils/config.py:24` |
+| `model_zoo.reservoir[0].id` | esn | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `model_zoo.reservoir[0].family` | reservoir | `drososense/evaluation/runner.py:471`, `scripts/analyze.py:305`, `scripts/analyze.py:308` |
-| `model_zoo.reservoir[0].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:186`, `drososense/utils/config.py:24` |
-| `model_zoo.reservoir[0].protocol_id` | R4 | `drososense/utils/config.py:318`, `drososense/utils/config.py:319`, `drososense/utils/config.py:344` |
+| `model_zoo.reservoir[0].tasks` | ['classification', 'regression'] | `drososense/evaluation/runner.py:125`, `drososense/utils/config.py:229`, `drososense/utils/config.py:24` |
+| `model_zoo.reservoir[0].protocol_id` | R4 | `drososense/utils/config.py:362`, `drososense/utils/config.py:363`, `drososense/utils/config.py:388` |
 | `model_zoo.reservoir[0].note` | Standard leaky echo-state network with a fixed random spa… | _prose — no reader expected_ |
 | `model_zoo.reservoir[0].id_binding` | `protocol_id: R4` is the name this file's contrasts and g… | _prose — no reader expected_ |
 | `model_zoo.interface_contract.fit` | fit(X_train, y_train) -> self, where X has shape (n_windo… | _prose — no reader expected_ |
@@ -761,7 +759,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `robustness_protocol.noise.units` | standard deviations of the standardised inputs | **NO READER** |
 | `robustness_protocol.noise.seed` | child-seed of the run seed; identical noise realisation f… | _prose — no reader expected_ |
 | `robustness_protocol.drift.model` | x'_t = a_t * x_t + b_t, applied after standardisation | `drososense/evaluation/results.py:363`, `drososense/evaluation/results.py:42`, `drososense/evaluation/results.py:554` |
-| `robustness_protocol.drift.conditions` | ['drift_gain', 'drift_offset', 'drift_combined'] | `drososense/utils/config.py:283`, `drososense/utils/config.py:370` |
+| `robustness_protocol.drift.conditions` | ['drift_gain', 'drift_offset', 'drift_combined'] | `drososense/utils/config.py:327`, `drososense/utils/config.py:414` |
 | `robustness_protocol.drift.a_t` | linear ramp over the window from 1.0 to (1 + delta), delt… | **NO READER** |
 | `robustness_protocol.drift.b_t` | linear ramp over the window from 0.0 to delta, delta in {… | **NO READER** |
 | `robustness_protocol.drift.note` | Applied identically to every model in a paired comparison. | _prose — no reader expected_ |
@@ -782,10 +780,10 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `failure_handling.oom_or_timeout_policy` | status 'oom' or 'timeout'; the run is reported as missing… | _prose — no reader expected_ |
 | `failure_handling.record_schema` | run_id, status, failure_reason, plus the full configurati… | _prose — no reader expected_ |
 | `failure_handling.rule` | A table never reports a mean over a subset of runs withou… | _prose — no reader expected_ |
-| `excluded_specimen_criteria.criteria[0].id` | E1 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `excluded_specimen_criteria.criteria[0].id` | E1 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `excluded_specimen_criteria.criteria[0].rule` | A specimen with fewer rows than the window length cannot … | _prose — no reader expected_ |
 | `excluded_specimen_criteria.criteria[0].recorded_as` | usable_specimens(dataset, window_length) | **NO READER** |
-| `excluded_specimen_criteria.criteria[1].id` | E2 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `excluded_specimen_criteria.criteria[1].id` | E2 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `excluded_specimen_criteria.criteria[1].rule` | A row with a non-finite value in any declared feature cha… | _prose — no reader expected_ |
 | `excluded_specimen_criteria.criteria[1].recorded_as` | provenance.dropped_non_finite_rows | **NO READER** |
 | `excluded_specimen_criteria.frozen` | True | `drososense/utils/config.py:21`, `drososense/utils/protocol.py:102`, `drososense/utils/protocol.py:102` |
@@ -992,7 +990,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `amendment_v1_2.changed` | ['§3: cluster-count rule, reachability note and per-datas… | **NO READER** |
 | `amendment_v1_2.unchanged` | ['Every scientific claim, the contrast list, the hypothes… | **NO READER** |
 | `amendment_v1_2.runs_affected` | NONE ARE RE-RUN. No R0..R5 contrast exists yet, so no gat… | _prose — no reader expected_ |
-| `amendment_v1_2.open_decisions[0].id` | OD1 | `drososense/utils/config.py:216`, `drososense/utils/config.py:245`, `drososense/utils/config.py:279` |
+| `amendment_v1_2.open_decisions[0].id` | OD1 | `drososense/utils/config.py:260`, `drososense/utils/config.py:289`, `drososense/utils/config.py:323` |
 | `amendment_v1_2.open_decisions[0].question` | D2's five-cluster floor (0.0625) makes every `sig` term o… | _prose — no reader expected_ |
 | `amendment_v1_2.open_decisions[0].arithmetic` | A cluster-level sign test needs at least 6 clusters for a… | _prose — no reader expected_ |
 | `amendment_v1_2.open_decisions[0].options` | ["D3 n_splits 5 -> 10 (or LOSO(62)): no data cost, no com… | **NO READER** |
