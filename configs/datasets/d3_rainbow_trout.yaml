@@ -1,0 +1,93 @@
+# D3 — Rainbow Trout. Cross-food validation.
+#
+# STATUS: BLOCKED — not acquired. See data/manifests/d3_rainbow_trout.yaml.
+#
+# The Zenodo record is real and publicly reachable (verified 2026-09-20), but
+# the only artifact is a single 21.1 GB `dataset.zip` (md5
+# 32749a6232515bd3c3b50e2e848f1b15) that bundles the full multimodal
+# collection. The published record describes high-resolution RAW images (CR2)
+# alongside the sensor and microbiological tables; the images dominate the
+# archive and are explicitly out of scope for phase 1.
+#
+# The archive has NOT been downloaded, so the schema below is EXPECTED, not
+# verified. It is declared so the loader, manifest and harness are ready the
+# moment the archive is fetched — it is not a claim that these columns exist.
+# `python scripts/download_data.py --dataset d3_rainbow_trout` reports the size
+# and refuses to proceed without --accept-large-download.
+
+dataset_id: d3_rainbow_trout
+display_name: "Rainbow Trout (e-nose + TVC)"
+role: "cross-food validation"
+
+schema_verified: false
+schema_warning: >
+  UNVERIFIED. Derived from the Zenodo record description only. Must be
+  re-checked against the actual archive contents before any D3 run; if the real
+  column names differ, update raw.column_map here and re-verify. No D3 result
+  may be reported while schema_verified is false.
+
+source:
+  url: "https://zenodo.org/records/20649184"
+  doi: "10.5281/zenodo.20649184"
+  version: "v1"
+  license: "CC BY 4.0"
+  citation: >
+    Bolaños Ledezma, M.; Peluffo-Ordóñez, D. H.; Arciniegas Herrera, J. L.;
+    Guachi Guachi, L. de los A. (2026). A multimodal dataset of images, gas
+    sensor responses, and microbiological measurements for assessing the
+    freshness of rainbow trout fillets. Zenodo. doi:10.5281/zenodo.20649184
+
+raw:
+  file: trout_sensor.csv
+  strip_whitespace: true
+  column_map:
+    time_index: day
+    freshness_class: freshness_class
+    tvc: tvc
+  features:
+    - MQ3
+    - MQ5
+    - MQ9
+    - MQ135
+    - MQ137
+    - temperature
+    - humidity
+  class_label_map:
+    excellent: 0
+    good: 1
+    acceptable: 2
+    spoiled: 3
+
+labels:
+  class_names: [Excellent, Good, Acceptable, Spoiled]
+  derivation: >
+    UNVERIFIED. Assumed to follow the same log10(TVC) thresholds at 3/4/5 as the
+    beef datasets. Must be confirmed from the archive's own documentation before
+    use; if the provider defines freshness classes differently, that definition
+    takes precedence and this file must be updated.
+
+specimen:
+  source: column
+  column: specimen_id
+  note: >
+    UNVERIFIED. Fillet-level identifiers are expected: the record states
+    fillets were stored at 4 C for seven days with daily acquisition, which
+    implies several independent fillets. Whether the archive exposes a stable
+    per-fillet identifier must be confirmed on extraction. If it does not,
+    D3 inherits the same blocker as D1/D2 and no specimen-level split is possible.
+
+features:
+  columns:
+    - MQ3
+    - MQ5
+    - MQ9
+    - MQ135
+    - MQ137
+    - temperature
+    - humidity
+
+tasks: [classification, regression]
+
+preprocessing_overrides: {}
+
+phase1_scope: "gas sensors + temperature + humidity + TVC only; images are out of scope"

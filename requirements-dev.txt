@@ -1,0 +1,7 @@
+-r requirements.txt
+
+pytest>=8.0
+pytest-cov>=5.0
+
+# Optional: pin the acquisition checksums without network access
+# (used by tests/test_manifest.py to validate manifest structure only)

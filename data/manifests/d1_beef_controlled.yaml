@@ -1,0 +1,68 @@
+# D1 — Beef-Controlled. Acquisition manifest.
+# Verified 2026-09-20 against the provider's own API and by checksum.
+
+dataset_id: d1_beef_controlled
+display_name: "Beef-Controlled (e-nose)"
+status: auto
+synthetic: false
+
+license: "CC BY 4.0"
+license_url: "https://creativecommons.org/licenses/by/4.0/"
+source_url: "https://data.mendeley.com/datasets/mwmhh766fc/1"
+doi: "10.17632/mwmhh766fc.1"
+version: "1"
+
+citation: >
+  Wijaya, Dedy Rahman; Sarno, Riyanarto; Zulaika, Enny (2018). e-nose for beef
+  quality monitoring dataset. Mendeley Data, V1. doi:10.17632/mwmhh766fc.1
+
+files:
+  - name: beef_controlled.csv
+    sha256: "6b426956600de3bff1ae72fc716dabbc92fce86b1b066a233c56c3fd8a58ba03"
+    size_bytes: 396875
+    required: true
+    download_url: "https://data.mendeley.com/public-files/datasets/mwmhh766fc/files/e1b5d044-18bb-4fd8-bbf6-7424250f43e6/file_downloaded"
+    note: >
+      SHA-256 and size are the values the Mendeley public API reports for this
+      file. The checksum was independently reproduced after download
+      (scripts/download_data.py --verify) and matched exactly.
+
+schema_notes: >
+  VERIFIED on the downloaded file: 4553 rows x 15 columns —
+  ['minute', 'class', 'TVC', 'MQ135', 'MQ136', 'MQ2', 'MQ3', 'MQ4', 'MQ5',
+  'MQ6', 'MQ7', 'MQ8', 'MQ9', 'Humidity', 'Temperature'].
+  `minute` is strictly increasing, 1..4553, 4553 unique values, zero resets.
+  `class` in {excellent, good, acceptable, spoiled}; `TVC` in [2.567, 8.522].
+  `class` is a deterministic threshold of `TVC` at 3.0 / 4.0 / 5.0 log10 CFU/g
+  (verified by inspecting per-class TVC ranges).
+  Class balance is heavily skewed: spoiled 3874, excellent 285, good 211,
+  acceptable 183 rows (85% spoiled). Macro-F1 is the frozen primary metric
+  precisely because it is not dominated by the majority class.
+
+specimen_note: >
+  NO SPECIMEN IDENTIFIER IS PUBLISHED. The file is one continuous 75.9-hour
+  measurement. There is no column identifying the individual beef sample, no
+  reset in the time axis, and no session boundary column.
+
+blockers:
+  - "The published CSV contains no specimen identifier, so the frozen protocol's
+     split_unit: specimen cannot be satisfied. A row-level split would leak
+     severely (adjacent rows one minute apart) and is forbidden by protocol v1."
+  - "class is derived from TVC, so the classification task is a discretisation
+     of the regression target rather than an independent label source."
+
+manual_steps:
+  - "Automated path (works, no account needed): python scripts/download_data.py --dataset d1_beef_controlled"
+  - "Manual path: open https://data.mendeley.com/datasets/mwmhh766fc/1, click Download all, and place the extracted beef_controlled.csv in data/raw/d1_beef_controlled/."
+  - "To REMOVE the blocker, obtain per-sample provenance: contact the corresponding author for the acquisition log that records which of the 4553 minutes belong to which beef sample (the paper reports repeated sample purchases)."
+  - "If the authors cannot supply it, the honest options are (a) report D1 results only under the explicitly non-compliant time-block split and label them as such, or (b) drop D1 from protocol results and say so in the paper."
+
+notes: >
+  Dataset is small (388 KB), public, CC BY 4.0, and downloaded and verified
+  automatically. Licensing permits redistribution with attribution; the project
+  still keeps raw data out of Git by policy.
+
+extra:
+  provider_api: "https://data.mendeley.com/public-api/datasets/mwmhh766fc/files?folder_id=root&version=1"
+  verified_on: "2026-09-20"
+  checksum_match: true

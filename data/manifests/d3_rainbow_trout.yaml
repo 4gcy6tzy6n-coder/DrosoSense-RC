@@ -1,0 +1,79 @@
+# D3 — Rainbow Trout. Acquisition manifest.
+#
+# STATUS: BLOCKED. The record is real and public; the payload has not been
+# fetched. Nothing below about the internal schema is verified.
+
+dataset_id: d3_rainbow_trout
+display_name: "Rainbow Trout (e-nose + TVC)"
+status: blocked
+synthetic: false
+
+license: "CC BY 4.0"
+license_url: "https://creativecommons.org/licenses/by/4.0/"
+source_url: "https://zenodo.org/records/20649184"
+doi: "10.5281/zenodo.20649184"
+version: "v1"
+
+citation: >
+  Bolaños Ledezma, Mauricio; Peluffo-Ordóñez, Diego Hernán; Arciniegas Herrera,
+  Jose Luis; Guachi Guachi, Lorena de los Angeles (2026). A multimodal dataset
+  of images, gas sensor responses, and microbiological measurements for
+  assessing the freshness of rainbow trout fillets. Zenodo. doi:10.5281/zenodo.20649184
+
+files:
+  - name: dataset.zip
+    sha256: null
+    size_bytes: 21134576519
+    required: true
+    download_url: "https://zenodo.org/records/20649184/files/dataset.zip"
+    note: >
+      21.1 GB. The publisher lists an md5 checksum
+      (32749a6232515bd3c3b50e2e848f1b15), not a SHA-256; md5 is recorded here
+      for reference but is not used as the project's integrity check. Once the
+      archive is fetched, extract the sensor CSV, compute its SHA-256 and add it
+      to this manifest before any D3 run.
+
+schema_notes: >
+  UNVERIFIED — the archive has not been downloaded, so no column has been
+  confirmed. The Zenodo description states the collection contains high-resolution
+  RAW camera images (CR2), gas-sensor responses and microbiological measurements
+  from rainbow trout fillets stored at 4 C for seven consecutive days with daily
+  acquisition. The archive is dominated by the image data, which phase 1 excludes.
+  configs/datasets/d3_rainbow_trout.yaml declares an EXPECTED schema so the
+  harness is ready; that file carries schema_verified: false and must be corrected
+  against the real archive before use.
+
+specimen_note: >
+  UNVERIFIED. Daily acquisition over seven days across multiple fillets implies
+  independent specimens exist physically, but whether the archive exposes a
+  stable per-fillet identifier is unknown until extraction. If it does not, D3
+  has the same blocker as D1/D2 and cannot support a specimen-level split.
+
+blockers:
+  - "The only published artifact is a single 21.1 GB multimodal archive dominated
+     by CR2 images that phase 1 does not use. Downloading and staging it is a
+     resource decision that has not been taken."
+  - "The archive's internal layout is unknown, so no column name in
+     configs/datasets/d3_rainbow_trout.yaml is verified."
+  - "Whether per-fillet specimen identifiers exist inside the archive is unknown;
+     without them D3 cannot satisfy split_unit: specimen."
+
+manual_steps:
+  - "Confirm the download is acceptable: python scripts/download_data.py --dataset d3_rainbow_trout (without --accept-large-download it reports the size, the license and the blocker, then exits without fetching)."
+  - "To fetch: python scripts/download_data.py --dataset d3_rainbow_trout --accept-large-download"
+  - "Verify the archive md5 against 32749a6232515bd3c3b50e2e848f1b15, then extract."
+  - "Identify the sensor/microbiology table inside the archive (an .xlsx or .csv; the description mentions sensor responses, temperature, humidity and microbiological measurements)."
+  - "Record its real columns and specimen identifier. Update raw.column_map and raw.features in configs/datasets/d3_rainbow_trout.yaml, set schema_verified: true, and add the extracted CSV's SHA-256 to this manifest."
+  - "Only then run D3. Until then D3 is reported as UNAVAILABLE in every table."
+
+notes: >
+  Record metadata verified reachable on 2026-09-20 via
+  https://zenodo.org/api/records/20649184: title, CC BY 4.0 license, four
+  creators, version v1, one file 'dataset.zip' of 21134576519 bytes with md5
+  32749a6232515bd3c3b50e2e848f1b15. No substitute dataset is used in its place.
+
+extra:
+  provider_api: "https://zenodo.org/api/records/20649184"
+  verified_on: "2026-09-20"
+  md5_published: "32749a6232515bd3c3b50e2e848f1b15"
+  archive_bytes: 21134576519

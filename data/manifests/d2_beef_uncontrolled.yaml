@@ -1,0 +1,73 @@
+# D2 — Beef-Uncontrolled. Acquisition manifest.
+# Verified 2026-09-20 against the provider's own API and by checksum.
+
+dataset_id: d2_beef_uncontrolled
+display_name: "Beef-Uncontrolled (e-nose)"
+status: auto
+synthetic: false
+
+license: "CC BY 4.0"
+license_url: "https://creativecommons.org/licenses/by/4.0/"
+source_url: "https://data.mendeley.com/datasets/n8mc3nspfn/1"
+doi: "10.17632/n8mc3nspfn.1"
+version: "1"
+
+citation: >
+  e-nose beef quality dataset (4 freshness classes and TVC). Mendeley Data, V1.
+  doi:10.17632/n8mc3nspfn.1
+
+files:
+  - name: beef_uncontrolled.csv
+    sha256: "866367252b8498eddff2f488629e3e38341b2014a2e0a941d88e71a7499e7026"
+    size_bytes: 1246972
+    required: true
+    download_url: "https://data.mendeley.com/public-files/datasets/n8mc3nspfn/files/8b21e9d0-c805-40bd-814b-9778795c13b2/file_downloaded"
+    note: >
+      Published filename is 'Beef quality 4 classes.csv' (1246972 bytes); the
+      project stores it as beef_uncontrolled.csv. SHA-256 is the authoritative
+      identity and was reproduced after download and matched exactly.
+
+schema_notes: >
+  VERIFIED on the downloaded file: 20815 rows x 14 columns after stripping
+  trailing whitespace from headers —
+  ['sl no', 'minutes', 'Temperature', 'Humidity', 'Mq-2', 'Mq-3', 'Mq-4',
+  'Mq-5', 'Mq-135', 'Mq-136', 'Mq-137', 'Mq-138', 'class', 'tvc'].
+  NOTE the ragged header whitespace ('Mq-2 ' etc.) which the loader strips.
+  `sl no` is strictly increasing 1..20815 with zero resets; `minutes` is
+  strictly increasing 1..1735 with zero resets (~12 rows per minute).
+  `class` in {1,2,3,4}; `tvc` in [2.002, 6.314].
+  Verified that class 1..4 partition `tvc` at 3/4/5: class 1 [2.002, 2.988],
+  class 2 [3.092, 3.999], class 3 [4.026, 4.997], class 4 [5.100, 6.314].
+  Class balance: class 4 = 13315 rows (64%), classes 1/2/3 = 2940/2268/2292.
+
+specimen_note: >
+  NO SPECIMEN IDENTIFIER IS PUBLISHED. Both candidate ordering columns are
+  strictly increasing with zero resets, so the file is one continuous session,
+  not a concatenation of independent samples. Note that the four classes fall in
+  contiguous time blocks (transitions at rows 2939, 5207, 7499), which is
+  consistent with class being assigned by elapsed storage time rather than by
+  independent sample.
+
+blockers:
+  - "The published CSV contains no specimen identifier, so split_unit: specimen
+     cannot be satisfied from the data as published."
+  - "class is derived from tvc, so the classification task is a discretisation
+     of the regression target."
+  - "Row 2827 has Temperature = 0 with a simultaneous ~85-unit Humidity jump,
+     indicating a logging or warm-up discontinuity rather than an ambient
+     reading. It is retained and left visible; repairing it requires a protocol
+     amendment, not an ad-hoc edit."
+
+manual_steps:
+  - "Automated path: python scripts/download_data.py --dataset d2_beef_uncontrolled"
+  - "Manual path: open https://data.mendeley.com/datasets/n8mc3nspfn/1, download 'Beef quality 4 classes.csv', and place it in data/raw/d2_beef_uncontrolled/."
+  - "To REMOVE the blocker, contact the dataset authors for the per-sample acquisition log (which rows belong to which beef sample and which storage condition)."
+  - "D2's stated role is controlled -> uncontrolled sensitivity. That comparison also needs the sample-level pairing between D1 and D2, which the published data does not expose; without it the comparison is between two unmatched time series and must be described as such."
+
+notes: >
+  1.2 MB, public, CC BY 4.0, downloaded and checksum-verified automatically.
+
+extra:
+  provider_api: "https://data.mendeley.com/public-api/datasets/n8mc3nspfn/files?folder_id=root&version=1"
+  verified_on: "2026-09-20"
+  checksum_match: true

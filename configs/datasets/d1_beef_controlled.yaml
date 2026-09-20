@@ -1,0 +1,103 @@
+# D1 — Beef-Controlled. Primary food task.
+#
+# Acquisition is automated: the file is public, its SHA-256 is published by the
+# provider, and scripts/download_data.py verifies it on download.
+#
+# ---------------------------------------------------------------------------
+# PROTOCOL DEVIATION — read before using any number produced from this config.
+#
+# The published CSV contains NO specimen identifier. Its `minute` column is a
+# single strictly increasing series (min 1, max 4553, 4553 unique values, zero
+# resets), i.e. one continuous 75.9-hour measurement, not a concatenation of
+# independent samples. A specimen-level split — the red line of protocol v1 —
+# therefore CANNOT be built from the published data as-is.
+#
+# `specimen.source: time_block` below cuts the series into contiguous 250-minute
+# blocks and treats each block as a stand-in grouping. This is a documented
+# assumption, NOT a published specimen id. Any result produced with it is
+# flagged `protocol_compliant: false` in its run record and may not be reported
+# as a protocol result. See data/manifests/d1_beef_controlled.yaml for the
+# blocker and the steps that would remove it.
+# ---------------------------------------------------------------------------
+
+dataset_id: d1_beef_controlled
+display_name: "Beef-Controlled (e-nose)"
+role: "primary food task"
+
+source:
+  url: "https://data.mendeley.com/datasets/mwmhh766fc/1"
+  doi: "10.17632/mwmhh766fc.1"
+  version: "1"
+  license: "CC BY 4.0"
+  citation: >
+    Wijaya, Dedy Rahman; Sarno, Riyanarto; Zulaika, Enny (2018). e-nose for beef
+    quality monitoring dataset. Mendeley Data, V1. doi:10.17632/mwmhh766fc.1
+
+raw:
+  file: beef_controlled.csv
+  strip_whitespace: true
+  column_map:
+    time_index: minute
+    freshness_class: class
+    tvc: TVC
+  features:
+    - MQ135
+    - MQ136
+    - MQ2
+    - MQ3
+    - MQ4
+    - MQ5
+    - MQ6
+    - MQ7
+    - MQ8
+    - MQ9
+    - Humidity
+    - Temperature
+  class_label_map:
+    excellent: 0
+    good: 1
+    acceptable: 2
+    spoiled: 3
+
+labels:
+  class_names: [Excellent, Good, Acceptable, Spoiled]
+  derivation: >
+    Observed to be a deterministic threshold function of TVC (log10 CFU/g) at
+    3.0 / 4.0 / 5.0. Verified: Excellent tvc in [2.567, 2.997], Good [3.000,
+    3.995], Acceptable [4.000, 4.999], Spoiled [5.004, 8.522]. The label is
+    therefore DERIVED from the regression target, not independently measured;
+    classification and regression are two views of one variable.
+  independence_caveat: >
+    Because the class label is a threshold of TVC, macro-F1 is a discretised
+    view of regression error. Results must be reported together and never
+    presented as two independent sources of evidence.
+
+specimen:
+  source: assumed_time_block
+  block_by: time
+  block_size: 250
+  note: >
+    ASSUMED, not published. 250 consecutive `minute` values (~4.2 h) per block,
+    yielding ~19 blocks across the 4553-minute series. Chosen so that each block
+    is long enough to hold a 64-timestep window and so that ~19 blocks support a
+    5-fold split with a rotating validation block. It is a modelling assumption
+    and does not correspond to a real independent sample.
+
+features:
+  columns:
+    - MQ135
+    - MQ136
+    - MQ2
+    - MQ3
+    - MQ4
+    - MQ5
+    - MQ6
+    - MQ7
+    - MQ8
+    - MQ9
+    - Humidity
+    - Temperature
+
+tasks: [classification, regression]
+
+preprocessing_overrides: {}
