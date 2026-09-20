@@ -89,7 +89,10 @@ def metadata_path(name: str) -> Path:
     """
     if DATA_ROOT is not None:
         candidate = DATA_ROOT / "connectome" / "metadata" / name
-        if candidate.exists() or name == "olfactory_v1_edge_meta.csv":
+        if candidate.exists() or name in (
+            "olfactory_v1_edge_meta.csv",
+            "olfactory_v1_edge_meta_classified.csv",
+        ):
             return candidate
     return REPO_ROOT / "connectome" / "metadata" / name
 

@@ -124,9 +124,11 @@ class TestAdjacency:
             f"got symmetric graph with {adj.nnz} edges"
         )
 
-    def test_min_syn_filter_default(self, adj):
-        """With default min_syn=1, minimum edge weight should be >= 1."""
-        assert adj.data.min() >= 1.0
+    def test_min_syn_filter(self, adj):
+        """With min_syn=1 (build default), all edge weights must be >= 1."""
+        assert adj.data.min() >= 1.0, (
+            f"min_syn=1 build but found edge with weight {adj.data.min()}"
+        )
 
     def test_self_loops_present_on_diagonal(self, adj):
         """Self-loops are RETAINED on the diagonal (DATA-9 §3.4)."""
@@ -134,6 +136,29 @@ class TestAdjacency:
         # At least one neuron has a self-loop (biological circuit property)
         # The mask is stored separately; here we verify diagonal is not zeroed
         assert diag is not None
+
+
+class TestMinSynMonotonicity:
+    """Verify size_structure_curve is monotonic in min_syn (higher threshold → fewer edges)."""
+
+    def test_curve_monotonic(self):
+        """Edge count must decrease (or stay same) as min_syn increases."""
+        import json
+        with open(META_JSON) as f:
+            meta = json.load(f)
+        curve = meta.get("size_structure_curve", [])
+        # Filter core_only=False entries
+        entries = sorted(
+            [e for e in curve if not e.get("core_only")],
+            key=lambda e: e["min_synapses"]
+        )
+        for i in range(1, len(entries)):
+            prev = entries[i - 1]["M"]
+            curr = entries[i]["M"]
+            assert curr <= prev, (
+                f"Monotonicity violated: min_syn={entries[i-1]['min_synapses']} "
+                f"→ M={prev}, min_syn={entries[i]['min_synapses']} → M={curr} (should be ≤)"
+            )
 
 
 class TestNPZSchema:
@@ -282,12 +307,23 @@ class TestEdgeMetadata:
     def test_syn_count_min(self, em):
         assert em["syn_count"].min() >= 1
 
-    def test_pre_post_different_in_edges(self, em):
-        """Some edges may be self-loops at the adjacency level, but edge CSV
-        aggregates them — check that edge table records (pre != post)."""
-        # Note: self-loops are kept in adj but aggregated; after aggregation,
-        # (i→i) entries are counted as self-loops and exist in both adj and CSV
-        pass  # no assertion needed at edge CSV level
+    def test_pre_post_different_in_edges(self, em, npz):
+        """Non-self-loop edges must have pre_root_id != post_root_id.
+        Self-loops (pre == post) exist in edge_meta.csv and are expressed
+        via self_loop_mask in the NPZ per DATA-9 §3.4 — this is intentional.
+        This test asserts that the self-loop mask correctly identifies them."""
+        # Verify self-loops in edge CSV are matched by self_loop_mask in NPZ
+        self_loops_in_csv = em[em["pre_root_id"] == em["post_root_id"]]
+        mask = npz["self_loop_mask"]
+        # Count nodes with self-loop (mask == 1)
+        nodes_with_self_loop = int(np.sum(mask))
+        assert nodes_with_self_loop == len(self_loops_in_csv), (
+            f"self_loop_mask shows {nodes_with_self_loop} nodes with self-loop "
+            f"but edge CSV has {len(self_loops_in_csv)} self-loop edges"
+        )
+        # Non-self edges must have pre != post
+        non_self = em["pre_root_id"] != em["post_root_id"]
+        assert non_self.sum() == len(em) - len(self_loops_in_csv)
 
     def test_duplicate_edge_semantics(self, em):
         """(pre_root_id, post_root_id) pairs are UNIQUE after aggregation.
@@ -374,21 +410,28 @@ class TestMetadataJSON:
             assert "size_bytes" in fm[name], f"{name} missing size_bytes"
 
     def test_modularity_present(self, meta):
-        """Modularity via networkx louvain (C6). Deferred to compute_topology_stats.py."""
+        """Modularity via networkx louvain (C6) — value must be a real float."""
         stats = meta.get("topology_stats", {})
         mod = stats.get("olfactory_modularity")
-        # Deferred to compute_topology_stats.py due to graph size; key is present
-        assert "olfactory_modularity" in stats, "Modularity key must be in stats"
+        assert mod is not None, "Modularity must be computed (not null)"
+        assert not np.isnan(mod), "Modularity must not be NaN"
+        assert isinstance(mod, (int, float)), f"Modularity must be numeric, got {type(mod)}"
 
     def test_clustering_present(self, meta):
-        """Clustering coefficient must be present (C6). Deferred to compute_topology_stats.py."""
+        """Clustering coefficient must be present and a real float (C6)."""
         stats = meta.get("topology_stats", {})
-        assert "olfactory_clustering" in stats, "Clustering key must be in stats"
+        c = stats.get("olfactory_clustering")
+        assert c is not None, "Clustering must be computed (not null)"
+        assert not np.isnan(c), "Clustering must not be NaN"
+        assert isinstance(c, (int, float)), f"Clustering must be numeric, got {type(c)}"
 
     def test_assortativity_present(self, meta):
-        """Assortativity must be present (C6). Deferred to compute_topology_stats.py."""
+        """Assortativity must be present and a real float (C6)."""
         stats = meta.get("topology_stats", {})
-        assert "olfactory_assortativity" in stats, "Assortativity key must be in stats"
+        a = stats.get("olfactory_assortativity")
+        assert a is not None, "Assortativity must be computed (not null)"
+        assert not np.isnan(a), "Assortativity must not be NaN"
+        assert isinstance(a, (int, float)), f"Assortativity must be numeric, got {type(a)}"
 
     def test_normalization_schemes_recorded(self, meta):
         """All 6 normalisation schemes must be recorded (DATA-9 §6 / R1裁定3)."""
@@ -418,9 +461,10 @@ class TestMetadataJSON:
 
     def test_pr_url_recorded(self, meta):
         pr_url = meta.get("pr_url")
-        # May not exist yet before PR is created; soft check
-        if pr_url:
-            assert pr_url.startswith("https://github.com/")
+        assert pr_url is not None, "pr_url must be recorded in meta.json"
+        assert pr_url.startswith("https://github.com/"), (
+            f"pr_url must be a GitHub URL, got: {pr_url}"
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

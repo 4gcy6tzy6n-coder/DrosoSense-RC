@@ -28,41 +28,32 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 
+# Data-root resolution — large adjacency lives outside the repo
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from paths import adjacency_path, metadata_path  # noqa: E402
+
 RNG_SEED = 20260920
 
-parser = argparse.ArgumentParser(description="Deterministic node selection for subgraphs")
-parser.add_argument(
-    "--adjacency",
-    default="connectome/adjacency/olfactory_v1.npz",
-    help="Path to olfactory_v1.npz"
-)
-parser.add_argument(
-    "--node-meta",
-    default="connectome/metadata/olfactory_v1_node_meta.csv",
-)
-parser.add_argument(
-    "--target-n", type=int, required=True,
-    help="Target number of nodes to select (N ∈ {250, 500, 1000, 2000, 4000})"
-)
-parser.add_argument(
-    "--seed", type=int, default=RNG_SEED,
-    help="Random seed for reproducibility"
-)
-parser.add_argument(
-    "--output-dir", default="connectome/annotations",
-    help="Output directory for selection artifacts"
-)
-parser.add_argument(
-    "--output-json", action="store_true",
-    help="Also print JSON provenance to stdout"
-)
-args = parser.parse_args()
-
 ROOT = Path(__file__).parent.parent
-ADJ_PATH = ROOT / args.adjacency
-NM_PATH = ROOT / args.node_meta
-OUT_DIR = ROOT / args.output_dir
+OUT_DIR = ROOT / "connectome" / "annotations"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _load_sparse(npz_obj, prefix: str) -> sp.spmatrix:
+    """Reconstruct a sparse matrix from dict-of-arrays npz entry."""
+    data_key = f"{prefix}_data"
+    if data_key not in npz_obj.files:
+        return None
+    fmt = str(npz_obj[f"{prefix}_format"].item())
+    data = npz_obj[data_key]
+    indices = npz_obj[f"{prefix}_indices"]
+    indptr = npz_obj[f"{prefix}_indptr"]
+    shape = tuple(npz_obj[f"{prefix}_shape"])
+    if fmt == "csr":
+        return sp.csr_matrix((data, indices, indptr), shape=shape)
+    elif fmt == "csc":
+        return sp.csc_matrix((data, indices, indptr), shape=shape)
+    return sp.coo_matrix((data, indices), shape=shape)
 
 
 def sha256_of_array(arr: np.ndarray) -> str:
@@ -92,16 +83,14 @@ def select_neurons(
     Returns dict with keys:
       node_indices, root_ids, sha256, N_selected, target_n, seed, layer_distribution
     """
-    # S0
-    adj = sp.load_npz(str(adj_path))
-    # Load node_ids from npz (DATA-9 §7 schema)
-    nm_arr = np.load(str(adj_path), allow_pickle=True)
-    if "node_ids" in nm_arr.files:
-        all_root_ids = nm_arr["node_ids"]
+    # S0: Load adjacency from dict-of-arrays npz (DATA-9 §7 schema)
+    npz_obj = np.load(str(adj_path), allow_pickle=True)
+    adj = _load_sparse(npz_obj, "adj")
+    # Load node_ids from npz
+    if "node_ids" in npz_obj.files:
+        all_root_ids = npz_obj["node_ids"]
     else:
-        # Fallback to node_meta CSV
-        nm = pd.read_csv(nm_path)
-        all_root_ids = nm["root_id"].values
+        raise ValueError("npz must contain 'node_ids' array (DATA-9 §7 schema)")
 
     nm_df = pd.read_csv(nm_path)
     N_full = len(all_root_ids)
@@ -194,17 +183,49 @@ def select_neurons(
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Deterministic node selection for subgraphs")
+    parser.add_argument(
+        "--adjacency",
+        default=None,  # resolved via paths.py
+        help="Path to olfactory_v1.npz (default: use paths.py adjacency_path)"
+    )
+    parser.add_argument(
+        "--node-meta",
+        default=None,  # resolved via paths.py
+    )
+    parser.add_argument(
+        "--target-n", type=int, required=True,
+        help="Target number of nodes to select (N ∈ {250, 500, 1000, 2000, 4000})"
+    )
+    parser.add_argument(
+        "--seed", type=int, default=RNG_SEED,
+        help="Random seed for reproducibility"
+    )
+    parser.add_argument(
+        "--output-dir", default="connectome/annotations",
+        help="Output directory for selection artifacts"
+    )
+    parser.add_argument(
+        "--output-json", action="store_true",
+        help="Also print JSON provenance to stdout"
+    )
+    pargs = parser.parse_args()
+
+    # Resolve paths via paths.py (data-root aware)
+    adj_path = Path(pargs.adjacency) if pargs.adjacency else adjacency_path("olfactory_v1.npz")
+    nm_path = Path(pargs.node_meta) if pargs.node_meta else metadata_path("olfactory_v1_node_meta.csv")
+
     result = select_neurons(
-        adj_path=ADJ_PATH,
-        nm_path=NM_PATH,
-        target_n=args.target_n,
-        seed=args.seed,
+        adj_path=adj_path,
+        nm_path=nm_path,
+        target_n=pargs.target_n,
+        seed=pargs.seed,
     )
 
     # Save artifacts
-    idx_path = OUT_DIR / f"selected_n{args.target_n}_seed{args.seed}_indices.npy"
-    root_path = OUT_DIR / f"selected_n{args.target_n}_seed{args.seed}_root_ids.npy"
-    prov_path = OUT_DIR / f"selected_n{args.target_n}_seed{args.seed}_provenance.json"
+    idx_path = OUT_DIR / f"selected_n{pargs.target_n}_seed{pargs.seed}_indices.npy"
+    root_path = OUT_DIR / f"selected_n{pargs.target_n}_seed{pargs.seed}_root_ids.npy"
+    prov_path = OUT_DIR / f"selected_n{pargs.target_n}_seed{pargs.seed}_provenance.json"
 
     np.save(idx_path, result["node_indices"].astype(np.int32))
     np.save(root_path, result["root_ids"].astype(np.int64))
@@ -229,11 +250,11 @@ def main():
     print(f"  sha256(sorted_root_ids) : {result['sha256']}")
     print(f"  layer distribution : {result['layer_distribution']}")
     print(f"\n  artifacts:")
-    print(f"    indices : {idx_path.relative_to(ROOT)}")
-    print(f"    root_ids : {root_path.relative_to(ROOT)}")
-    print(f"    provenance : {prov_path.relative_to(ROOT)}")
+    print(f"    indices : {idx_path}")
+    print(f"    root_ids : {root_path}")
+    print(f"    provenance : {prov_path}")
 
-    if args.output_json:
+    if pargs.output_json:
         print("\n--- JSON provenance ---")
         print(json.dumps(prov, indent=2))
 
