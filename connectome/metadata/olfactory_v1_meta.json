@@ -139,6 +139,83 @@
     "node_meta": "connectome/metadata/olfactory_v1_node_meta.csv",
     "edge_meta": "connectome/metadata/olfactory_v1_edge_meta.csv"
   },
+  "adjacency_npz": {
+    "path": "<data-root>/connectome/adjacency/olfactory_v1.npz",
+    "size_bytes": 775202503,
+    "sha256": "ae86cbb9f848d39916136467405cab11225682c252228fd0752b8368f5049f8a",
+    "data_root_env_var": "DROSOSENSE_DATA",
+    "default_data_root": "<repo-parent>/data-root",
+    "schema": {
+      "description": "NPZ file containing sparse adjacency matrix and normalization variants. All CSR format unless noted.",
+      "keys": {
+        "adjacency_data": {
+          "dtype": "float32",
+          "shape": ["M"],
+          "semantic": "synapse counts (structural proxy, uncalibrated)"
+        },
+        "adjacency_indices": {
+          "dtype": "int32",
+          "shape": ["M"],
+          "semantic": "column indices (post-synaptic node_idx)"
+        },
+        "adjacency_indptr": {
+          "dtype": "int32",
+          "shape": ["N+1"],
+          "semantic": "row pointers (CSR format)"
+        },
+        "adjacency_shape": {
+          "dtype": "int64",
+          "shape": [2],
+          "semantic": "[N, N] where N=124185"
+        },
+        "node_ids": {
+          "dtype": "int64",
+          "shape": ["N"],
+          "semantic": "FlyWire root_ids, sorted ascending, index-aligned with rows/cols"
+        },
+        "self_loop_mask": {
+          "dtype": "int8",
+          "shape": ["N"],
+          "semantic": "1 if self-loop exists (syn_count>0 on diagonal), 0 otherwise"
+        },
+        "n0_raw": {
+          "dtype": "float32",
+          "shape": ["M"],
+          "semantic": "raw synapse counts (same as adjacency_data)"
+        },
+        "n1_pre_l1": {
+          "dtype": "float32",
+          "shape": ["M"],
+          "semantic": "row L1 normalised: w_ij / sum_j(w_ij)"
+        },
+        "n2_post_l1": {
+          "dtype": "float32",
+          "shape": ["M"],
+          "semantic": "column L1 normalised: w_ij / sum_i(w_ij)"
+        },
+        "n3_global_max": {
+          "dtype": "float32",
+          "shape": ["M"],
+          "semantic": "divided by global max (2405)"
+        },
+        "n4_log_pre_l1": {
+          "dtype": "float32",
+          "shape": ["M"],
+          "semantic": "log1p(syn_count) then row L1 normalised"
+        },
+        "n5_binary": {
+          "dtype": "float32",
+          "shape": ["M"],
+          "semantic": "1 if syn_count>=1 else 0"
+        },
+        "provenance": {
+          "dtype": "object",
+          "shape": [],
+          "semantic": "JSON string with build params and timestamp"
+        }
+      }
+    }
+  },
   "edge_mask_counts": {
     "note": "pathway_class/pre_class/post_class pending biological annotation \u2014 to be populated in a follow-up annotation step"
   },

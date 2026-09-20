@@ -36,6 +36,7 @@ __all__ = [
     "require_data_file",
     "metadata_path",
     "raw_path",
+    "adjacency_path",
 ]
 
 # <repo>/connectome/paths.py -> <repo>
@@ -91,6 +92,18 @@ def metadata_path(name: str) -> Path:
         if candidate.exists() or name == "olfactory_v1_edge_meta.csv":
             return candidate
     return REPO_ROOT / "connectome" / "metadata" / name
+
+
+def adjacency_path(name: str = "olfactory_v1.npz") -> Path:
+    """Path to an adjacency artifact (e.g. olfactory_v1.npz).
+
+    Large adjacency matrices live in the data root when one is provisioned.
+    """
+    if DATA_ROOT is not None:
+        candidate = DATA_ROOT / "connectome" / "adjacency" / name
+        if candidate.exists():
+            return candidate
+    return REPO_ROOT / "connectome" / "adjacency" / name
 
 
 def require_data_file(path: Path) -> Path:
