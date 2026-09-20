@@ -38,49 +38,71 @@ def test_resampling_over_seeds_is_refused():
 
 
 @pytest.mark.unit
-def test_bootstrap_draws_folds_within_each_seed():
-    """The bootstrap resamples fold identifiers, never seed identifiers.
+def test_bootstrap_resamples_clusters_and_never_seeds():
+    """The bootstrap draws cluster identifiers, and only cluster identifiers.
 
-    The check is structural rather than statistical: with two seeds whose fold
-    differences are drawn from disjoint ranges, a fold-respecting bootstrap can
-    never produce a resample mean outside the union of the per-seed ranges,
-    whereas a seed-respecting one trivially can.
+    Structural rather than statistical: with clusters whose values come from
+    disjoint ranges, a cluster-respecting bootstrap can never produce a resample
+    mean outside the union of the cluster means, whereas a seed-respecting one
+    trivially can.
     """
     deltas = np.array([0.00, 0.01, 10.00, 10.01])
-    seeds = np.array([0, 0, 1, 1])
-    folds = np.array([0, 1, 0, 1])
+    folds = np.array([0, 1, 0, 1])  # seeds 0 and 1, two clusters
     spec = PairedSpec(bootstrap_b=500, bootstrap_seed=1)
-    draws = fold_cluster_bootstrap(deltas, seeds, folds, spec)
-    # Each seed contributes one value near 0 and one near 10; the mean of the two
-    # seed means always lands inside [5, 10.01/... ] — never outside the data.
-    assert draws.min() >= deltas.min() - 1e-12
-    assert draws.max() <= deltas.max() + 1e-12
-    # Averaging the two per-seed means bounds the statistic well inside 0..10.01.
-    assert draws.min() > 0.0
-    assert draws.max() < 10.01
+    draws = fold_cluster_bootstrap(deltas, folds, spec)
+    # Cluster means are 5.00 and 5.01, so every resample mean lies between them.
+    assert draws.min() >= 5.0 - 1e-12
+    assert draws.max() <= 5.01 + 1e-12
+    assert draws.min() > deltas.min() and draws.max() < deltas.max()
 
 
 @pytest.mark.unit
 def test_bootstrap_is_reproducible_from_its_own_seed():
     """The interval must not depend on the run seed, only on the declared one."""
     deltas = np.array([0.1, -0.2, 0.3, 0.05, 0.2, -0.1])
-    seeds = np.array([0, 0, 0, 1, 1, 1])
     folds = np.array([0, 1, 2, 0, 1, 2])
-    a = fold_cluster_bootstrap(deltas, seeds, folds, PairedSpec(bootstrap_b=200, bootstrap_seed=7))
-    b = fold_cluster_bootstrap(deltas, seeds, folds, PairedSpec(bootstrap_b=200, bootstrap_seed=7))
-    c = fold_cluster_bootstrap(deltas, seeds, folds, PairedSpec(bootstrap_b=200, bootstrap_seed=8))
+    spec = lambda seed: PairedSpec(bootstrap_b=200, bootstrap_seed=seed)  # noqa: E731
+    a = fold_cluster_bootstrap(deltas, folds, spec(7))
+    b = fold_cluster_bootstrap(deltas, folds, spec(7))
+    c = fold_cluster_bootstrap(deltas, folds, spec(8))
     assert np.array_equal(a, b)
     assert not np.array_equal(a, c)
 
 
 @pytest.mark.unit
-def test_bootstrap_refuses_a_single_fold_per_seed():
-    """With no fold variation inside a seed there is nothing to resample."""
+def test_the_interval_does_not_shrink_as_seeds_are_added():
+    """The interval side of review item C2.
+
+    Adding seeds re-measures the same clusters. v1.1's bootstrap resampled within
+    each seed and averaged afterwards, so every extra seed divided the interval's
+    variance — the interval narrowed from 0.018 to 0.0039 across one to twenty
+    seeds on ten clusters — which is precision bought from a unit that carries no
+    new specimens. The cluster bootstrap averages the seeds INSIDE each cluster
+    and resamples clusters, so the interval is invariant to the seed count.
+    """
+    fold_values = np.array([0.02, -0.01, 0.00, 0.01, -0.02, 0.015, -0.005, 0.0, 0.01, -0.01])
+    spec = PairedSpec(bootstrap_b=2000, bootstrap_seed=11)
+
+    def widths(n_seeds: int) -> tuple[float, float]:
+        deltas = np.concatenate([0.10 - fold_values for _ in range(n_seeds)])
+        folds = np.tile(np.arange(fold_values.size), n_seeds)
+        draws = fold_cluster_bootstrap(deltas, folds, spec)
+        low, high = np.quantile(draws, [0.025, 0.975])
+        return float(high - low), float(np.mean(deltas))
+
+    one, mean_one = widths(1)
+    twenty, mean_twenty = widths(20)
+    assert one == pytest.approx(twenty)
+    assert mean_one == pytest.approx(mean_twenty)
+
+
+@pytest.mark.unit
+def test_bootstrap_refuses_a_single_cluster():
+    """With one cluster there is no cluster-to-cluster variation to resample."""
     deltas = np.array([0.1, 0.2])
-    seeds = np.array([0, 1])
     folds = np.array([0, 0])
-    with pytest.raises(InsufficientDataError, match="two or more folds"):
-        fold_cluster_bootstrap(deltas, seeds, folds, PairedSpec(bootstrap_b=10))
+    with pytest.raises(InsufficientDataError, match="fewer than two"):
+        fold_cluster_bootstrap(deltas, folds, PairedSpec(bootstrap_b=10))
 
 
 @pytest.mark.unit
@@ -106,8 +128,48 @@ def test_paired_test_reports_clusters_and_non_zero_pairs():
     assert result.n_seeds == 3
     assert result.n_nonzero == 30
     assert result.delta_ci_low < result.delta < result.delta_ci_high
-    assert result.test == "wilcoxon_signed_rank"
+    assert result.test == "cluster_sign_test"
+    assert result.paired_test == "wilcoxon_signed_rank"
     assert result.effect_size_name == "rank_biserial"
+
+
+@pytest.mark.unit
+def test_the_decisive_p_is_the_cluster_level_one_and_the_pair_level_one_is_beside_it():
+    """R0.1 review item C2, as a test.
+
+    30 pairs over 10 clusters are ten units counted three times. The decisive
+    p-value must be the sign test over the ten cluster means, and the
+    pseudoreplicated pair-level p must be published next to it rather than used.
+    """
+    # Every cluster mean is positive, so the cluster test is at its floor for
+    # n = 10; the pair-level test sees 30/30 and reports something far smaller.
+    deltas = np.full(30, 0.05)
+    seeds = np.repeat([0, 1, 2], 10)
+    folds = np.tile(np.arange(10), 3)
+    result = paired_test(deltas, seeds, folds, PairedSpec(bootstrap_b=200))
+
+    assert result.n_clusters_nonzero == 10
+    assert result.p_value == pytest.approx(2.0 / 2**10)
+    assert result.minimum_achievable_p_over_clusters == pytest.approx(2.0 / 2**10)
+    assert result.statistic == 10
+    assert result.p_paired_wilcoxon < result.p_value
+
+
+@pytest.mark.unit
+def test_five_clusters_cannot_reach_alpha_however_small_the_pair_level_p_is():
+    """The floor is a property of the design, not of the effect."""
+    deltas = np.full(50, 0.31)
+    seeds = np.repeat(np.arange(10), 5)
+    folds = np.tile(np.arange(5), 10)
+    result = paired_test(deltas, seeds, folds, PairedSpec(bootstrap_b=200))
+
+    assert result.n_clusters == 5
+    assert result.minimum_achievable_p_over_clusters == pytest.approx(0.0625)
+    assert result.p_value >= 0.0625
+    # The pair-level p is not merely small, it is many orders of magnitude below
+    # anything five independent units could produce — which is the whole reason
+    # it may not decide.
+    assert result.p_paired_wilcoxon < 1e-10
 
 
 @pytest.mark.unit
@@ -140,7 +202,10 @@ def test_fewer_than_six_non_zero_pairs_substitutes_the_sign_test():
     seeds = np.array([0, 0, 0, 0, 0, 0, 0])
     folds = np.arange(7)
     result = paired_test(deltas, seeds, folds, PairedSpec(bootstrap_b=50))
-    assert result.test == "sign_test"
+    # The substitution applies to the DESCRIPTIVE pair-level column only: the
+    # decisive test is already a sign test, over clusters rather than pairs.
+    assert result.paired_test == "sign_test"
+    assert result.test == "cluster_sign_test"
     assert result.n_nonzero == 3
     assert "sign test was substituted" in result.substitution
 

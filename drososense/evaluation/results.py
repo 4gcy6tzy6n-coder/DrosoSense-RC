@@ -286,6 +286,10 @@ def records_to_frame(records: list[RunRecord]) -> pd.DataFrame:
             "n_test_windows": record.n_test_windows,
             "n_train_specimens": len(record.train_specimens),
             "n_test_specimens": len(record.test_specimens),
+            # Carried so the aggregate can report how many DISTINCT specimens a
+            # group covers, not just how many evaluations it performed. Summing
+            # per-run counts across seeds counts the same specimen ten times.
+            "test_specimens_joined": "|".join(sorted(str(s) for s in record.test_specimens)),
             "n_train_sessions": record.n_train_sessions,
             "n_test_sessions": record.n_test_sessions,
             "duration_s": record.duration_s,
@@ -347,6 +351,7 @@ def aggregate_records(
             "n_test_windows",
             "n_train_specimens",
             "n_test_specimens",
+            "test_specimens_joined",
             "n_train_sessions",
             "n_test_sessions",
             "duration_s",
@@ -368,7 +373,18 @@ def aggregate_records(
     summary.columns = [f"{metric}_{stat}" for metric, stat in summary.columns]
     summary["n_seeds"] = grouped["seed"].nunique()
     summary["n_runs"] = grouped.size()
-    summary["n_specimens_tested"] = grouped["n_test_specimens"].sum()
+    # `n_specimen_evaluations` counts test evaluations and therefore grows with
+    # the seed count: D2 reports 50 (5 specimens x 10 seeds) and D3 reports 620.
+    # It was previously called `n_specimens_tested`, which asserted a dataset
+    # property that is ten times larger than the dataset's own specimen count and
+    # was the obvious source of a Table I "Specimens" column (review item M1).
+    # The dataset property is now reported separately, as a union over the group.
+    summary["n_specimen_evaluations"] = grouped["n_test_specimens"].sum()
+    summary["n_distinct_specimens"] = grouped["test_specimens_joined"].apply(
+        lambda values: len(
+            {specimen for value in values for specimen in str(value).split("|") if specimen}
+        )
+    )
     summary["mean_duration_s"] = grouped["duration_s"].mean()
     # AUROC is defined only on folds where every class is present, so the number
     # of runs that contributed to `auroc_mean` is reported next to it rather than
@@ -390,7 +406,8 @@ def aggregate_records(
         *expected,
         "n_seeds",
         "n_runs",
-        "n_specimens_tested",
+        "n_specimen_evaluations",
+        "n_distinct_specimens",
         "n_auroc_defined",
         "mean_duration_s",
     ]
@@ -464,6 +481,127 @@ def make_test_fingerprint(
     """
     payload = f"{fold_fingerprint}|w{window_length}|{model}|{task}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+# The per-run fields that make protocol v1.1 §17's `test_touched_once` rule
+# auditable. They are fingerprints and counts — identifiers and integers — and
+# carry no observed sensor value, which is why they can be committed while the
+# records under results/raw stay gitignored.
+FINGERPRINT_FIELDS: tuple[str, ...] = (
+    "run_id",
+    "experiment",
+    "dataset",
+    "model",
+    "task",
+    "seed",
+    "fold_id",
+    "window_length",
+    "protocol_version",
+    "evidence_class",
+    "protocol_compliant",
+    "status",
+    "failure_reason",
+    "timestamp_utc",
+    "duration_s",
+    "n_train_windows",
+    "n_test_windows",
+    "n_train_specimens",
+    "n_test_specimens",
+    "n_train_sessions",
+    "n_test_sessions",
+    "fold_fingerprint",
+    "test_fingerprint",
+    "config_hash",
+    "empty_class_policy",
+)
+
+
+def fingerprint_rows(records: list[RunRecord]) -> list[dict[str, Any]]:
+    """Reduce run records to the identifiers and counts that audit the freeze.
+
+    The raw records are large and stay gitignored, so the recipe that produced
+    each number cannot be re-derived from the repository. These fields are the
+    part of a record that is provenance rather than observation: which partition
+    was used, which evaluation it was, which configuration produced it, and how
+    much data went in. Committing them costs kilobytes and makes
+    ``test_touched_once`` checkable from the PR instead of from one machine's
+    working copy (review item H3.3).
+
+    Args:
+        records: Run records to reduce.
+
+    Returns:
+        One mapping per record, in run-id order.
+    """
+    rows: list[dict[str, Any]] = []
+    for record in sorted(records, key=lambda r: r.run_id):
+        row: dict[str, Any] = {}
+        for name in FINGERPRINT_FIELDS:
+            value = getattr(record, name, "")
+            if name == "timestamp_utc" and isinstance(value, str):
+                # Second precision is enough to order runs and does not narrow
+                # the acquisition window of the underlying data.
+                value = value[:19] + "Z" if len(value) >= 19 else value
+            row[name] = value
+        coverage = record.class_coverage or {}
+        row["class_coverage"] = json.dumps(coverage, sort_keys=True, default=str)
+        rows.append(row)
+    return rows
+
+
+def test_touched_once_report(records: list[RunRecord]) -> dict[str, Any]:
+    """Check that no test evaluation was scored twice under two configurations.
+
+    Protocol §17 defines a test evaluation as a ``test_fingerprint``: the
+    (partition, window length, model, task) tuple. Scoring it twice with the same
+    configuration is a re-computation; scoring it twice with a DIFFERENT
+    configuration hash means the model saw the test set under two settings, which
+    is what the rule forbids.
+
+    Args:
+        records: Run records to audit.
+
+    Returns:
+        Mapping with the number of distinct fingerprints, the number of repeated
+        ones, and the violations, each naming both configuration hashes.
+    """
+    by_fingerprint: dict[str, dict[str, Any]] = {}
+    for record in records:
+        if not record.test_fingerprint or record.status != "ok":
+            continue
+        entry = by_fingerprint.setdefault(
+            record.test_fingerprint, {"runs": 0, "config_hashes": set(), "run_ids": []}
+        )
+        entry["runs"] += 1
+        entry["config_hashes"].add(record.config_hash)
+        entry["run_ids"].append(record.run_id)
+
+    violations = [
+        {
+            "test_fingerprint": fingerprint,
+            "config_hashes": sorted(entry["config_hashes"]),
+            "run_ids": sorted(entry["run_ids"]),
+        }
+        for fingerprint, entry in by_fingerprint.items()
+        if len(entry["config_hashes"]) > 1
+    ]
+    repeats = sorted(
+        fingerprint for fingerprint, entry in by_fingerprint.items() if entry["runs"] > 1
+    )
+    return {
+        "n_records": len(records),
+        "n_with_fingerprint": sum(1 for r in records if r.test_fingerprint and r.status == "ok"),
+        "n_distinct_test_fingerprints": len(by_fingerprint),
+        "n_repeated_test_fingerprints": len(repeats),
+        "repeated_test_fingerprints": repeats,
+        "n_violations": len(violations),
+        "violations": violations,
+        "rule": (
+            "protocol §17: a second record with the same test_fingerprint and a different "
+            "config_hash is a protocol violation. A repeat with the SAME config_hash is a "
+            "re-computation and is reported but is not a violation."
+        ),
+    }
 
 
 def metric_float(record: RunRecord, name: str) -> float | None:

@@ -32,11 +32,15 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from drososense.evaluation.contact_log import load_contact_log  # noqa: E402
+import pandas as pd  # noqa: E402
+
 from drososense.evaluation.results import (  # noqa: E402
     aggregate_records,
     capture_environment,
+    fingerprint_rows,
     load_records,
     records_to_frame,
+    test_touched_once_report,
     write_summary_csv,
 )
 from drososense.utils.env_report import compare_environments  # noqa: E402
@@ -59,6 +63,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--per-run", action="store_true",
         help="also write the tidy per-run frame, not just the aggregate",
+    )
+    parser.add_argument(
+        "--fingerprints",
+        action="store_true",
+        help=(
+            "also write the de-identified per-run fingerprint table and the "
+            "test-touched-once audit. results/raw/** is gitignored, so without these the "
+            "§17 fingerprint chain is auditable only from the machine that produced it"
+        ),
     )
     return parser.parse_args(argv)
 
@@ -101,6 +114,20 @@ def main(argv: list[str] | None = None) -> int:
             per_run_path = RESULTS_TABLES_DIR / f"{experiment}_per_run.csv"
             records_to_frame(subset).to_csv(per_run_path, index=False)
             print(f"{per_run_path}")
+
+        if args.fingerprints:
+            fingerprint_path = RESULTS_TABLES_DIR / f"{experiment}_fingerprints.csv"
+            pd.DataFrame(fingerprint_rows(subset)).to_csv(fingerprint_path, index=False)
+            print(f"{fingerprint_path}")
+            audit = test_touched_once_report(subset)
+            audit_path = RESULTS_TABLES_DIR / f"{experiment}_test_touched_once.json"
+            audit_path.write_text(
+                json.dumps(audit, indent=2, sort_keys=True, default=str), encoding="utf-8"
+            )
+            print(
+                f"{audit_path}  ({audit['n_distinct_test_fingerprints']} distinct test "
+                f"fingerprints, {audit['n_violations']} violation(s))"
+            )
 
         if args.do_print:
             print(summary.to_string(index=False))

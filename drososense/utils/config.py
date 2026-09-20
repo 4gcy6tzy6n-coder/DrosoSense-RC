@@ -197,6 +197,134 @@ def protocol_metric_properties(protocol: Mapping[str, Any]) -> dict[str, dict[st
     return properties
 
 
+def protocol_dataset_entries(protocol: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+    """Return only the true dataset entries of the protocol's ``datasets`` block.
+
+    That block also carries non-dataset policy keys (``acquisition_policy``,
+    ``channel_intersection``). They are not datasets and must never enter a
+    symbol table or be looked up as a manifest, so membership is decided by the
+    entry declaring an ``id``.
+
+    Args:
+        protocol: The parsed protocol.
+
+    Returns:
+        Mapping of short name to the entry, for entries that declare an ``id``.
+    """
+    entries: dict[str, Mapping[str, Any]] = {}
+    for short_name, entry in protocol.get("datasets", {}).items():
+        if isinstance(entry, Mapping) and entry.get("id"):
+            entries[str(short_name)] = entry
+    return entries
+
+
+def protocol_dataset_symbols(protocol: Mapping[str, Any]) -> dict[str, str]:
+    """Map every dataset the protocol declares to the config id it stands for.
+
+    Gate expressions are written in the protocol's own vocabulary — ``D2``, not
+    ``d2_beef_uncontrolled`` — while the contrast table is keyed by the config
+    id. That mismatch is the R0.1 review's CRITICAL item C1: the symbol table was
+    built from the dataset values that happened to appear in the results, so
+    every gate that named a dataset resolved to nothing and the whole rule set
+    reported UNEVALUABLE under a reason that read like a missing contrast.
+
+    The fix is to take the names from the protocol's own ``datasets`` block,
+    which is where they are declared, and to register each short name as an alias
+    of its id. Both spellings then resolve, so an expression may use either.
+
+    Args:
+        protocol: The parsed protocol.
+
+    Returns:
+        Mapping of bare name to config id, containing each declared short name
+        (``D1``) and each declared id (``d1_beef_controlled``, resolving to
+        itself).
+    """
+    symbols: dict[str, str] = {}
+    for short_name, entry in protocol_dataset_entries(protocol).items():
+        dataset_id = str(entry["id"])
+        symbols[short_name] = dataset_id
+        symbols[dataset_id] = dataset_id
+    return symbols
+
+
+def protocol_model_symbols(protocol: Mapping[str, Any]) -> list[str]:
+    """Return every model name a gate expression may name.
+
+    The model zoo carries the registry ids (``esn``, ``gru``) while the contrasts
+    and gates carry the protocol's reservoir ids (``R0``, ``R4``). Both are
+    declared, so both resolve; the binding between them is recorded in
+    ``model_zoo.*.protocol_id`` and used by the M4 runner, which must record the
+    protocol id so that the frozen expressions keep resolving.
+
+    Args:
+        protocol: The parsed protocol.
+
+    Returns:
+        Sorted distinct model names.
+    """
+    names: set[str] = set()
+    for family in protocol.get("model_zoo", {}).values():
+        if isinstance(family, list):
+            for entry in family:
+                if isinstance(entry, Mapping):
+                    names.add(str(entry.get("id", "")))
+                    protocol_id = entry.get("protocol_id")
+                    if protocol_id:
+                        names.add(str(protocol_id))
+    for contrast in protocol.get("contrasts", {}).get("list", ()):
+        names.add(str(contrast["first"]))
+        names.add(str(contrast["second"]))
+    names.discard("")
+    return sorted(names)
+
+
+def protocol_condition_symbols(protocol: Mapping[str, Any]) -> list[str]:
+    """Return every condition a gate expression may name.
+
+    Conditions are declared by the multiplicity families, which enumerate the
+    (contrast, condition) pairs the project is allowed to report. Deriving them
+    from there means a condition that appears in a gate but in no family is
+    caught as an unknown name rather than silently resolving.
+
+    Args:
+        protocol: The parsed protocol.
+
+    Returns:
+        Sorted distinct condition names, always including ``full``.
+    """
+    names: set[str] = {"full"}
+    for family in protocol.get("multiplicity", {}).get("families", ()):
+        names.update(str(condition) for condition in family.get("conditions", ()))
+    return sorted(names)
+
+
+def protocol_effect_size_name(protocol: Mapping[str, Any], task: str) -> str:
+    """Return the declared effect size for a task.
+
+    Chosen by TASK, never by metric name: ``r2`` is a regression metric and takes
+    the Hodges-Lehmann estimator even though its name is not ``mae`` or ``rmse``,
+    which is the R0.1 review's item M3.
+
+    Args:
+        protocol: The parsed protocol.
+        task: ``classification`` or ``regression``.
+
+    Returns:
+        The declared effect-size name.
+
+    Raises:
+        KeyError: If the task declares no effect size.
+    """
+    declared = protocol["statistical_tests"]["effect_size"]
+    if task not in declared:
+        raise KeyError(
+            f"task {task!r} declares no effect size; declared: "
+            f"{sorted(k for k in declared if isinstance(declared[k], str))}"
+        )
+    return str(declared[task])
+
+
 def protocol_metric_direction(protocol: Mapping[str, Any], metric: str) -> str:
     """Return the declared direction for a metric.
 
@@ -234,7 +362,7 @@ def protocol_contrast_key(contrast: Mapping[str, Any]) -> tuple[str, str, str, s
     )
 
 
-def protocol_paired_spec(protocol: Mapping[str, Any], metric: str):
+def protocol_paired_spec(protocol: Mapping[str, Any], metric: str, task: str):
     """Build a :class:`~drososense.evaluation.stats.PairedSpec` from a protocol.
 
     The point of routing every test through one constructor is that the code
@@ -243,6 +371,8 @@ def protocol_paired_spec(protocol: Mapping[str, Any], metric: str):
     Args:
         protocol: The parsed protocol.
         metric: Metric the contrast is evaluated on.
+        task: ``classification`` or ``regression``; it selects the effect size
+            (protocol v1.2 §10 declares one per task, not per metric name).
 
     Returns:
         The frozen :class:`~drososense.evaluation.stats.PairedSpec`.
@@ -253,21 +383,24 @@ def protocol_paired_spec(protocol: Mapping[str, Any], metric: str):
     bootstrap = tests["bootstrap"]
     margins = protocol["equivalence"]["margins"]
     direction = protocol_metric_direction(protocol, metric)
-    wilcoxon = tests["primary_test"]
+    primary = tests["primary_test"]
+    pair_carried = tests.get("paired_descriptive_test", primary)
     return PairedSpec(
         alpha=float(tests["alpha"]),
         margin=float(margins.get(metric, 0.0)),
         direction=direction,
-        alternative=str(wilcoxon["alternative"]),
-        zero_method=str(wilcoxon["zero_method"]),
-        correction=bool(wilcoxon["correction"]),
-        wilcoxon_mode=str(wilcoxon["mode"]),
+        alternative=str(pair_carried["alternative"]),
+        zero_method=str(pair_carried["zero_method"]),
+        correction=bool(pair_carried["correction"]),
+        wilcoxon_mode=str(pair_carried["mode"]),
         bootstrap_b=int(bootstrap["n_resamples"]),
         bootstrap_seed=int(bootstrap["seed"]),
         ci_level=float(bootstrap["ci_level"]),
         ci_type=str(bootstrap["ci_type"]),
         resample_unit=str(bootstrap["resample_unit"]),
         stratification=str(bootstrap.get("stratification", "seed")),
+        primary_test=str(primary["name"]),
+        effect_size_name=protocol_effect_size_name(protocol, task),
     )
 
 

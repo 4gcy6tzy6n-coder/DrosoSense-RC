@@ -21,7 +21,11 @@ Predicate vocabulary (all of it — anything else is a protocol error):
     Same signature as ``delta``.
 ``sig(A, B, metric, dataset[, condition])``
     Holm-adjusted p below alpha AND the interval excludes zero on the side that
-    favours ``A``.
+    favours ``A`` AND the comparison has enough clusters for alpha to be
+    arithmetically reachable at all. The third clause is not decoration: a
+    dataset with five clusters has an exact two-sided floor of 0.0625, so a
+    "significant" result there can only come from a pseudoreplicated p-value
+    (protocol v1.2 §13).
 ``noninferior(A, B, metric, dataset[, condition])``
     ``ci_low(A - B) > -margin(metric)`` — a pre-registered non-inferiority call
     rather than a failure to reject.
@@ -48,6 +52,8 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Mapping, Sequence
+
+from drososense.evaluation.stats import minimum_achievable_p
 
 # Predicates that consume a contrast signature and return a float or a bool.
 _CONTRAST_FUNCTIONS = frozenset(
@@ -377,12 +383,16 @@ class GateEvaluator:
         p_holm = float(row["p_holm"])
         alpha = float(self.metrics.get(metric, {}).get("alpha", 0.05))
         favourable = ci_low > 0 if direction == "maximize" else ci_high < 0
+        n_clusters = self._cluster_count(row, gate_id, metric, dataset, condition)
+        minimum_p = minimum_achievable_p(n_clusters)
         self._trace[f"{contrast_id}|{metric}|{dataset}|{condition}"] = {
             "delta": delta,
             "ci_low": ci_low,
             "ci_high": ci_high,
             "p_holm": p_holm,
             "n_pairs": int(row.get("n_pairs", 0)),
+            "n_clusters": n_clusters,
+            "minimum_achievable_p_over_clusters": minimum_p,
         }
 
         if name == "delta":
@@ -396,13 +406,49 @@ class GateEvaluator:
         if name == "n_pairs":
             return int(row.get("n_pairs", 0))
         if name == "sig":
-            return bool(p_holm < alpha and favourable)
+            # Three clauses, and the third is the R0.1 review's item C2: a
+            # p-value computed over n_folds * n_seeds paired differences is
+            # pseudoreplicated, and on a dataset with too few clusters alpha is
+            # simply not reachable. Without this clause a gate could be opened by
+            # a p that no test over the actual independent units could produce.
+            return bool(p_holm < alpha and favourable and minimum_p <= alpha)
         if name == "noninferior":
             return bool(ci_low > -margin) if direction == "maximize" else bool(ci_high < margin)
         if name == "ci_contains_zero":
             return bool(ci_low <= 0 <= ci_high)
         # equiv
         return bool(ci_low > -margin and ci_high < margin)
+
+    def _cluster_count(
+        self, row: Mapping[str, Any], gate_id: str, metric: str, dataset: str, condition: str
+    ) -> int:
+        """Read the number of non-zero clusters behind a contrast.
+
+        ``sig`` refuses to decide without it. Defaulting a missing cluster count
+        to "enough" would restore exactly the failure mode the R0.1 review
+        removed: a decision taken on an independent-unit count nobody supplied.
+
+        Args:
+            row: The contrast row.
+            gate_id: Gate identifier for error messages.
+            metric: Metric name.
+            dataset: Dataset identifier.
+            condition: Condition identifier.
+
+        Returns:
+            The number of non-zero clusters.
+
+        Raises:
+            GateExpressionError: If the row carries no cluster count.
+        """
+        value = row.get("n_clusters_nonzero", row.get("n_clusters"))
+        if value is None:
+            raise GateExpressionError(
+                f"{gate_id}: contrast {metric}/{dataset}/{condition} carries no cluster count, "
+                f"so it cannot be tested at the cluster level and 'sig' cannot be decided. "
+                f"A p-value without an independent-unit count is not evaluable."
+            )
+        return int(value)
 
     def _equiv_all(self, args: Sequence[Any], gate_id: str) -> bool:
         """``equiv_all(A, B, metric, [datasets])``.
@@ -513,8 +559,12 @@ class GateEvaluator:
             return self.symbols[name]
         if name in ("True", "False", "None"):
             return {"True": True, "False": False, "None": None}[name]
+        declared = sorted(self.symbols)
         raise GateExpressionError(
-            f"{gate_id}: {name!r} is not a declared model, metric, dataset or condition"
+            f"{gate_id}: {name!r} is not a declared model, metric, dataset or condition. "
+            f"Declared names: {', '.join(declared) if declared else '(none)'}. "
+            f"An unknown name is a protocol/code namespace mismatch, NOT a missing contrast: "
+            f"a declared dataset that has no result reports 'no result for contrast' instead."
         )
 
 
@@ -547,6 +597,7 @@ def build_symbols(
     metrics: Iterable[str],
     datasets: Iterable[str],
     conditions: Iterable[str] = (),
+    aliases: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     """Build the symbol table a gate expression resolves bare names against.
 
@@ -555,13 +606,19 @@ def build_symbols(
         metrics: Metric names, e.g. ``macro_f1``.
         datasets: Dataset identifiers, e.g. ``D1``.
         conditions: Condition identifiers, e.g. ``dropout_p0.3``.
+        aliases: Extra bare names that resolve to a declared value, e.g.
+            ``{"D2": "d2_beef_uncontrolled"}``. This is how the protocol's own
+            short dataset names stay usable in a gate expression while the
+            contrast table is keyed by the config id. An alias may not shadow a
+            declared name with a different meaning.
 
     Returns:
         Mapping of bare name to the string it stands for.
 
     Raises:
         ValueError: If two categories declare the same name with different
-            meanings, which would make an expression ambiguous.
+            meanings, or an alias shadows a declared name with another value,
+            which would make an expression ambiguous.
     """
     symbols: dict[str, str] = {}
     for values in (models, metrics, datasets, conditions):
@@ -570,6 +627,16 @@ def build_symbols(
             if existing is not None and existing != str(value):
                 raise ValueError(f"gate symbol {value!r} is declared twice")
             symbols[str(value)] = str(value)
+    for name, target in (aliases or {}).items():
+        existing = symbols.get(str(name))
+        if existing is not None and existing != str(target):
+            raise ValueError(
+                f"gate alias {name!r} -> {target!r} shadows the declared name "
+                f"{existing!r}; an expression using it would be ambiguous"
+            )
+        if not str(target):
+            raise ValueError(f"gate alias {name!r} resolves to an empty target")
+        symbols[str(name)] = str(target)
     return symbols
 
 

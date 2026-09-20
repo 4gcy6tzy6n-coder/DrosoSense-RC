@@ -7,12 +7,13 @@ computational substrate for electronic-nose food-quality monitoring.
 
 ---
 
-## Status: M1 (revised) — protocol v1.1 frozen, connectome-free benchmark delivered
+## Status: M1 (revised) — protocol v1.2 frozen, connectome-free benchmark delivered
 
 This repository is at **M1**. It contains:
 
-- a frozen, machine-readable experimental protocol (`configs/protocol_v1.1.yaml`), with v1
-  kept unchanged beside it and a digest sidecar that makes a post-freeze edit detectable;
+- a frozen, machine-readable experimental protocol (`configs/protocol_v1.2.yaml`), with v1
+  and v1.1 kept unchanged beside it and a digest sidecar per version that makes a
+  post-freeze edit detectable;
 - a leakage-audited data layer: specimen- **and session**-level splits, train-only
   standardisation, bounded windowing, and active leakage audits with positive controls;
 - a nine-model baseline zoo behind one interface;
@@ -30,7 +31,7 @@ topology controls are M2/M3 work. Accordingly:
 
 That is the only claim this stage supports. Any statement that a connectome reservoir
 outperforms, or is competitive with, a baseline is **forbidden** here
-(`configs/protocol_v1.1.yaml` → `scope_boundaries.current_claims_forbidden`).
+(`configs/protocol_v1.2.yaml` → `scope_boundaries.current_claims_forbidden`).
 
 The stronger claim — *"the biological topology provides a useful inductive bias under
 limited-data and sensor-degraded conditions"* — may be used only after `Gate_B` evaluates
@@ -54,6 +55,38 @@ have become unrecoverable once real connectome evaluation started:
 | **C1** | Bootstrap resampling unit = *seeds* | Resampling unit = **fold**; seeds are a stratification and are never resampled |
 | **C2** | Gates stated as prose (`~=`, `>`, "competitive") | Boolean expressions over a fixed predicate vocabulary, with numeric equivalence margins |
 | **C3** | No freeze evidence | RFC3339 timestamp + digest sidecar + a live data-contact log |
+
+---
+
+## R0.1 review — what changed and why (protocol v1.2)
+
+The R0.1 statistical review (`DATA-18`) re-derived the delivered v1.1 tables and reproduced
+them exactly — 8/8 statistic rows, deltas, intervals and pair counts. It then returned
+**Gate B = FAIL, Gate A / C = CONDITIONAL**, on the ground that the *decision machine* could
+not be opened rather than that the numbers were wrong. No experiment was re-run.
+
+| Item | Was | Now |
+| --- | --- | --- |
+| **C1** | Gate expressions name `D2`, the contrast table is keyed `d2_beef_uncontrolled`; the symbol table was built from the values the results happened to contain, so every gate resolved nothing and reported UNEVALUABLE under a reason that read like a missing contrast | Names come from the protocol's own `datasets` block; each short name is registered as an alias of its id. Unknown name and missing contrast are separate, distinguishable failures |
+| **C1b** | `params(R0) < params(GRU)` — the evaluator was handed an empty parameter table, so Gate_A could never be evaluated even with every contrast present | Parameter counts are read from the run records' `n_trainable_parameters` |
+| **C2** | `sig()` read a Wilcoxon p over `n_folds × n_seeds` pairs: 50 pairs from 5 specimens. D2 reported p = 5.45e−13 where the cluster-level exact p is 0.0625 | The decisive test is an exact sign test over cluster means, and `sig` additionally requires `minimum_achievable_p_over_clusters ≤ α` |
+| **C2b** | Same defect in the bootstrap: resampling within each seed and averaging afterwards made the interval narrow as seeds were added (0.018 → 0.0039 across 1 → 20 seeds on ten clusters) — and Gate_A is decided entirely by interval predicates | Seeds are averaged inside each cluster *before* the clusters are resampled; the interval is invariant to the seed count |
+| **H1** | D2's cut grouping was described as specimen-level, and its 2016/2018 campaigns were unrecorded | `group_semantics_verified: false`; the campaign dates recorded; leave-TS1-out and leave-{TS2..TS5}-out decomposition is a mandatory E1 reporting item |
+| **H2** | D3's endpoint is seven storage days; nothing said so | 7 endpoint levels, `df_cap: 7`, `label_stratum: day` declared, with the obligation to relate any D3 n / df / CI / resampling unit to them |
+| **H4** | `--check` printed "first test evaluation: not started" while the live log had 24 entries | It prints the live log's value, and warns when the frozen placeholder and the live log disagree |
+| **M1** | `n_specimens_tested` summed per-run counts (D2 reported 50 for 5 specimens) | `n_specimen_evaluations` + `n_distinct_specimens` (D2 = 5, D3 = 62) |
+| **M2** | D3 stated 63 specimens in four places | 62, with the 63 raw filename tokens and the two aliases that reduce them recorded |
+| **M3** | Effect size chosen by metric *name*, so `r2` fell through to rank-biserial | Chosen by **task**; `r2` takes Hodges–Lehmann |
+| **M4** | `equivalence_p` was a proxy, not a TOST p | Renamed `tost_proxy_p` and labelled; the cluster count behind an equivalence verdict is reported |
+| **M5** | D1's `data_verified.specimens: 12` described a split it no longer used | `specimens: null` + the time-block surrogate actually in use |
+| Aux | Protocol claimed a 7-channel D1/D2/D3 intersection including `MQ2`/`MQ4`, which D3 does not have | Measured intersection: `{MQ3, MQ5, MQ135, temperature, humidity}` — 5 channels |
+
+Two things this rework deliberately did **not** do. It did not change any
+`split_protocol` value: `open_decisions[OD1]` in the protocol records that Gate_B and
+Gate_C are unreachable at five clusters, states the arithmetic, and leaves the choice to
+the project owner, because changing a split until a gate becomes reachable is choosing
+the design after knowing which way the gate leans. And it did not start any connectome
+experiment.
 
 ---
 
@@ -101,10 +134,11 @@ python scripts/summarize.py --experiment smoke --print
 
 ## The frozen protocol
 
-`configs/protocol_v1.1.yaml` is the contract. Its digest is recorded in
-`configs/protocol_v1.1.sha256`; `python -m drososense.utils.protocol --check` recomputes it
+`configs/protocol_v1.2.yaml` is the contract. Its digest is recorded in
+`configs/protocol_v1.2.sha256`; `python -m drososense.utils.protocol --check` recomputes it
 and fails on any drift. A frozen protocol is amended by **adding** a version file, never by
-editing one — so `configs/protocol_v1.yaml` is still on disk, byte for byte as frozen.
+editing one — so `protocol_v1.yaml` and `protocol_v1.1.yaml` are still on disk, byte for
+byte as frozen, and `protocol_v1.1.sha256` still matches.
 
 | Item | Value |
 | --- | --- |
@@ -116,13 +150,28 @@ editing one — so `configs/protocol_v1.yaml` is still on disk, byte for byte as
 | Regression primary / secondary | `mae` / RMSE, R² |
 | Co-primary policy | both required, no alpha split |
 | Contrasts | enumerated (`R0_vs_R2`, `R0_vs_R4`, `R0_vs_R3`, `R0_vs_GRU`, `R0_vs_R5`, `R0_vs_R1`) |
-| Primary test | paired Wilcoxon signed-rank, two-sided, `zero_method=wilcox`, α = 0.05 |
-| Effect size | rank-biserial (classification), Hodges–Lehmann (regression), with CI |
-| Bootstrap | 10 000 resamples, percentile CI, **resampling unit = fold**, seed fixed |
+| **Primary (decisive) test** | **exact two-sided sign test over cluster means**, α = 0.05 |
+| Descriptive pair-level test | Wilcoxon signed-rank, two-sided, `zero_method=wilcox` — published, **not decisive** |
+| Effect size | rank-biserial (classification), Hodges–Lehmann (regression), chosen **by task** |
+| Bootstrap | 10 000 resamples, percentile CI, **resampling unit = fold**, seed fixed, seeds averaged inside each cluster |
 | Pairing | observation = `(seed, fold)`; `n_pairs = n_folds × n_seeds`; `n_clusters = n_folds` |
-| Equivalence | TOST at Δmacro-F1 = 0.02, ΔMAE = 0.05 — interval inclusion, never "failed to reject" |
+| Equivalence | TOST at Δmacro-F1 = 0.02, ΔMAE = 0.05 — interval inclusion, never "failed to reject"; the number published beside it is `tost_proxy_p`, a proxy |
 | Multiplicity | Holm, families enumerated per `(contrast, condition)` |
 | Window candidates | L ∈ {8, 16, 32, 64}, selected on **validation**, `test_touched_once: true` |
+
+### Gate reachability, stated plainly
+
+`sig(...)` requires `minimum_achievable_p_over_clusters <= alpha`, and an exact sign
+test over `n` clusters cannot report below `2 / 2**n`. A dataset with **five** clusters
+therefore has a floor of **0.0625 > 0.05**: no significant cluster-level result is
+reachable there, whatever the data says.
+
+D2 has five published groups and always will. D3's five blocks are a `split_protocol`
+choice, and D3 has 62 fillets, so its cluster count can be raised. Under the current
+split **Gate_B and Gate_C cannot be opened**, and that is a property of the design rather
+than of any result. The remedy is recorded as `amendment_v1_2.open_decisions[OD1]` and is
+deliberately **not** applied: changing a split until a gate becomes reachable would be
+choosing the design after knowing which way the gate leans.
 | Standardisation | `x' = (x − μ_train)/(σ_train + ε)`, fitted on **train only** |
 | Gates | A (viable), B (TAFE-worthy), C (strong paper) — boolean expressions |
 | Narrative rules | N1–N5, each with an evaluable trigger |
@@ -230,8 +279,9 @@ of evidence. The provenance differs and is recorded per dataset:
 ## Repository layout
 
 ```text
-configs/          protocol_v1.yaml (frozen, unchanged) + protocol_v1.1.yaml (active)
-                  protocol_v1.1.sha256 + dataset configs
+configs/          protocol_v1.yaml + protocol_v1.1.yaml (both frozen, unchanged)
+                  + protocol_v1.2.yaml (active)
+                  one .sha256 sidecar per version + dataset configs
 data/
   raw/            acquired files (git-ignored)
   processed/      normalised frames (git-ignored)
@@ -325,7 +375,7 @@ record produced by the compliant D2 benchmark:
   "model": "svm_rbf",
   "task": "classification",
   "seed": 0, "fold_id": 0,
-  "protocol_version": "1.1.0",
+  "protocol_version": "1.1.0",   # v1.1 runs keep their label; M4 runs record 1.2.0
   "window_length": 16,
   "metrics": {"macro_f1": 0.6682, "balanced_accuracy": 0.6908, "accuracy": 0.7650,
               "auroc": 0.8987, "auroc_n_classes_scored": 4, "auroc_defined": true,
@@ -369,7 +419,7 @@ class is absent.
 
 ---
 
-## Regenerated results (M1, protocol v1.1)
+## Regenerated results (M1, protocol v1.2)
 
 The benchmark was regenerated on the corrected bindings. Counts are stated exactly, because
 the previous revision overstated them ("36 runs each" for what was 18 per dataset):
@@ -399,20 +449,50 @@ Exploratory baseline comparisons (`--exploratory esn,gru`) exercise the machiner
 data and are labelled exploratory — never corrected inside a protocol family, and unable to
 make a gate true. Each line carries what the protocol demands beside the p-value:
 
-| contrast | metric | dataset | n_pairs | n_clusters | Δ | 95% CI | effect | p |
-| --- | --- | --- | ---: | ---: | ---: | --- | ---: | ---: |
-| esn vs gru | macro_f1 | D2 | 50 | **5** | −0.227 | [−0.262, −0.190] | −0.970 | 5.5e−13 |
-| esn vs gru | macro_f1 | D3 | 50 | **5** | −0.0005 | [−0.011, +0.010] | −0.058 | 0.73 |
-| esn vs gru | mae | D3 | 50 | **5** | +0.049 | [+0.040, +0.059] | +0.043 | 8.9e−15 |
+| contrast | metric | dataset | n_pairs | n_clusters | Δ | 95% CI | effect | p (decisive) | p (pair-level, descriptive) |
+| --- | --- | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: |
+| esn vs gru | macro_f1 | D2 | 50 | **5** | −0.227 | [−0.262, −0.190] | −0.970 | **0.0625** | 5.5e−13 |
+| esn vs gru | macro_f1 | D3 | 50 | **5** | −0.0005 | [−0.011, +0.010] | −0.058 | **0.375** | 0.73 |
+| esn vs gru | mae | D3 | 50 | **5** | +0.049 | [+0.040, +0.059] | +0.043 | **0.0625** | <1e−12 |
 
-Read `n_clusters` before the p-value: with five folds the exact two-sided minimum p over five
-clusters is 0.0625, so a *cluster-level* claim at α = 0.05 is not reachable on either dataset
-alone. The table prints that minimum (`minimum_achievable_p_over_clusters`) next to every
-row for exactly that reason. The bootstrap interval resamples those five folds — never the
-ten seeds.
+Read `n_clusters` before the p-value. The decisive column is the exact sign test over the
+five cluster means; its floor is 2/2⁵ = 0.0625, so a cluster-level claim at α = 0.05 is not
+reachable on either dataset alone, and the table prints that floor
+(`minimum_achievable_p_over_clusters`) beside every row. The far-right column is the
+pair-level Wilcoxon over all 50 `(seed, fold)` pairs — the number the earlier protocol
+published as *the* p-value (5.5e−13 above). It is still shown, because a reader must be able
+to see what changed and why, but it is pseudoreplicated and **no gate reads it**.
+
+Seed counts do not buy confidence here: the interval and the decisive p-value are invariant
+to the number of seeds, because the seeds are averaged inside each cluster before anything is
+resampled.
 
 `results/tables/m1_benchmark_gates.json` records each gate and narrative rule with its
-per-term values.
+per-term values and, on every `sig` term, the cluster count and reachability floor behind it.
+`results/tables/m1_benchmark_dataset_availability.json` records which datasets were obtained,
+read from the manifests rather than from which contrasts this experiment happened to produce.
+
+### Auditing the freeze from the repository alone
+
+`results/raw/**` is git-ignored, so the per-run provenance the protocol relies on would
+otherwise be checkable only on the machine that produced it. `results/tables/*_fingerprints.csv`
+therefore commits the **identifiers and counts** of every run — `fold_fingerprint`,
+`test_fingerprint`, `config_hash`, `class_coverage`, session and window counts, timestamp,
+duration — and nothing observed. No sensor value is in it.
+
+`results/tables/*_test_touched_once.json` turns that into the §17 check: a repeated
+`test_fingerprint` with a *different* `config_hash` is a violation. Current state:
+
+| Experiment | Records | With a fingerprint | Distinct fingerprints | Repeats | Violations |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `m1_benchmark` | 1600 | 1600 | 1600 | 0 | **0** |
+| `m1_real_validation` | 80 | 68 | 68 | 0 | **0** |
+| `smoke` | 32 | 32 | 32 | 0 | **0** |
+
+The `m1_real_validation` row shows the bookkeeping working: 12 of its 80 records carry no
+`test_fingerprint` because they are the 12 failures described above — a run that never
+scored a test split has no test evaluation to fingerprint, and the audit counts it as
+absent rather than inventing one.
 
 ---
 
@@ -489,7 +569,7 @@ environment is not the declared one.
 
 | Stage | Content | Depends on |
 | --- | --- | --- |
-| **M1** ✅ | Protocol v1.1 frozen; leakage-audited benchmark; three datasets acquired | — |
+| **M1** ✅ | Protocol v1.2 frozen (v1.1 superseded after the R0.1 review); leakage-audited benchmark; three datasets acquired | — |
 | M2 | FlyWire/Codex olfactory subcircuit → `olfactory_v1.npz` + network report | M1 + **FlyWire CAVE/Codex token** |
 | M3 | Frozen connectome reservoir + topology controls R0–R6 | M2 |
 | M4 | E1–E12 experiments, paired statistics, Gates A/B/C | M3 |

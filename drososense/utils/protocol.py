@@ -59,29 +59,59 @@ def freeze_status(
 ) -> dict[str, Any]:
     """Return the full freeze state of a protocol.
 
+    The protocol file itself is REQUIRED to keep
+    ``freeze_evidence.data_contact_log.first_test_evaluation_at`` null (§1), and
+    the live record lives in ``results/tables/data_contact_log.json``. Reporting
+    only the frozen placeholder made ``--check`` print "first test evaluation:
+    not started" while the live log already held two dozen contacts, which a
+    reader would take as the opposite of the truth (review item H4). Both values
+    are therefore reported, and ``first_test_evaluation_at`` is the LIVE one.
+
     Args:
         path: Protocol file; defaults to the active one.
         sidecar: Sidecar path; defaults to the active protocol's.
 
     Returns:
-        Mapping combining the digest comparison with the protocol's own
-        declared freeze evidence.
+        Mapping combining the digest comparison, the protocol's own declared
+        freeze evidence, and the live contact log.
     """
+    from drososense.evaluation.contact_log import contact_log_path, load_contact_log
+
     report = verify_protocol_freeze(path, sidecar)
     target = Path(path) if path is not None else PROTOCOL_PATH
     protocol = load_protocol(target)
     evidence = protocol.get("freeze_evidence", {})
+    declared = evidence.get("data_contact_log", {})
+
+    live_log = load_contact_log()
+    live_first = live_log.first_test_evaluation_at
+    live_entries = list(live_log.entries)
+    live_datasets = list(live_log.datasets_touched)
+    declared_first = declared.get("first_test_evaluation_at")
+
+    if live_first:
+        contact_status = f"{live_first} (live log)"
+    elif live_entries:
+        contact_status = "log has entries but none counts as a first test evaluation"
+    else:
+        contact_status = "not started"
+
     report.update(
         {
             "protocol_version": protocol.get("protocol_version"),
             "frozen": protocol.get("frozen"),
             "frozen_at": protocol.get("frozen_at"),
-            "data_contact_log": evidence.get("data_contact_log", {}),
-            "first_test_evaluation_at": (
-                evidence.get("data_contact_log", {}).get("first_test_evaluation_at")
-            ),
-            "test_evaluation_started": (
-                evidence.get("data_contact_log", {}).get("first_test_evaluation_at") is not None
+            "data_contact_log": declared,
+            "declared_first_test_evaluation_at": declared_first,
+            "live_contact_log_path": str(contact_log_path()),
+            "live_entries": len(live_entries),
+            "live_datasets_touched": live_datasets,
+            "live_first_test_evaluation_at": live_first,
+            "first_test_evaluation_at": live_first,
+            "contact_status": contact_status,
+            "test_evaluation_started": live_first is not None,
+            "declared_matches_live": (
+                declared_first is None or declared_first == live_first
             ),
         }
     )
@@ -129,9 +159,21 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(
         f"freeze OK: {status['protocol_version']} frozen at {status['frozen_at']}, "
-        f"sha256 {status['actual'][:12]}…, "
-        f"first test evaluation: {status['first_test_evaluation_at'] or 'not started'}"
+        f"sha256 {status['actual'][:12]}…"
     )
+    print(
+        f"  first test evaluation: {status['contact_status']}\n"
+        f"    live log {status['live_contact_log_path']}: "
+        f"{status['live_entries']} entr(ies), datasets {status['live_datasets_touched'] or '[]'}\n"
+        f"    the frozen protocol's own field is null by design (§1) and is NOT the live state"
+    )
+    if not status["declared_matches_live"]:
+        print(
+            f"    WARNING: the protocol declares first_test_evaluation_at="
+            f"{status['declared_first_test_evaluation_at']!r} but the live log says "
+            f"{status['live_first_test_evaluation_at']!r}",
+            file=sys.stderr,
+        )
     return 0
 
 

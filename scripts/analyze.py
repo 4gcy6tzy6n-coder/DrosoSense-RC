@@ -9,13 +9,22 @@ and evaluates each gate and narrative rule as a boolean expression.
 Three properties are worth stating plainly, because they are the difference
 between this and a script that prints p-values:
 
-* The resampling unit is the **fold** (protocol v1.1 §8). Seeds are a
+* The resampling unit is the **fold** (protocol v1.2 §8). Seeds are a
   stratification, never a resampling unit; ``PairedSpec`` refuses the latter.
+* The DECISIVE p-value is the cluster-level exact sign test (protocol v1.2 §10),
+  not the pair-level Wilcoxon. The pair-level test is still computed and
+  published beside it, marked descriptive, because a reader must be able to see
+  the difference between a pseudoreplicated p and a real one.
 * A contrast with too few observations to test raises rather than reporting
   ``p = 1``, and a gate that references an unavailable contrast is reported as
   ``UNEVALUABLE`` rather than as failed.
 * Every line carries ``n_pairs``, ``n_clusters`` and the effect size beside the
   p-value, so a reader can see how much independent evidence is behind it.
+* The symbol table a gate resolves against is built from the protocol's own
+  ``datasets``/``model_zoo``/``multiplicity`` declarations, never from whichever
+  values happen to appear in this experiment's results. Deriving declared names
+  from observed data is what made every gate report UNEVALUABLE in the first
+  delivery (R0.1 review item C1).
 
 Examples
 --------
@@ -46,12 +55,14 @@ from drososense.evaluation.results import load_records  # noqa: E402
 from drososense.evaluation.stats import (  # noqa: E402
     InsufficientDataError,
     holm_correction,
-    minimum_achievable_p,
     paired_test,
 )
 from drososense.utils.config import (  # noqa: E402
     load_protocol,
+    protocol_condition_symbols,
+    protocol_dataset_symbols,
     protocol_metric_properties,
+    protocol_model_symbols,
     protocol_paired_spec,
 )
 from drososense.utils.paths import RESULTS_TABLES_DIR, ensure_dir  # noqa: E402
@@ -166,7 +177,7 @@ def build_contrast_table(
         for task, metric in metric_by_task.items():
             if metric not in frame.columns:
                 continue
-            spec = protocol_paired_spec(protocol, metric)
+            spec = protocol_paired_spec(protocol, metric, task)
             paired_all = observations(frame, first, second, metric)
             if paired_all.empty:
                 continue
@@ -200,10 +211,9 @@ def build_contrast_table(
                 row["task"] = task
                 row["status"] = "ok"
                 row["classification"] = kind
+                # `p_holm` is filled in below, inside the family; NaN here means
+                # "not corrected" rather than "corrected to NaN".
                 row["p_holm"] = float("nan")
-                row[
-                    "minimum_achievable_p_over_clusters"
-                ] = minimum_achievable_p(result.n_clusters)
                 rows.append(row)
 
     table = pd.DataFrame(rows)
@@ -221,53 +231,150 @@ def build_contrast_table(
     return table
 
 
+def dataset_availability(protocol: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Report which declared datasets have their data on disk.
+
+    Availability is read from the dataset's own manifest and its files, NOT from
+    whether this experiment happened to produce a contrast for it. The first
+    delivery derived it from the contrast table, which made ``unavailable(D1)``
+    true for a dataset that was acquired and merely excluded for a different
+    reason — and N5 would have fired, instructing a reader to re-acquire data
+    that is already present.
+
+    Args:
+        protocol: The parsed protocol.
+
+    Returns:
+        Mapping of dataset id to a report with ``available``, ``status``,
+        ``missing`` and ``corrupt``.
+    """
+    from drososense.data.manifest import load_manifest, manifest_path, verify_manifest
+    from drososense.utils.config import protocol_dataset_entries
+
+    report: dict[str, dict[str, Any]] = {}
+    for short_name, entry in protocol_dataset_entries(protocol).items():
+        dataset_id = str(entry["id"])
+        path = manifest_path(dataset_id)
+        if not path.is_file():
+            report[dataset_id] = {
+                "short_name": short_name,
+                "available": False,
+                "status": "no_manifest",
+                "missing": [],
+                "corrupt": [],
+                "reason": f"no manifest at {path}",
+            }
+            continue
+        manifest = load_manifest(path)
+        verification = verify_manifest(manifest)
+        available = bool(manifest.is_usable and verification["ok"])
+        reason = ""
+        if not manifest.is_usable:
+            reason = f"manifest status is {manifest.status.value!r}"
+        elif verification["missing"]:
+            reason = f"{len(verification['missing'])} required file(s) not on disk"
+        elif verification["corrupt"]:
+            reason = f"{len(verification['corrupt'])} file(s) failed their recorded sha256"
+        report[dataset_id] = {
+            "short_name": short_name,
+            "available": available,
+            "status": manifest.status.value,
+            "missing": list(verification["missing"]),
+            "corrupt": list(verification["corrupt"]),
+            "reason": reason,
+        }
+    return report
+
+
+def model_parameter_counts(records: list[Any]) -> dict[str, int]:
+    """Collect each model's trainable-parameter count from the run records.
+
+    ``Gate_A`` ends in ``params(R0) < params(GRU)``, and the evaluator used to be
+    handed an empty mapping — so even with every contrast present, Gate_A could
+    never be evaluated. The count is a property of the MODEL, so it is read from
+    every record available, including non-compliant ones: excluding a run for a
+    non-compliant split must not also erase the fact that the model has that many
+    parameters (review item C1, second occurrence — the geometry was wired, the
+    numbers behind it were not).
+
+    Args:
+        records: Run records to scan.
+
+    Returns:
+        Mapping of model id to its recorded trainable-parameter count.
+    """
+    counts: dict[str, int] = {}
+    for record in records:
+        description = getattr(record, "model_description", None) or {}
+        reported = description.get("n_trainable_parameters")
+        if reported is None:
+            continue
+        counts.setdefault(str(record.model), int(reported))
+    return counts
+
+
 def evaluate_rules(
-    table: pd.DataFrame, protocol: dict[str, Any]
+    table: pd.DataFrame,
+    protocol: dict[str, Any],
+    availability: dict[str, dict[str, Any]] | None = None,
+    model_params: dict[str, int] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Evaluate every gate and narrative rule against the contrast table.
+
+    The symbol table is built from what the PROTOCOL declares — its datasets,
+    model zoo, metrics and multiplicity conditions — not from what this
+    experiment happens to contain. A name that is declared but has no result
+    produces "no result for contrast"; a name that is not declared at all
+    produces a namespace error. Those are different failures and the reviewer
+    must be able to tell them apart (R0.1 review item C1).
 
     Args:
         table: The contrast table from :func:`build_contrast_table`.
         protocol: The parsed protocol.
+        availability: Output of :func:`dataset_availability`; computed here when
+            omitted.
+        model_params: Trainable-parameter counts by model id, from
+            :func:`model_parameter_counts`. Left empty, every ``params(...)``
+            term is unevaluable and Gate_A can never pass.
 
     Returns:
         Mapping of rule id to ``{"expression", "result", "detail"}`` where
         ``result`` is ``True``, ``False`` or ``"UNEVALUABLE"``.
     """
     contrasts: dict[tuple[str, str, str, str], dict[str, Any]] = {}
-    for _, row in table[table["status"] == "ok"].iterrows():
+    # An empty table is a legitimate state — it means no declared contrast is
+    # present in this experiment — and it must produce a stated UNEVALUABLE for
+    # every rule rather than a KeyError on a column that no longer exists.
+    ok_rows = table[table["status"] == "ok"] if "status" in table.columns else table.iloc[0:0]
+    for _, row in ok_rows.iterrows():
         contrasts[(row["contrast_id"], row["metric"], row["dataset"], row["condition"])] = {
             "delta": float(row["delta"]),
             "ci_low": float(row["delta_ci_low"]),
             "ci_high": float(row["delta_ci_high"]),
             "p_holm": float(row["p_holm"]),
             "n_pairs": int(row["n_pairs"]),
+            "n_clusters": int(row["n_clusters"]),
+            "n_clusters_nonzero": int(row["n_clusters_nonzero"]),
         }
 
-    zoo = protocol["model_zoo"]
-    models = [
-        entry["id"]
-        for family in zoo.values()
-        if isinstance(family, list)
-        for entry in family
-    ]
-    models += [entry["first"] for entry in protocol["contrasts"]["list"]]
-    models += [entry["second"] for entry in protocol["contrasts"]["list"]]
-    metrics = sorted(protocol_metric_properties(protocol))
-    datasets = sorted({key[2] for key in contrasts})
-    conditions = sorted({key[3] for key in contrasts}) + [
-        "dropout_p0.3",
-        "noise_s0.1",
-        "train10pct",
-        "train25pct",
-    ]
+    availability = availability if availability is not None else dataset_availability(protocol)
+    available_datasets = sorted(
+        dataset_id for dataset_id, entry in availability.items() if entry["available"]
+    )
 
+    metrics = sorted(protocol_metric_properties(protocol))
     evaluator = GateEvaluator(
         contrasts=contrasts,
         metrics=protocol_metric_properties(protocol),
-        model_params={},
-        symbols=build_symbols(models, metrics, datasets, conditions),
-        available_datasets=datasets,
+        model_params=model_params or {},
+        symbols=build_symbols(
+            protocol_model_symbols(protocol),
+            metrics,
+            [],
+            protocol_condition_symbols(protocol),
+            aliases=protocol_dataset_symbols(protocol),
+        ),
+        available_datasets=available_datasets,
     )
 
     out: dict[str, dict[str, Any]] = {}
@@ -324,6 +431,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     protocol = load_protocol()
 
+    # Parameter counts come from every record, not only this experiment's: a
+    # model's size does not depend on which split produced the run.
+    model_params = model_parameter_counts(load_records())
+
     records = [r for r in load_records() if r.experiment == args.experiment]
     if not args.include_non_compliant:
         records = [r for r in records if r.protocol_compliant]
@@ -370,10 +481,21 @@ def main(argv: list[str] | None = None) -> int:
     table.to_csv(stats_path, index=False)
     print(f"{stats_path}  ({len(table)} rows)")
 
-    rules = evaluate_rules(table, protocol)
+    availability = dataset_availability(protocol)
+    availability_path = RESULTS_TABLES_DIR / f"{args.experiment}_dataset_availability.json"
+    availability_path.write_text(
+        json.dumps(availability, indent=2, sort_keys=True, default=str), encoding="utf-8"
+    )
+
+    rules = evaluate_rules(table, protocol, availability, model_params)
     rules_path = RESULTS_TABLES_DIR / f"{args.experiment}_gates.json"
     rules_path.write_text(json.dumps(rules, indent=2, sort_keys=True, default=str), encoding="utf-8")
     print(f"{rules_path}")
+    print(f"{availability_path}")
+
+    for dataset_id, entry in sorted(availability.items()):
+        state = "available" if entry["available"] else f"NOT available ({entry['reason']})"
+        print(f"  {entry['short_name']} -> {dataset_id}: {state}")
 
     for rule_id, outcome in sorted(rules.items()):
         print(f"  {rule_id}: {outcome['result']}")
@@ -383,8 +505,10 @@ def main(argv: list[str] | None = None) -> int:
             c
             for c in (
                 "contrast_id", "classification", "metric", "dataset", "task", "n_pairs",
-                "n_clusters", "n_nonzero", "delta", "delta_ci_low", "delta_ci_high",
-                "effect_size", "test", "p_value", "p_holm", "equivalent",
+                "n_clusters", "n_clusters_nonzero", "n_nonzero", "delta", "delta_ci_low",
+                "delta_ci_high", "effect_size", "effect_size_name", "test", "statistic",
+                "p_value_reported", "p_holm", "paired_test",
+                "p_paired_wilcoxon_reported", "equivalent", "tost_proxy_p",
                 "minimum_achievable_p_over_clusters",
             )
             if c in table.columns

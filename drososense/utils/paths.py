@@ -25,14 +25,20 @@ RESULTS_FIGURES_DIR: Path = PROJECT_ROOT / "results" / "figures"
 # earlier protocol stay attributable to the text that produced them.
 PROTOCOL_V1_PATH: Path = CONFIGS_DIR / "protocol_v1.yaml"
 PROTOCOL_V1_1_PATH: Path = CONFIGS_DIR / "protocol_v1.1.yaml"
+PROTOCOL_V1_2_PATH: Path = CONFIGS_DIR / "protocol_v1.2.yaml"
 
 # The active protocol. Everything that reads "the protocol" reads this.
-PROTOCOL_PATH: Path = PROTOCOL_V1_1_PATH
+#
+# v1.2 supersedes v1.1 for the DECISION MACHINE only: v1.1's gate expressions
+# could not resolve a dataset name and its decisive p-value was pseudoreplicated.
+# v1.1 stays on disk, unchanged, with its own sidecar still matching, so every
+# result produced under it remains attributable to the text that produced it.
+PROTOCOL_PATH: Path = PROTOCOL_V1_2_PATH
 
 # A protocol cannot contain its own hash. The digest of the frozen YAML lives in
 # a sidecar file next to it, which is what makes a post-freeze edit detectable:
 # `python -m drososense.utils.protocol --check` recomputes it.
-PROTOCOL_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.1.sha256"
+PROTOCOL_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.2.sha256"
 
 
 def ensure_dir(path: Path) -> Path:

@@ -34,12 +34,16 @@
 # ---------------------------------------------------------------------------
 # THE SPECIMEN GROUPING
 #
-# 210 files over 63 specimens. The token after the date (`F1F1`, `F2F14`, …) is
+# 210 files over 62 specimens. The token after the date (`F1F1`, `F2F14`, …) is
 # the fillet; the same token reappears on several days with a strictly larger TVC
-# each time, which is what makes it a repeated-measures panel of 63 independent
-# fillets rather than 210 one-off measurements. `split_unit: specimen` is
-# therefore satisfied and LOSO/GroupKFold over the fillets is a real
-# specimen-level split.
+# each time, which is what makes it a repeated-measures panel of fillets rather
+# than 210 one-off measurements. `split_unit: specimen` is therefore satisfied
+# and LOSO/GroupKFold over the fillets is a real specimen-level split.
+#
+# 62, NOT 63. There are 63 distinct tokens in the raw filenames, and two of them
+# are typos that `raw.specimen_aliases` (below) folds onto a real fillet, so the
+# dataset has 62 specimens. The raw-token count is recorded separately below so
+# the two numbers cannot be confused again.
 #
 # Two files carry a typo in their names. `raw.specimen_aliases` records each one
 # with the evidence for the identity claim, and the loader refuses to start if an
@@ -54,8 +58,9 @@ schema_verified: true
 schema_verified_on: "2026-09-20"
 schema_verification_note: >
   Measured on the 210 extracted CSVs: one distinct header across all of them,
-  25,080 rows in total, 63 specimens, zero missing values, `TVC` with exactly
-  seven distinct values and `Label` constant within every file.
+  25,080 rows in total, 62 specimens (from 63 raw filename tokens, two of which
+  are aliased), zero missing values, `TVC` with exactly seven distinct values
+  and `Label` constant within every file.
 
 source:
   url: "https://zenodo.org/records/20649184"
@@ -143,11 +148,43 @@ labels:
     and regression are two views of one variable and are never presented as
     independent evidence.
 
+specimen_count: 62
+raw_filename_tokens: 63
+specimen_count_note: >
+  62 specimens come from 63 raw filename tokens: `raw.specimen_aliases` folds two
+  typo'd tokens onto real fillets. Counting the glob directly gives 63 and is the
+  count this file used to state; the loader's own raw records give 62
+  (n_train + n_test + val per fold sums to 62). 62 is the specimen count.
+
+# ---------------------------------------------------------------------------
+# THE ENDPOINT STRATUM (review item H2)
+# ---------------------------------------------------------------------------
+# D3's ground truth is not continuous and not row-level. `TVC` is constant within
+# a file and takes exactly seven values, one per storage day
+# (4.16, 4.46, 5.48, 5.56, 6.08, 7.75, 7.86), and the four-level label is a
+# deterministic function of which of the seven a row carries. The 25,080 rows are
+# therefore highly repeated in the supervised sense, and the endpoint degrees of
+# freedom cannot exceed 7 whatever the row count says.
+#
+# `day` is a leakage and session boundary AND the endpoint stratum. Any n, df,
+# confidence interval or bootstrap resampling unit reported on D3 must state how
+# it relates to those seven levels; an n counted over rows, windows or sessions
+# is not an endpoint sample size.
+label_stratum:
+  column: day
+  n_levels: 7
+  df_cap: 7
+  derivation: "one storage day per distinct TVC value; the level is the value's day"
+  obligation: >
+    Report the relation to the seven day levels for any D3 n / df / CI / bootstrap
+    resampling unit. This is declared now, before M4, because nothing in protocol
+    v1.1 would have stopped a row-count n from being introduced.
+
 specimen:
   source: series_file
   note: >
     PROVIDER-PUBLISHED grouping. The fillet token in the filename is the
-    specimen; 63 of them, each measured on 1–7 storage days. Windows are built
+    specimen; 62 of them, each measured on 1–7 storage days. Windows are built
     inside a single (fillet, session) so that a window can never mix two storage
     days, which would combine channels from one occasion with a label from
     another.

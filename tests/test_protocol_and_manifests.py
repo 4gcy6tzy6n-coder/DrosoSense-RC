@@ -9,6 +9,7 @@ discouraged.
 
 from __future__ import annotations
 
+import hashlib
 import re
 
 import pytest
@@ -29,7 +30,12 @@ from drososense.utils.config import (
     protocol_metric_properties,
     verify_protocol_freeze,
 )
-from drososense.utils.paths import CONFIGS_DIR, DATA_MANIFESTS_DIR, PROTOCOL_SHA256_PATH
+from drososense.utils.paths import (
+    CONFIGS_DIR,
+    DATA_MANIFESTS_DIR,
+    PROTOCOL_PATH,
+    PROTOCOL_SHA256_PATH,
+)
 
 EXPECTED_DATASETS = {
     "d1_beef_controlled",
@@ -54,19 +60,65 @@ EXPECTED_DOI = {
 def test_protocol_declares_it_is_frozen_with_a_timestamp(protocol):
     """The protocol states its own freeze status, version and RFC3339 timestamp."""
     assert protocol["frozen"] is True
-    assert protocol["protocol_version"].startswith("1.1")
+    assert protocol["protocol_version"].startswith("1.2")
     frozen_at = protocol["frozen_at"]
     assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", frozen_at), frozen_at
 
 
 @pytest.mark.unit
-def test_protocol_v1_is_kept_unchanged_beside_v1_1():
-    """The amendment rule is that a new version file is added, never an edit."""
-    v1 = CONFIGS_DIR / "protocol_v1.yaml"
-    v1_1 = CONFIGS_DIR / "protocol_v1.1.yaml"
-    assert v1.is_file() and v1_1.is_file()
-    assert yaml.safe_load(v1.read_text(encoding="utf-8"))["protocol_version"] == "1.0.0"
-    assert yaml.safe_load(v1_1.read_text(encoding="utf-8"))["protocol_version"] == "1.1.0"
+def test_every_superseded_protocol_is_kept_unchanged_on_disk():
+    """The amendment rule is that a new version file is added, never an edit.
+
+    Each superseded version is still present with its own version number, so the
+    numbers produced under it stay attributable to the text that produced them.
+    v1.2 additionally records the superseded digest inside itself, because a
+    file that is never edited cannot be the place that remembers it moved on.
+    """
+    expected = {
+        "protocol_v1.yaml": "1.0.0",
+        "protocol_v1.1.yaml": "1.1.0",
+        "protocol_v1.2.yaml": "1.2.0",
+    }
+    for name, version in expected.items():
+        path = CONFIGS_DIR / name
+        assert path.is_file(), f"{name} must stay on disk"
+        assert yaml.safe_load(path.read_text(encoding="utf-8"))["protocol_version"] == version
+
+
+@pytest.mark.unit
+def test_the_active_protocol_is_v1_2_and_v1_1_still_verifies():
+    """Switching the active protocol must not disturb the frozen one."""
+    report = verify_protocol_freeze(PROTOCOL_PATH, PROTOCOL_SHA256_PATH)
+    assert report["path"].endswith("protocol_v1.2.yaml")
+    assert report["matches"], report
+
+    previous = verify_protocol_freeze(
+        CONFIGS_DIR / "protocol_v1.1.yaml", CONFIGS_DIR / "protocol_v1.1.sha256"
+    )
+    assert previous["matches"], "v1.1 must be untouched: its sidecar still matches"
+
+
+@pytest.mark.unit
+def test_v1_2_records_the_digest_of_the_version_it_supersedes(protocol):
+    """The superseded file's identity is recorded in the file that moves forward."""
+    previous = protocol["freeze_evidence"]["previous_version"]
+    assert previous["protocol_version"] == "1.1.0"
+    recorded = previous["sha256"]
+    actual = hashlib.sha256(
+        (CONFIGS_DIR / "protocol_v1.1.yaml").read_bytes()
+    ).hexdigest()
+    assert recorded == actual
+
+
+@pytest.mark.unit
+def test_v1_2_states_the_amendment_trigger_change_and_affected_runs(protocol):
+    """Amending a frozen protocol requires the amendment to say what it amends."""
+    amendment = protocol["amendment_v1_2"]
+    assert amendment["trigger"].strip()
+    assert len(amendment["changed"]) >= 5
+    assert amendment["unchanged"]
+    assert "NONE ARE RE-RUN" in amendment["runs_affected"]
+    assert amendment["open_decisions"][0]["id"] == "OD1"
 
 
 @pytest.mark.unit
@@ -90,8 +142,13 @@ def test_protocol_declares_the_data_contact_rule(protocol):
     """Freeze evidence names the timestamp, the sidecar and the contact log."""
     evidence = protocol["freeze_evidence"]
     assert evidence["protocol_frozen_at"] == protocol["frozen_at"]
-    assert evidence["protocol_sha256_sidecar"].endswith("protocol_v1.1.sha256")
+    assert evidence["protocol_sha256_sidecar"].endswith("protocol_v1.2.sha256")
+    assert PROTOCOL_SHA256_PATH.name == evidence["protocol_sha256_sidecar"].split("/")[-1]
     assert "data_contact_log" in evidence
+    # H4: the frozen field is a placeholder and the check must say where the live
+    # value is, or it prints "not started" beside a log that has entries.
+    assert "live_state_rule" in evidence
+    assert "data_contact_log.json" in evidence["live_state_rule"]
 
 
 @pytest.mark.unit
@@ -189,17 +246,55 @@ def test_protocol_declares_hypotheses_bound_to_contrasts(protocol):
 
 @pytest.mark.unit
 def test_protocol_fixes_every_wilcoxon_parameter(protocol):
-    """H2: dropping zero pairs changes the effective n; the parameters are frozen."""
-    wilcoxon = protocol["statistical_tests"]["primary_test"]
+    """H2: dropping zero pairs changes the effective n; the parameters are frozen.
+
+    In v1.2 these parameters belong to the DESCRIPTIVE pair-level test. The
+    decisive test is a cluster-level sign test and has no continuity correction,
+    no zero method and no asymptotic mode to fix.
+    """
+    tests = protocol["statistical_tests"]
+    assert tests["primary_test"]["name"] == "cluster_sign_test"
+    wilcoxon = tests["paired_descriptive_test"]
     assert wilcoxon["name"] == "wilcoxon_signed_rank"
+    assert wilcoxon["decisive"] is False
     assert wilcoxon["alternative"] in ("two-sided", "less", "greater")
     assert wilcoxon["zero_method"] in ("wilcox", "pratt", "zsplit")
     assert isinstance(wilcoxon["correction"], bool)
     assert wilcoxon["mode"] in ("auto", "exact", "approx")
-    assert protocol["statistical_tests"]["effect_size"]["classification"] in (
-        "rank_biserial",
-        "cliff_delta",
-    )
+    assert tests["effect_size"]["classification"] in ("rank_biserial", "cliff_delta")
+
+
+@pytest.mark.unit
+def test_protocol_makes_the_decisive_test_the_cluster_level_one(protocol):
+    """R0.1 item C2: the decision may not rest on n_folds * n_seeds pairs."""
+    tests = protocol["statistical_tests"]
+    primary = tests["primary_test"]
+    assert primary["applied_to"].startswith("one mean paired difference per held-out cluster")
+    assert primary["exact"] is True
+    assert primary["minimum_p_formula"] == "2 / 2**n_clusters_nonzero"
+    assert "six non-zero clusters" in primary["reachability_rule"]
+    # The pair-level test must be marked as unfit to decide, explicitly.
+    assert tests["paired_descriptive_test"]["decisive"] is False
+    assert "NO gate" in tests["paired_descriptive_test"]["note"]
+
+
+@pytest.mark.unit
+def test_protocol_keys_the_effect_size_on_the_task_not_the_metric_name(protocol):
+    """R0.1 item M3: r2 is a regression metric and takes Hodges-Lehmann."""
+    effect = protocol["statistical_tests"]["effect_size"]
+    assert effect["selection_key"] == "task"
+    assert effect["classification"] == "rank_biserial"
+    assert effect["regression"] == "hodges_lehmann"
+
+
+@pytest.mark.unit
+def test_protocol_publishes_the_equivalence_number_as_a_proxy(protocol):
+    """R0.1 item M4: the interval-inclusion number is not a TOST p-value."""
+    equivalence = protocol["statistical_tests"]["equivalence"]
+    reported = equivalence["reported_p_value"]
+    assert reported["column"] == "tost_proxy_p"
+    assert reported["is_a_tost_p_value"] is False
+    assert equivalence["decision_basis"] == "interval_inclusion"
 
 
 @pytest.mark.unit
