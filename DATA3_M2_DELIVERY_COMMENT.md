@@ -16,7 +16,7 @@
 | `connectome/select_neurons.py` | 确定性节点选择函数（S0–S4，输出 SHA-256） |
 | `connectome/tests/test_olfactory_connectome.py` | 52 项测试，全部通过 |
 
-**未入 git**：raw 数据（约 10 GB）通过 sha256 manifest 追踪；edge CSV（567 MB）已 gitignore。
+**未入 git**：raw 数据（约 10 GB，6 个文件）与 edge CSV（566 MiB）均存放在**仓库外**的共享数据根 `<repo-parent>/data-root/connectome/`，由 `connectome/paths.py` 解析（可用 `$DROSOSENSE_DATA` 覆盖），两者都通过 `meta.json` 的 sha256 manifest 追踪。仓库工作树只保留代码与小型产物（adjacency npz 47 MB、node_meta 6.2 MB、meta.json），因此可被原样 replay 进隔离的 task worktree。
 
 ---
 
@@ -93,6 +93,9 @@
 ### 复现命令
 
 ```bash
+# 数据根默认位于 <repo-parent>/data-root；如数据在别处，先导出环境变量：
+# export DROSOSENSE_DATA=/path/to/data-root
+
 # 构图（读取 9.5 GB 突触级 feather 表，~130M 行，聚合统计 S_ij）
 python3 connectome/build_olfactory_connectome.py --report
 
