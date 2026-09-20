@@ -28,6 +28,12 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.analyze import build_contrast_table, evaluate_rules  # noqa: E402
+from drososense.evaluation.gates import (  # noqa: E402
+    GateEvaluator,
+    GateExpressionError,
+    build_symbols,
+)
+from drososense.utils.config import protocol_metric_properties  # noqa: E402
 from drososense.utils.paths import RESULTS_TABLES_DIR  # noqa: E402
 
 COMMITTED_PER_RUN = RESULTS_TABLES_DIR / "m1_benchmark_per_run.csv"
@@ -408,3 +414,118 @@ def test_the_results_are_invariant_to_the_seed_count(protocol):
         assert row[2] == pytest.approx(first[2])
         assert row[3] == pytest.approx(first[3])
         assert row[4] == pytest.approx(first[4])
+
+
+# ---------------------------------------------------------------------------
+# Reproducibility from the committed artifacts alone
+#
+# `results/raw/**` is git-ignored, so anything the gate engine reads from it is
+# present only in the author's working copy. Two things were: the trainable
+# parameter counts behind `params(...)` (review item N2), and — as a consequence
+# — whether Gate_A can reach a verdict at all.
+# ---------------------------------------------------------------------------
+@pytest.mark.integration
+def test_the_committed_parameter_table_resolves_params_without_the_run_records(protocol, tmp_path):
+    """`results/tables/model_parameters.json` alone must satisfy `params(GRU)`.
+
+    The file is committed precisely because `results/raw/**` is not. Reading it
+    with no run records at all is what a reviewer's clean clone does.
+    """
+    from scripts.analyze import load_committed_model_parameters
+
+    counts = load_committed_model_parameters()
+    assert counts, "results/tables/model_parameters.json must be committed"
+    assert "GRU" in counts, "the protocol id must be registered, not only the registry id"
+    assert "R4" in counts
+    assert counts["GRU"] == counts["gru"]
+    assert counts["R4"] == counts["esn"]
+    assert all(isinstance(value, int) and value > 0 for value in counts.values())
+
+
+@pytest.mark.integration
+def test_the_committed_parameter_table_states_its_selection_rule_and_spread(protocol):
+    """A single number for a per-fold-tuned model has to be justified, not implied.
+
+    Hyperparameters are selected per fold, so `n_trainable_parameters` is not
+    unique: the GRU in this project reports eight different sizes. The table
+    therefore records min/median/max/n_distinct beside the decisive value and
+    states which one `params()` uses.
+    """
+    import json
+
+    from drososense.utils.paths import MODEL_PARAMETERS_PATH
+
+    payload = json.loads(MODEL_PARAMETERS_PATH.read_text(encoding="utf-8"))
+    assert "largest selected configuration" in payload["selection_rule"]
+    assert "git-ignored" in payload["source"]
+
+    variable = [m for m, e in payload["models"].items() if e["n_distinct"] > 1]
+    assert variable, "at least one model must show the selection spread"
+    for entry in payload["models"].values():
+        assert entry["n_trainable_parameters"] == entry["max"]
+        assert entry["min"] <= entry["median"] <= entry["max"]
+        assert entry["n_records"] >= entry["n_distinct"]
+
+
+@pytest.mark.integration
+def test_the_gate_outcome_does_not_depend_on_the_git_ignored_run_records(protocol, tmp_path):
+    """The same table must reach the same verdict with and without `results/raw`.
+
+    This is the actual defect behind review item N2: the delivered gate artifact
+    said one thing on the author's machine and another on a clean clone, because
+    a term was resolved from a directory the repository does not carry.
+    """
+    import drososense.evaluation.results as results_module
+    from scripts.analyze import model_parameter_counts
+
+    frame = pd.read_csv(COMMITTED_PER_RUN)
+    table = build_contrast_table(
+        frame[frame["status"] == "ok"], protocol, _metric_by_task(protocol), [("esn", "gru")]
+    )
+
+    with_records = model_parameter_counts(results_module.load_records(), protocol)
+    _, with_results = _run_pipeline(
+        frame, protocol, with_records, exploratory=[("esn", "gru")]
+    )
+
+    # A clean clone: results/raw does not exist at all.
+    monkeypatch_target = results_module
+    original = monkeypatch_target.RESULTS_RAW_DIR
+    monkeypatch_target.RESULTS_RAW_DIR = tmp_path / "absent"
+    try:
+        assert results_module.load_records() == []
+        without_records = model_parameter_counts(results_module.load_records(), protocol)
+        without_results = evaluate_rules(table, protocol, _availability(), without_records)
+    finally:
+        monkeypatch_target.RESULTS_RAW_DIR = original
+
+    assert with_results == without_results
+    # And the parameter counts themselves agree, model for model.
+    assert with_records == without_records
+
+
+@pytest.mark.integration
+def test_an_unrun_model_says_so_rather_than_blaming_the_gitignore(protocol, tmp_path):
+    """A `params(...)` term with no value must name the real cause.
+
+    `R0` has never been run, so it has no parameter count anywhere — not in the
+    committed table and not in `results/raw`. The message must not read like a
+    missing-file problem, which is what sent the first round of this review
+    looking in the wrong place.
+    """
+    from scripts.analyze import model_parameter_audit, model_parameter_counts
+
+    counts = model_parameter_counts([], protocol)
+    audit = model_parameter_audit(counts, [], protocol)
+    assert audit["unresolved_params_terms"] == ["R0"]
+
+    evaluator = GateEvaluator(
+        contrasts={},
+        metrics=protocol_metric_properties(protocol),
+        model_params=counts,
+        symbols=build_symbols(
+            ["R0", "GRU"], [], [], [], aliases={}
+        ),
+    )
+    with pytest.raises(GateExpressionError, match="has not been run under this protocol yet"):
+        evaluator.evaluate("G", "params(R0) < params(GRU)")

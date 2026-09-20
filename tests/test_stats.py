@@ -70,30 +70,39 @@ def test_bootstrap_is_reproducible_from_its_own_seed():
 
 
 @pytest.mark.unit
-def test_the_interval_does_not_shrink_as_seeds_are_added():
-    """The interval side of review item C2.
+def test_the_interval_is_invariant_when_the_cluster_values_are_held_fixed(protocol):
+    """``bootstrap.seed_invariance_required``, read from the protocol and checked.
 
-    Adding seeds re-measures the same clusters. v1.1's bootstrap resampled within
-    each seed and averaged afterwards, so every extra seed divided the interval's
-    variance — the interval narrowed from 0.018 to 0.0039 across one to twenty
-    seeds on ten clusters — which is precision bought from a unit that carries no
-    new specimens. The cluster bootstrap averages the seeds INSIDE each cluster
-    and resamples clusters, so the interval is invariant to the seed count.
+    The protocol states the property in a precise form — "for a fixed set of
+    per-cluster values" — and that is the form this asserts. The clusters are
+    re-measured under 1, 5, 20 and 100 seeds, so ``n_pairs`` grows by a factor of
+    100 while the number of independent units stays at ten, and the interval must
+    not move at all.
+
+    The wider reading ("adding seeds never narrows the interval") is NOT claimed
+    anywhere, because it is not true: in a real pipeline the cluster values are
+    averages over the seeds, so measuring more seeds sharpens them. What the
+    fixed-value property buys is that the interval is a statement about the
+    clusters rather than about re-initialising the model.
     """
+    assert protocol["statistical_tests"]["bootstrap"]["seed_invariance_required"] is True
+
     fold_values = np.array([0.02, -0.01, 0.00, 0.01, -0.02, 0.015, -0.005, 0.0, 0.01, -0.01])
     spec = PairedSpec(bootstrap_b=2000, bootstrap_seed=11)
 
-    def widths(n_seeds: int) -> tuple[float, float]:
+    def measure(n_seeds: int) -> tuple[float, float, int]:
         deltas = np.concatenate([0.10 - fold_values for _ in range(n_seeds)])
         folds = np.tile(np.arange(fold_values.size), n_seeds)
         draws = fold_cluster_bootstrap(deltas, folds, spec)
         low, high = np.quantile(draws, [0.025, 0.975])
-        return float(high - low), float(np.mean(deltas))
+        return float(high - low), float(np.mean(deltas)), int(deltas.size)
 
-    one, mean_one = widths(1)
-    twenty, mean_twenty = widths(20)
-    assert one == pytest.approx(twenty)
-    assert mean_one == pytest.approx(mean_twenty)
+    reference_width, reference_mean, reference_pairs = measure(1)
+    for n_seeds in (5, 20, 100):
+        width, mean, n_pairs = measure(n_seeds)
+        assert n_pairs == reference_pairs * n_seeds
+        assert width == pytest.approx(reference_width)
+        assert mean == pytest.approx(reference_mean)
 
 
 @pytest.mark.unit

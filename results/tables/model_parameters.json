@@ -1,0 +1,56 @@
+{
+  "models": {
+    "cnn1d": {
+      "max": 1220,
+      "median": 1025.0,
+      "min": 417,
+      "n_distinct": 8,
+      "n_records": 212,
+      "n_trainable_parameters": 1220
+    },
+    "esn": {
+      "max": 804,
+      "median": 201.0,
+      "min": 151,
+      "n_distinct": 4,
+      "n_records": 212,
+      "n_trainable_parameters": 804,
+      "protocol_id": "R4"
+    },
+    "gru": {
+      "max": 4452,
+      "median": 4257.0,
+      "min": 1265,
+      "n_distinct": 8,
+      "n_records": 212,
+      "n_trainable_parameters": 4452,
+      "protocol_id": "GRU"
+    },
+    "lstm": {
+      "max": 5892,
+      "median": 5665.0,
+      "min": 1681,
+      "n_distinct": 8,
+      "n_records": 212,
+      "n_trainable_parameters": 5892
+    },
+    "random_forest": {
+      "max": 355623,
+      "median": 15280.5,
+      "min": 300,
+      "n_distinct": 214,
+      "n_records": 214,
+      "n_trainable_parameters": 355623
+    },
+    "tcn": {
+      "max": 1604,
+      "median": 1377.0,
+      "min": 993,
+      "n_distinct": 8,
+      "n_records": 212,
+      "n_trainable_parameters": 1604
+    }
+  },
+  "selection_rule": "params(model) uses the model's largest selected configuration (the maximum n_trainable_parameters over its runs), so an efficiency claim is made against the largest control actually tuned. The min/median/max spread is recorded here because hyperparameters are selected per fold and the count is therefore not unique.",
+  "source": "results/raw/** run records, field model_description.n_trainable_parameters. Committed because results/raw is git-ignored: without this file params(...) is unevaluable for anyone without the author's working copy."
+}

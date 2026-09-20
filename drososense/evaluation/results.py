@@ -549,6 +549,70 @@ def fingerprint_rows(records: list[RunRecord]) -> list[dict[str, Any]]:
     return rows
 
 
+def model_parameter_table(records: list[RunRecord]) -> dict[str, Any]:
+    """Reduce run records to each model's trainable-parameter count.
+
+    A parameter count is a property of a model's ARCHITECTURE, not of an
+    observation: it does not vary with the data, it is an integer, and it is what
+    Gate_A's ``params(R0) < params(GRU)`` term compares. It used to be read from
+    ``results/raw/**`` alone, which is git-ignored, so the delivered gate
+    artifact could not be reproduced by anyone without the author's working copy
+    (review item N2).
+
+    The count is NOT unique per model. Hyperparameters are selected per fold, so
+    a tuned model reports a different size on different folds — the GRU in this
+    project spans eight values between 1265 and 4452 parameters, and the random
+    forest spans 214 values. A single number therefore has to be chosen and
+    stated: ``params()`` uses the model's LARGEST selected configuration, so the
+    efficiency claim is made against the biggest GRU actually tuned rather than
+    against a convenient small one. The spread is recorded beside it so the
+    choice is visible and can be argued with.
+
+    Args:
+        records: Run records to reduce.
+
+    Returns:
+        Mapping with ``selection_rule``, ``source`` and ``models``, each model
+        carrying ``n_trainable_parameters`` (the decisive value), ``min``,
+        ``median``, ``max``, ``n_distinct`` and ``n_records``.
+    """
+    observed: dict[str, list[int]] = {}
+    for record in records:
+        description = record.model_description or {}
+        value = description.get("n_trainable_parameters")
+        if value is None:
+            continue
+        observed.setdefault(str(record.model), []).append(int(value))
+
+    models: dict[str, Any] = {}
+    for model_id, values in sorted(observed.items()):
+        array = np.asarray(values, dtype=np.int64)
+        models[model_id] = {
+            # The decisive value. `params()` reads this one.
+            "n_trainable_parameters": int(array.max()),
+            "min": int(array.min()),
+            "median": float(np.median(array)),
+            "max": int(array.max()),
+            "n_distinct": int(np.unique(array).size),
+            "n_records": int(array.size),
+        }
+    return {
+        "selection_rule": (
+            "params(model) uses the model's largest selected configuration (the maximum "
+            "n_trainable_parameters over its runs), so an efficiency claim is made against "
+            "the largest control actually tuned. The min/median/max spread is recorded here "
+            "because hyperparameters are selected per fold and the count is therefore not "
+            "unique."
+        ),
+        "source": (
+            "results/raw/** run records, field model_description.n_trainable_parameters. "
+            "Committed because results/raw is git-ignored: without this file "
+            "params(...) is unevaluable for anyone without the author's working copy."
+        ),
+        "models": models,
+    }
+
+
 def test_touched_once_report(records: list[RunRecord]) -> dict[str, Any]:
     """Check that no test evaluation was scored twice under two configurations.
 

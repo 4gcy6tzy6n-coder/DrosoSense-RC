@@ -18,6 +18,12 @@ DATA_SPLITS_DIR: Path = PROJECT_ROOT / "data" / "splits"
 DATA_MANIFESTS_DIR: Path = PROJECT_ROOT / "data" / "manifests"
 RESULTS_RAW_DIR: Path = PROJECT_ROOT / "results" / "raw"
 RESULTS_TABLES_DIR: Path = PROJECT_ROOT / "results" / "tables"
+
+# Each model's trainable-parameter count, committed. `results/raw/**` is
+# git-ignored, so a gate term written `params(R0) < params(GRU)` is unevaluable
+# for anyone without the author's working copy unless the counts travel with the
+# repository. See drososense/evaluation/results.py:model_parameter_table.
+MODEL_PARAMETERS_PATH: Path = RESULTS_TABLES_DIR / "model_parameters.json"
 RESULTS_FIGURES_DIR: Path = PROJECT_ROOT / "results" / "figures"
 
 # v1 is kept unchanged on disk: the freeze rule is that an amendment adds a new

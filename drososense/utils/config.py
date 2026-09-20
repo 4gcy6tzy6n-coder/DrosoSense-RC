@@ -248,6 +248,78 @@ def protocol_dataset_symbols(protocol: Mapping[str, Any]) -> dict[str, str]:
     return symbols
 
 
+DEFAULT_CONDITION = "full"
+
+
+def protocol_family_membership(protocol: Mapping[str, Any]) -> dict[tuple[str, str], str]:
+    """Map each declared ``(contrast, condition)`` pair to the family that owns it.
+
+    ``multiplicity.family_rule`` states the contract this implements: the unit of
+    correction is a ``(contrast, condition)`` pair, every declared pair belongs
+    to exactly ONE family, and a pair in two families is a protocol error that
+    stops the analysis rather than being resolved by a choice.
+
+    v1.2 declared eight families and no production code read them: the analysis
+    corrected inside a ``(metric, dataset)`` group instead, which merged the
+    primary comparison with the topology and baseline families and merged the
+    five robustness families into one. That is review item N1.
+
+    Args:
+        protocol: The parsed protocol.
+
+    Returns:
+        Mapping of ``(contrast_id, condition)`` to family id.
+
+    Raises:
+        ValueError: If a pair is declared in two different families, or if a
+            family declares no tests at all.
+    """
+    membership: dict[tuple[str, str], str] = {}
+    for family in protocol["multiplicity"]["families"]:
+        family_id = str(family["id"])
+        tests = [str(test) for test in family.get("tests", ())]
+        if not tests:
+            raise ValueError(f"multiplicity family {family_id!r} declares no tests")
+        conditions = [str(c) for c in family.get("conditions", ())] or [DEFAULT_CONDITION]
+        for contrast_id in tests:
+            for condition in conditions:
+                key = (contrast_id, condition)
+                existing = membership.get(key)
+                if existing is not None and existing != family_id:
+                    raise ValueError(
+                        f"multiplicity family rule violated: ({contrast_id}, {condition}) is "
+                        f"declared in both {existing!r} and {family_id!r}. Every declared pair "
+                        f"belongs to exactly one family and the analysis must stop rather than "
+                        f"choose one."
+                    )
+                membership[key] = family_id
+    return membership
+
+
+def protocol_model_id_bindings(protocol: Mapping[str, Any]) -> dict[str, str]:
+    """Map each registered model id to the id the protocol's gates name it by.
+
+    ``model_zoo.*.protocol_id`` records the binding — ``esn`` is written ``R4``
+    in every contrast and gate, ``gru`` is written ``GRU``. A parameter count or
+    a result keyed by the registry id has to be reachable under the protocol id
+    too, or the frozen expressions resolve to nothing.
+
+    Args:
+        protocol: The parsed protocol.
+
+    Returns:
+        Mapping of registry id to protocol id, for entries that declare one.
+    """
+    bindings: dict[str, str] = {}
+    for family in protocol.get("model_zoo", {}).values():
+        if not isinstance(family, list):
+            continue
+        for entry in family:
+            if isinstance(entry, Mapping) and entry.get("protocol_id"):
+                bindings[str(entry["id"])] = str(entry["protocol_id"])
+    return bindings
+
+
 def protocol_model_symbols(protocol: Mapping[str, Any]) -> list[str]:
     """Return every model name a gate expression may name.
 

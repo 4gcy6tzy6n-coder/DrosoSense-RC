@@ -16,11 +16,15 @@ The unit-of-analysis rules implemented here, and declared in
 * The **resampling unit is the fold** — the specimen-disjoint test block whose
   metrics actually enter the difference. It is never the seed.
 * Seeds are a **stratification**, not a resampling unit: the seeds are averaged
-  inside each cluster before the clusters are resampled, so the interval is
-  driven by cluster-to-cluster variation and does not narrow as the same
-  specimens are re-measured under more seeds. (v1.1 resampled within each seed
-  and averaged afterwards, which divided the interval's variance by the seed
-  count. See :func:`fold_cluster_bootstrap`.)
+  inside each cluster, and the clusters are what gets resampled. That is the
+  property the protocol calls ``bootstrap.seed_invariance_required``: for a
+  FIXED set of per-cluster values the interval does not move when the same
+  clusters are measured under more seeds. In a real run the cluster values are
+  themselves averages over the seeds, so they sharpen as seeds are added and the
+  width does fall — measured on the delivered D2 contrast, 0.302 at one seed,
+  0.073 at five and 0.029 at ten — but it falls with the between-cluster spread,
+  about ``1.96 * sd(cluster means) / sqrt(n_clusters)``, and not by dividing the
+  interval's variance by the seed count. See :func:`fold_cluster_bootstrap`.
 * ``n_pairs`` is therefore ``n_folds * n_seeds`` observations over ``n_folds``
   independent clusters, and the summary reports both, so a reader can see how
   many independent units are behind a p-value.
@@ -322,11 +326,21 @@ def fold_cluster_bootstrap(
     pseudoreplication the decisive test was moved off.
 
     With the seeds averaged inside each cluster and the clusters resampled, the
-    interval is driven by cluster-to-cluster variation alone and is invariant to
-    the seed count. That makes it the natural companion to the cluster-level
-    decisive test in :func:`cluster_sign_test`, and it is the interval that
+    interval is a statement about cluster-to-cluster variation. That makes it the
+    natural companion to the cluster-level decisive test in
+    :func:`cluster_sign_test`, and it is the interval that
     ``pairing.resample_unit_detail`` describes when it says the fold bootstrap is
     a specimen bootstrap.
+
+    Two claims, and only the first is unconditional. For a FIXED set of
+    per-cluster values the interval is exactly invariant to the seed count —
+    that is ``bootstrap.seed_invariance_required``. In a real pipeline the
+    cluster values are averages over the seeds, so they sharpen as seeds are
+    added and the width does narrow; what changed is what governs it. Measured on
+    the delivered D2 contrast: 0.302 at one seed, 0.073 at five and 0.029 at ten,
+    tracking ``1.96 * sd(cluster means) / sqrt(n_clusters)``. The width is set by
+    how far apart the clusters are, not by dividing the variance by the number of
+    seeds.
 
     Args:
         deltas: Paired differences, one per ``(seed, fold)`` observation.

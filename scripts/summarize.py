@@ -39,10 +39,12 @@ from drososense.evaluation.results import (  # noqa: E402
     capture_environment,
     fingerprint_rows,
     load_records,
+    model_parameter_table,
     records_to_frame,
     test_touched_once_report,
     write_summary_csv,
 )
+from drososense.utils.config import load_protocol, protocol_model_id_bindings  # noqa: E402
 from drososense.utils.env_report import compare_environments  # noqa: E402
 from drososense.utils.paths import RESULTS_TABLES_DIR, ensure_dir  # noqa: E402
 
@@ -132,6 +134,24 @@ def main(argv: list[str] | None = None) -> int:
         if args.do_print:
             print(summary.to_string(index=False))
             print()
+
+    # The trainable-parameter table is written from EVERY record, not one
+    # experiment's: a model's size is an architecture property and does not
+    # depend on which split produced the run. It is committed because
+    # results/raw/** is not, and without it Gate_A's `params(...)` term is
+    # unevaluable for anyone but the author (review item N2).
+    parameters = model_parameter_table(records)
+    for model_id, protocol_id in protocol_model_id_bindings(load_protocol()).items():
+        if model_id in parameters["models"]:
+            parameters["models"][model_id]["protocol_id"] = protocol_id
+    parameters_path = RESULTS_TABLES_DIR / "model_parameters.json"
+    parameters_path.write_text(
+        json.dumps(parameters, indent=2, sort_keys=True, default=str), encoding="utf-8"
+    )
+    print(
+        f"{parameters_path}  ({len(parameters['models'])} model(s): "
+        f"{', '.join(sorted(parameters['models']))})"
+    )
 
     environment_path = RESULTS_TABLES_DIR / "environment.json"
     environment_path.write_text(

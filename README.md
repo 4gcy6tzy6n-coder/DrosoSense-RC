@@ -70,7 +70,7 @@ not be opened rather than that the numbers were wrong. No experiment was re-run.
 | **C1** | Gate expressions name `D2`, the contrast table is keyed `d2_beef_uncontrolled`; the symbol table was built from the values the results happened to contain, so every gate resolved nothing and reported UNEVALUABLE under a reason that read like a missing contrast | Names come from the protocol's own `datasets` block; each short name is registered as an alias of its id. Unknown name and missing contrast are separate, distinguishable failures |
 | **C1b** | `params(R0) < params(GRU)` — the evaluator was handed an empty parameter table, so Gate_A could never be evaluated even with every contrast present | Parameter counts are read from the run records' `n_trainable_parameters` |
 | **C2** | `sig()` read a Wilcoxon p over `n_folds × n_seeds` pairs: 50 pairs from 5 specimens. D2 reported p = 5.45e−13 where the cluster-level exact p is 0.0625 | The decisive test is an exact sign test over cluster means, and `sig` additionally requires `minimum_achievable_p_over_clusters ≤ α` |
-| **C2b** | Same defect in the bootstrap: resampling within each seed and averaging afterwards made the interval narrow as seeds were added (0.018 → 0.0039 across 1 → 20 seeds on ten clusters) — and Gate_A is decided entirely by interval predicates | Seeds are averaged inside each cluster *before* the clusters are resampled; the interval is invariant to the seed count |
+| **C2b** | The bootstrap resampled folds *within* each seed and averaged the per-seed means afterwards, so the interval was divided by the seed count — precision from a unit that carries no new specimens. Gate_A is decided entirely by interval predicates | Seeds are averaged inside each cluster *before* the clusters are resampled, so the interval is governed by the between-cluster spread. For a **fixed** set of per-cluster values it is exactly invariant to the seed count (`bootstrap.seed_invariance_required`) |
 | **H1** | D2's cut grouping was described as specimen-level, and its 2016/2018 campaigns were unrecorded | `group_semantics_verified: false`; the campaign dates recorded; leave-TS1-out and leave-{TS2..TS5}-out decomposition is a mandatory E1 reporting item |
 | **H2** | D3's endpoint is seven storage days; nothing said so | 7 endpoint levels, `df_cap: 7`, `label_stratum: day` declared, with the obligation to relate any D3 n / df / CI / resampling unit to them |
 | **H4** | `--check` printed "first test evaluation: not started" while the live log had 24 entries | It prints the live log's value, and warns when the frozen placeholder and the live log disagree |
@@ -87,6 +87,33 @@ Gate_C are unreachable at five clusters, states the arithmetic, and leaves the c
 the project owner, because changing a split until a gate becomes reachable is choosing
 the design after knowing which way the gate leans. And it did not start any connectome
 experiment.
+
+---
+
+## Second review round — declared but not wired
+
+The re-verification confirmed the geometry and found three more gaps, two of them the same
+defect class as the first round: **the protocol declared something and no production code
+read it.** That class had now appeared three times (gate symbols, `model_params`, and
+`multiplicity.families`), so this round also delivers a standing inventory of every
+declarative field and its reader — see [`docs/protocol_field_readers.md`](docs/protocol_field_readers.md).
+
+| Item | Was | Now |
+| --- | --- | --- |
+| **N1** | `multiplicity.families` declared eight families; the correction grouped by `(metric, dataset)` instead, merging the primary comparison with the topology and baseline families and merging the five robustness families into one | The correction groups by the family the protocol enumerates, keyed on `(contrast, condition)` and stratified by dataset and metric. `family_rule` is enforced: two families for one pair stops the analysis, no family means uncorrected and relabelled exploratory |
+| **N2** | `params()` read `results/raw/**`, which is git-ignored: on a clean clone Gate_A was UNEVALUABLE for lack of a parameter count | `results/tables/model_parameters.json` is committed, keyed by registry id **and** protocol id (`esn` → `R4`, `gru` → `GRU`), and is the base source. Model sizes vary per fold (the GRU spans 1265–4452), so the table records the spread and states the selection rule it uses |
+| **N3** | The seed-invariance claim was written more broadly than it holds | Narrowed to the measured form: for a **fixed** set of per-cluster values the interval is exactly invariant (`bootstrap.seed_invariance_required`, now read by a test); in a real run the cluster values sharpen with seeds, so the width narrows with the between-cluster spread — measured 0.302 → 0.073 → 0.029 at 1/5/10 seeds on D2 |
+
+### Reproducing the delivered artifacts needs the local data
+
+`results/tables/m1_benchmark_gates.json` and `..._dataset_availability.json` are generated
+against `data/raw/**`, which is git-ignored by design. On a clean clone D1/D2/D3 are
+reported as not on disk and `N5` becomes `True`, where the committed files say `False`. That
+is the data policy showing through, not a logic error — but a reader comparing the two will
+otherwise have to work it out. The gate verdicts that do **not** depend on the data being
+present are the ones covered by the tests in `tests/test_e2e_gate_evaluation.py`, including
+one that evaluates the rules with `results/raw` made unavailable and asserts the outcome is
+unchanged.
 
 ---
 
@@ -469,9 +496,20 @@ pair-level Wilcoxon over all 50 `(seed, fold)` pairs — the number the earlier 
 published as *the* p-value (5.5e−13 above). It is still shown, because a reader must be able
 to see what changed and why, but it is pseudoreplicated and **no gate reads it**.
 
-Seed counts do not buy confidence here: the interval and the decisive p-value are invariant
-to the number of seeds, because the seeds are averaged inside each cluster before anything is
-resampled.
+What seed counts buy here is bounded, and it is worth being exact about it. The decisive
+p-value is invariant to the seed count: it is computed from one mean per cluster, and a cluster
+mean over ten seeds is the same point whichever way the seeds are counted. The interval is
+invariant **for a fixed set of per-cluster values** — that is what the protocol's
+`bootstrap.seed_invariance_required` claims, and it holds exactly. In a real run the cluster
+values are themselves averages over the seeds, so they sharpen as seeds are added and the
+interval does narrow: measured on the `esn vs gru / macro_f1 / D2` contrast it is 0.302 wide at
+one seed, 0.073 at five and 0.029 at ten, tracking `1.96 · sd(cluster means) / √n_clusters`.
+What changed is what governs it — the distance between clusters, not the seed count.
+
+Every row also carries the multiplicity **family** that owns its `(contrast, condition)` pair
+and the `p_holm` computed inside it. On this table the column is empty, because all eight rows
+are exploratory baseline comparisons and an exploratory pair belongs to no pre-registered
+family — a corrected p-value for one would imply a pre-registration that does not exist.
 
 `results/tables/m1_benchmark_gates.json` records each gate and narrative rule with its
 per-term values and, on every `sig` term, the cluster count and reachability floor behind it.

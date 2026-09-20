@@ -520,7 +520,10 @@ class GateEvaluator:
         model = str(args[0])
         if model not in self.model_params:
             raise GateExpressionError(
-                f"{gate_id}: no trainable-parameter count recorded for {model!r}"
+                f"{gate_id}: no trainable-parameter count recorded for {model!r}. The table is "
+                f"built from the run records plus the committed "
+                f"results/tables/model_parameters.json, so this means the model has not been "
+                f"run under this protocol yet — it is NOT a missing-data or git-ignore problem."
             )
         return int(self.model_params[model])
 
