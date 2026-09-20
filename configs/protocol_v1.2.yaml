@@ -657,9 +657,13 @@ statistical_tests:
     cluster_count_disclosure: >
       The interval is the fold-cluster percentile bootstrap, so the number of
       clusters behind an equivalence decision is `n_clusters`, and it is reported
-      on the same line. At five clusters a percentile interval is a weak basis
-      for accepting equivalence, and §13 therefore refuses to let an equivalence
-      verdict rest on fewer than `minimum_reported_clusters` clusters (§8).
+      on the same line as the verdict. This is a disclosure and NOT a threshold:
+      v1.2 does not add a minimum cluster count for accepting equivalence,
+      because `pairing.minimum_reported_clusters` is a reporting rule and
+      reusing it as a decision rule would change what it means. The weakness is
+      stated instead of enforced — a percentile interval over five clusters is a
+      thin basis for an equivalence claim, and a reader must be able to see that
+      the claim rests on five units.
   assumption_failure: >
     If fewer than 6 non-zero pairs remain, the pair-level sign test is
     substituted for the pair-level Wilcoxon, the substitution is recorded in the

@@ -444,9 +444,11 @@ class GateEvaluator:
         value = row.get("n_clusters_nonzero", row.get("n_clusters"))
         if value is None:
             raise GateExpressionError(
-                f"{gate_id}: contrast {metric}/{dataset}/{condition} carries no cluster count, "
-                f"so it cannot be tested at the cluster level and 'sig' cannot be decided. "
-                f"A p-value without an independent-unit count is not evaluable."
+                f"{gate_id}: contrast {metric}/{dataset}/{condition} carries no cluster count. "
+                f"A contrast whose independent-unit count is unknown is not evaluable: `sig` "
+                f"needs the count to apply its reachability term, and the interval predicates "
+                f"(`equiv`, `noninferior`, `ci_contains_zero`) must disclose how many units the "
+                f"verdict rests on (protocol v1.2 §10, §13)."
             )
         return int(value)
 
