@@ -25,6 +25,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.protocol_field_readers import (  # noqa: E402
     DOC_PATH,
+    awaiting_determination,
+    determination_reason,
     disposition,
     inventory,
     is_hole,
@@ -117,9 +119,90 @@ def test_the_holes_are_named_and_counted(records):
 
     # The ones that are dependencies on work not yet started, declared as such.
     assert any(path.startswith("robustness_protocol") for path in holes)
-    assert any(path.startswith("hyperparameter_selection.grid") for path in holes)
+    assert any(path.startswith("experiments.") for path in holes)
     # And the ones that have already diverged: the code resolves these elsewhere.
     assert "results.raw_dir" in holes
+
+
+@pytest.mark.unit
+def test_the_wired_families_are_no_longer_holes(records):
+    """The fields this issue wired have readers, and stayed wired.
+
+    Each of these was a HOLE before: nothing read the grid, nothing read the
+    declared seed set. A regression here means the protocol section is
+    decorative again.
+    """
+    by_path = {record["path"]: record for record in records}
+    still_holes = sorted(
+        path
+        for path, record in by_path.items()
+        if record["orphan"]
+        and is_hole(record)
+        and (
+            path.startswith("hyperparameter_selection.grid")
+            or path.startswith("seeds.")
+            or path in ("hyperparameter_selection.scope", "hyperparameter_selection.selection_split")
+            or path == "preprocessing.windowing.length_candidates"
+        )
+    )
+    assert not still_holes, f"these went back to having no reader: {still_holes}"
+
+
+@pytest.mark.unit
+def test_the_retired_reader_rules_no_longer_certify_a_reader(records):
+    """A declared value, a docstring and a comment are not readers.
+
+    Each of these three rows was in the "read" bucket for a reason that was not
+    a reader: a hardcoded constant that happens to equal the declared value, a
+    value that appears in a docstring, and a value coincidence beside siblings
+    that were correctly listed as gaps. The tightening has to hold, or the hole
+    count stops being a lower bound.
+    """
+    by_path = {record["path"]: record for record in records}
+
+    label_column = by_path["tasks.classification.label_column"]
+    assert not label_column["readers"], (
+        "tasks.classification.label_column is read again by a literal: the reader has to be a "
+        "reader of the FIELD, not the same string written twice in schema.py"
+    )
+
+    common = by_path["datasets.channel_intersection.common_to_D1_D2_D3"]
+    assert not common["readers"]
+    assert is_hole(common), (
+        "common_to_D1_D2_D3 is the third of its family; channel_count and measured_on are holes, "
+        "so a value coincidence in synthetic.py must not keep it out of the same bucket"
+    )
+
+    evaluated_on = by_path["gates.Gate_C.evaluated_on"]
+    assert not evaluated_on["readers"], (
+        "gates.Gate_C.evaluated_on was certified by the `D2` inside a docstring"
+    )
+
+
+@pytest.mark.unit
+def test_rows_awaiting_determination_name_what_matched(records):
+    """The demoted rows are adjudicable, not merely demoted.
+
+    A row the tightened test cannot certify goes to neither bucket: it is not a
+    reader, and calling it a hole would be a determination nobody made. What
+    makes it actionable is that the retired test's match is printed beside it.
+    """
+    awaiting = [record for record in records if record["orphan"] and awaiting_determination(record)]
+    assert awaiting, (
+        "if no row awaits determination, delete this test rather than the check — the tightened "
+        "rule is then certifying everything it used to"
+    )
+    for record in awaiting:
+        assert not record["readers"], f"{record['path']} has a reader and is not awaiting anything"
+        reason = determination_reason(record)
+        assert reason.startswith("awaiting determination")
+        assert "`" in reason, f"{record['path']} names no location to adjudicate"
+        assert not is_hole(record), f"{record['path']} is a hole and has a disposition already"
+
+    # The rule that replaced the retired one has to be recorded, not implied.
+    assert any(
+        record["path"] == "tasks.classification.label_column" for record in awaiting
+    ), "the hardcoded-constant case is the one the tightening exists for"
 
 
 @pytest.mark.unit

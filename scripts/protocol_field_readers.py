@@ -7,12 +7,25 @@ symbol namespace, the model parameter table behind ``params(...)``, and
 because nothing checked. This script is the check: it walks the protocol, and for
 every declarative field asks whether the production path mentions it.
 
-A "reader" here is a literal occurrence of the field name (or of a declared
-scalar value) in ``drososense/**`` or ``scripts/**``. That is a mechanical test,
-so it has both false negatives (a field read through a computed key) and false
-positives (a name that coincides with something unrelated). It is a triage list,
-not a proof; each row still has to be read. What it is good at is the failure
-that actually happened three times: a field whose name appears nowhere at all.
+A "reader" is a string literal in ``drososense/**`` or ``scripts/**`` that is
+equal to the field's name, parsed out of the module rather than grepped, so a
+literal inside a docstring or a comment does not count. Two earlier, looser
+rules were retired because roughly one row in seven of the "read" bucket was a
+coincidence rather than a reader:
+
+* matching a field's *declared value* made ``tasks.*.label_column`` read by
+  ``schema.py``'s hardcoded constant, and ``gates.Gate_A.evaluated_on`` read by
+  the ``D2`` in a docstring;
+* matching any quoted text on a line made a docstring or a comment count.
+
+Neither survives here. What remains is still a mechanical test — a field read
+through a computed key stays a false negative, and a field whose name is a
+common word in the code stays a false positive — so it is a triage list, not a
+proof. Rows the tightened test can no longer certify are not silently promoted
+to readers or demoted to holes: they go to *necessary human determination*, with
+the match the old rule used printed beside them, because that match is what has
+to be adjudicated. What the test is still good at is the failure that actually
+happened three times: a field whose name appears nowhere at all.
 
     python scripts/protocol_field_readers.py                 # summary
     python scripts/protocol_field_readers.py --write         # refresh the doc
@@ -22,6 +35,7 @@ that actually happened three times: a field whose name appears nowhere at all.
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import sys
 from pathlib import Path
@@ -39,6 +53,10 @@ DOC_PATH = ROOT / "docs" / "protocol_field_readers.md"
 PRODUCTION_DIRS = ("drososense", "scripts")
 SKIP_FROM_SEARCH = {"protocol_field_readers.py"}
 
+# A literal longer than this is a message, not a field name or a declared value.
+MAX_LITERAL = 80
+MAX_HITS = 3
+
 # Fields whose *name* is generic enough that a literal hit proves nothing, or
 # whose reader is known to go through a different expression. Each is listed with
 # the reason so the exception is on the record rather than in someone's head.
@@ -55,6 +73,10 @@ KNOWN_READERS: dict[str, str] = {
     "equivalence.method": "read as drososense/evaluation/stats.py:tost_from_interval",
     "test_touched_once.enabled": "read as drososense/evaluation/runner.py:prior_touches",
     "test_touched_once.enforcement": "read as drososense/evaluation/runner.py:prior_touches",
+    "effect_size.classification": "read via drososense/utils/config.py:protocol_effect_size_name, keyed by the task",
+    "effect_size.regression": "read via drososense/utils/config.py:protocol_effect_size_name, keyed by the task",
+    "selection_metric.classification": "read via drososense/evaluation/selection.py:SelectionSpec.metric_for, keyed by the task",
+    "selection_metric.regression": "read via drososense/evaluation/selection.py:SelectionSpec.metric_for, keyed by the task",
 }
 
 # Ordered prefix rules for the orphans. Three kinds, and the kind matters:
@@ -87,7 +109,7 @@ DISPOSITION_PREFIXES: tuple[tuple[str, str], ...] = (
     ("split_protocol.power_note", "statement — the pre-registered power limitation"),
     ("split_protocol.reachability_note", "statement — the arithmetic behind gate_reachability"),
     ("split_protocol.reachability_examples", "statement — worked examples of the floor arithmetic"),
-    ("seeds.extension_rule", "statement — the rule for extending the seed block"),
+    ("seeds.extension_rule", "statement — the rule for extending the seed block; enforced at the aggregation boundary by results.assert_seed_blocks_are_not_pooled"),
     ("seeds.seed_role", "statement — why a seed is not a replicate; enforced by pairing.resample_unit"),
     ("seeds.deterministic_models_note", "statement — an evaluation convention"),
     ("tasks.classification.label_provenance", "statement — provenance wording repeated in every table"),
@@ -100,7 +122,8 @@ DISPOSITION_PREFIXES: tuple[tuple[str, str], ...] = (
     ("pairing.matching_requirements", "statement — a checklist for the M4 runner"),
     ("primary_hypothesis", "statement — the pre-registered hypothesis text"),
     ("secondary_hypotheses", "statement — the pre-registered hypothesis text"),
-    ("hyperparameter_selection.spectral_scaling_rule", "statement — a matching rule for the M4 runner"),
+    ("hyperparameter_selection.spectral_scaling_rule", "statement — the prose behind selection.SHARED_KNOBS; the knob set it implies is read by the selector and pinned by tests/test_hyperparameter_selection.py"),
+    ("hyperparameter_selection.detail", "statement — describes what drososense/evaluation/selection.py implements"),
     ("robustness_protocol.detail", "statement — the reasoning behind the injection-stage choice"),
     ("robustness_protocol.drift.note", "statement — a matching rule for the M4 runner"),
     ("size_study.detail", "statement — the reasoning behind nested sampling"),
@@ -139,14 +162,19 @@ DISPOSITION_PREFIXES: tuple[tuple[str, str], ...] = (
     ("gates.Gate_A.if_failed", "statement — guidance for the write-up"),
     ("gates.Gate_B.if_failed", "statement — guidance for the write-up"),
     ("gates.Gate_C.if_failed", "statement — guidance for the write-up"),
+    # One disposition for the three, so the family is classified alike. The
+    # claim is the author's and is only approximately checkable: Gate_A's and
+    # Gate_B's expressions name exactly the datasets declared here, while
+    # Gate_C's expression also names D2 (inside sig_any) even though the field
+    # does not. Whether that earns a real reader — an expression-vs-declaration
+    # check in the gate engine — is a judgement this inventory does not make.
+    ("gates.Gate_A.evaluated_on", "statement — the expression itself names the datasets it uses, and the field is descriptive"),
+    ("gates.Gate_B.evaluated_on", "statement — the expression itself names the datasets it uses, and the field is descriptive"),
     ("gates.Gate_C.evaluated_on", "statement — the expression itself names the datasets it uses"),
     ("gates.symbol_namespace", "mirrored — implemented as config.py:protocol_dataset_symbols + gates.py:build_symbols"),
     ("gates.significance_reachability", "mirrored — implemented as gates.py:_contrast_predicate 'sig'"),
     ("gates.gate_reachability", "statement — the reachability arithmetic, for the reader and the owner"),
     # --- declared, nothing reads it, and something should --------------------
-    ("hyperparameter_selection.grid", "HOLE — the declared tuning space. No selector reads it: the M1 runner takes per-model defaults, so nothing today could notice a model tuned outside this grid. Wire it into the M4 selector."),
-    ("hyperparameter_selection.selection_split", "HOLE — same selector; nothing reads it today"),
-    ("hyperparameter_selection.scope", "HOLE — same selector; nothing reads it today"),
     ("robustness_protocol.injection_stage", "HOLE — E4-E6 dependency. No injection code exists yet, so nothing can violate it, but nothing enforces it either"),
     ("robustness_protocol.retrain_readout", "HOLE — E4-E6 dependency, same as injection_stage"),
     ("robustness_protocol.drift_applied_after_standardization", "HOLE — E6 dependency, same as injection_stage"),
@@ -173,9 +201,6 @@ DISPOSITION_PREFIXES: tuple[tuple[str, str], ...] = (
     ("datasets.channel_intersection", "HOLE — the matched channel subset for a cross-food comparison. Nothing computes or enforces it, so an M4 'channel-matched' claim would be unchecked"),
     ("tasks.classification.n_classes", "mirrored — the label set is fixed in drososense/evaluation/metrics.py"),
     ("tasks.classification.label_names", "mirrored — the display names live in the dataset configs"),
-    ("seeds.root_seeds", "HOLE — the declared seed set. The runner takes seeds from its arguments, so a run outside 0..9 would not be refused"),
-    ("seeds.primary_seed_count", "HOLE — same as seeds.root_seeds"),
-    ("seeds.extension_to", "HOLE — same as seeds.root_seeds"),
     ("seeds.rng_hierarchy", "mirrored — implemented as drososense/utils/seeding.py; this states the order"),
     ("preprocessing.normalization.formula", "mirrored — implemented as drososense/data/scaling.py"),
     ("preprocessing.normalization.fit_scope", "mirrored — implemented as scaling.py + audited by leakage.py"),
@@ -183,10 +208,15 @@ DISPOSITION_PREFIXES: tuple[tuple[str, str], ...] = (
     ("preprocessing.normalization.save_artifact", "mirrored — implemented by the runner writing scaler.pkl"),
     ("preprocessing.normalization.forbidden", "mirrored — leak tests assert the scaler is train-only"),
     ("preprocessing.windowing.enabled", "mirrored — implemented as drososense/data/windowing.py"),
-    ("preprocessing.windowing.length_candidates", "HOLE — declared candidate lengths. The candidate list is read from the run arguments, so a length outside this set would not be refused"),
     ("preprocessing.windowing.forbidden", "mirrored — asserted by tests/test_leakage.py"),
+    ("preprocessing.windowing.selection", "mirrored — implemented as drososense/evaluation/selection.py; the same split and metric are declared in hyperparameter_selection"),
     ("preprocessing.missing_values.policy", "mirrored — implemented at load time in loaders.py"),
 )
+
+# The bucket a row lands in when the tightened test cannot certify a reader but
+# the retired looser test found something. It is not a hole: a hole is a
+# determination someone has already made. It is not a reader either.
+AWAITING_DETERMINATION = "awaiting determination"
 
 
 def _prefix_disposition(path: str) -> str | None:
@@ -258,23 +288,65 @@ def production_sources() -> list[Path]:
     return paths
 
 
-def build_index() -> dict[str, list[str]]:
-    """Index every quoted string literal in the production sources.
+def _docstring_nodes(tree: ast.AST) -> set[int]:
+    """Return the ``id()`` of every docstring constant in a parsed module.
+
+    Args:
+        tree: The parsed module.
 
     Returns:
-        Mapping of literal text to ``file:line`` locations, capped at three per
-        literal so one common word cannot flood the report.
+        Ids of the ``ast.Constant`` nodes that are docstrings.
     """
-    index: dict[str, list[str]] = {}
-    pattern = re.compile(r"""["']([^"'\n]{1,80})["']""")
+    found: set[int] = set()
+    holders = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    for node in ast.walk(tree):
+        if not isinstance(node, holders):
+            continue
+        body = getattr(node, "body", ())
+        if not body:
+            continue
+        first = body[0]
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            found.add(id(first.value))
+    return found
+
+
+def literals_by_kind() -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """Index the string literals of the production path, split by kind.
+
+    The split is the whole point: a literal that is *code* is a reader, a literal
+    that is a *docstring* is prose about the code, and the retired test treated
+    them alike. ``ast`` is used rather than a regular expression over lines
+    because it distinguishes the two structurally — a comment, for instance, is
+    not a node at all and cannot be mistaken for code.
+
+    F-strings are included through their constant parts, so an interpolated
+    ``f"...{name}..."`` still registers.
+
+    Returns:
+        ``(code, docstring)``, each mapping literal text to ``file:line`` hits.
+    """
+    code: dict[str, list[str]] = {}
+    docstrings: dict[str, list[str]] = {}
     for path in production_sources():
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-            for match in pattern.finditer(line):
-                literal = match.group(1)
-                hits = index.setdefault(literal, [])
-                if len(hits) < 3:
-                    hits.append(f"{path.relative_to(ROOT)}:{number}")
-    return index
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(path))
+        doc_nodes = _docstring_nodes(tree)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+                continue
+            literal = node.value
+            if not literal or len(literal) > MAX_LITERAL:
+                continue
+            target = docstrings if id(node) in doc_nodes else code
+            hits = target.setdefault(literal, [])
+            if len(hits) < MAX_HITS:
+                hits.append(f"{path.relative_to(ROOT)}:{node.lineno}")
+    return code, docstrings
 
 
 PROSE_KEYS = frozenset(
@@ -315,23 +387,40 @@ def is_prose(key: str, value: Any) -> bool:
     return False
 
 
-def readers_for(path: str, value: Any, index: dict[str, list[str]]) -> list[str]:
-    """Return the production locations that mention a field or its value.
+def leaf_key(path: str) -> str:
+    """Return the bare name a field is looked up by.
 
     Args:
         path: Dotted path of the field.
-        value: Its declared value.
-        index: Literal index from :func:`build_index`.
 
     Returns:
-        Sorted distinct ``file:line`` locations, empty when nothing mentions it.
+        The final path segment, with any list index removed.
     """
-    key = re.sub(r"\[\d+\]$", "", path).split(".")[-1]
-    candidates = [key]
-    if isinstance(value, str) and len(value) <= 40 and " " not in value:
+    return re.sub(r"\[\d+\]$", "", path).split(".")[-1]
+
+
+def reader_evidence(value: Any, index: dict[str, list[str]]) -> list[str]:
+    """Return the locations where a field's declared value appears.
+
+    Value matches are no longer readers — ``schema.py``'s hardcoded
+    ``freshness_class`` is not a reader of ``tasks.*.label_column``, it is the
+    same string written twice. They are kept only so a demoted row can name the
+    match that has to be adjudicated.
+
+    Args:
+        value: The field's declared value.
+        index: Literal index from :func:`literals_by_kind`.
+
+    Returns:
+        Sorted distinct ``file:line`` locations, empty when nothing matches.
+    """
+    candidates: list[str] = []
+    if isinstance(value, str) and 0 < len(value) <= 40 and " " not in value:
         candidates.append(value)
     if isinstance(value, list):
-        candidates.extend(str(item) for item in value if isinstance(item, str) and len(item) <= 40)
+        candidates.extend(
+            str(item) for item in value if isinstance(item, str) and 0 < len(item) <= 40
+        )
     found: set[str] = set()
     for candidate in candidates:
         found.update(index.get(candidate, ()))
@@ -342,31 +431,90 @@ def inventory() -> list[dict[str, Any]]:
     """Walk the protocol and classify every field.
 
     Returns:
-        One record per leaf: path, value, readers and whether it is orphaned.
+        One record per leaf: path, value, readers, the evidence the retired test
+        would have used, and whether it is orphaned.
     """
     protocol = yaml.safe_load(PROTOCOL_PATH.read_text(encoding="utf-8"))
-    index = build_index()
+    code_index, docstring_index = literals_by_kind()
+    all_index: dict[str, list[str]] = {
+        literal: sorted(set(hits) | set(docstring_index.get(literal, ())))
+        for literal, hits in code_index.items()
+    }
+    for literal, hits in docstring_index.items():
+        all_index.setdefault(literal, list(hits))
+
     records: list[dict[str, Any]] = []
     for path, value in iter_leaves(protocol):
-        key = re.sub(r"\[\d+\]$", "", path).split(".")[-1]
+        key = leaf_key(path)
         prose = is_prose(key, value)
-        readers = [] if prose else readers_for(path, value, index)
+        readers = [] if prose else sorted(code_index.get(key, ()))
+        prose_hits = [] if prose else sorted(docstring_index.get(key, ()))
+        value_hits = [] if prose else reader_evidence(value, all_index)
         known = KNOWN_READERS.get(key)
         if known and "PROSE" in known:
             prose = True
             readers = []
+            prose_hits = []
+            value_hits = []
         records.append(
             {
                 "path": path,
                 "key": key,
                 "value": value,
                 "readers": readers,
+                "prose_hits": prose_hits,
+                "value_hits": value_hits,
                 "known_reader": known,
                 "orphan": not prose and not readers and not known,
                 "prose": prose,
             }
         )
     return records
+
+
+def awaiting_determination(record: dict[str, Any]) -> bool:
+    """Whether a row needs a human rather than a disposition.
+
+    Args:
+        record: An inventory record.
+
+    Returns:
+        True when the tightened test finds no reader but the retired test found
+        something that still has to be adjudicated.
+    """
+    if not record["orphan"]:
+        return False
+    if _prefix_disposition(record["path"]) or record["key"] in DISPOSITIONS:
+        return False
+    return bool(record["prose_hits"] or record["value_hits"])
+
+
+def determination_reason(record: dict[str, Any]) -> str:
+    """Name the match the retired reader test used, for a human to adjudicate.
+
+    Args:
+        record: An inventory record.
+
+    Returns:
+        A one-line statement of what matched and where.
+    """
+    parts: list[str] = []
+    if record["prose_hits"]:
+        parts.append(
+            "the field name appears only in a docstring or comment "
+            + ", ".join(f"`{hit}`" for hit in record["prose_hits"])
+        )
+    if record["value_hits"]:
+        parts.append(
+            "only the declared value appears, as a literal "
+            + ", ".join(f"`{hit}`" for hit in record["value_hits"])
+        )
+    detail = "; ".join(parts) if parts else "the retired test found a match that is not recorded"
+    return (
+        f"{AWAITING_DETERMINATION} — the tightened test finds no reader. The retired test matched "
+        f"{detail}. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, "
+        f"and if it is not, give the field a HOLE disposition."
+    )
 
 
 def disposition(record: dict[str, Any]) -> str:
@@ -387,6 +535,8 @@ def disposition(record: dict[str, Any]) -> str:
     for key, reader in KNOWN_READERS.items():
         if stripped == key or stripped.endswith("." + key):
             return f"mirrored — read as {reader}"
+    if awaiting_determination(record):
+        return determination_reason(record)
     return "NOT TRIAGED — needs a disposition"
 
 
@@ -413,34 +563,45 @@ def render(records: list[dict[str, Any]]) -> str:
     """
     orphans = [r for r in records if r["orphan"]]
     holes = [r for r in orphans if is_hole(r)]
+    awaiting = [r for r in orphans if awaiting_determination(r)]
     prose = [r for r in records if r["prose"]]
     read = [r for r in records if r["readers"]]
+    # Not prose, no literal hit, but KNOWN_READERS names a reader that goes
+    # through a different expression. Counted so the table sums to the total.
+    named = [
+        r for r in records if not r["prose"] and not r["readers"] and r["known_reader"]
+    ]
     lines = [
         "# Protocol field readers",
         "",
         "Generated by `python scripts/protocol_field_readers.py --write`. Do not edit by hand.",
         "",
-        f"Source: `{PROTOCOL_PATH.relative_to(ROOT)}`. Reader = a literal occurrence of the field",
-        "name (or of a declared scalar value) in `drososense/**` or `scripts/**`. A mechanical",
-        "test: false positives and false negatives both exist, so every row still has to be read.",
-        "What it is good at is the failure that happened three times — a field whose name appears",
+        f"Source: `{PROTOCOL_PATH.relative_to(ROOT)}`. A reader is a string literal in",
+        "`drososense/**` or `scripts/**` equal to the field's NAME, parsed from the module so",
+        "that a literal inside a docstring or a comment does not count, and never a match on the",
+        "field's declared VALUE. Still a mechanical test: a field read through a computed key is",
+        "a false negative, and a field whose name is a common word is a false positive. What it",
+        "is good at is the failure that happened three times — a field whose name appears",
         "nowhere in the production path at all.",
         "",
         "| Bucket | Count |",
         "| --- | ---: |",
         f"| Declared leaves | {len(records)} |",
         f"| With a literal reader in the production path | {len(read)} |",
+        f"| Read elsewhere, by a named exception | {len(named)} |",
         f"| Prose (no reader expected) | {len(prose)} |",
         f"| Orphaned (a recorded disposition) | {len(orphans)} |",
-        f"| — of which statements or mirrored declarations | {len(orphans) - len(holes)} |",
+        f"| — of which statements or mirrored declarations | {len(orphans) - len(holes) - len(awaiting)} |",
+        f"| — of which awaiting human determination | {len(awaiting)} |",
         f"| **— of which real holes (nothing reads them and something should)** | **{len(holes)}** |",
         "",
         "## Real holes",
         "",
         "A hole is a field nothing reads whose reader would have to exist before the thing it",
         "declares could be relied on: an M4/E-series dependency, or a declaration that has already",
-        "diverged from the code. The rest of the orphans are statements, or declarations whose",
-        "operative copy lives elsewhere — both are listed under *Every declared field* below.",
+        "diverged from the code. The rest of the orphans are statements, declarations whose",
+        "operative copy lives elsewhere, or rows still awaiting determination — all three are",
+        "listed under *Every declared field* below.",
         "",
     ]
     if not holes:
@@ -451,10 +612,23 @@ def render(records: list[dict[str, Any]]) -> str:
             lines.append(f"| `{record['path']}` | {disposition(record)[len('HOLE — '):]} |")
     lines += [
         "",
-        "## Orphaned fields (statements and mirrored declarations)",
+        "## Awaiting human determination",
+        "",
+        "Rows the tightened reader test can no longer certify. The retired test matched something",
+        "— a docstring, a comment, or the field's declared value written again — and that match",
+        "is printed beside each row because it is what has to be adjudicated. Until then these",
+        "rows count as neither readers nor holes, so the hole count above is a lower bound.",
         "",
     ]
-    statement_orphans = [r for r in orphans if r not in holes]
+    if not awaiting:
+        lines.append("None.")
+    else:
+        lines += ["| Field | What the retired test matched |", "| --- | --- |"]
+        for record in awaiting:
+            reason = determination_reason(record)
+            lines.append(f"| `{record['path']}` | {reason[len(AWAITING_DETERMINATION) + 3:]} |")
+    lines += ["", "## Orphaned fields (statements and mirrored declarations)", ""]
+    statement_orphans = [r for r in orphans if r not in holes and r not in awaiting]
     if not statement_orphans:
         lines.append("None.")
     else:
@@ -474,6 +648,8 @@ def render(records: list[dict[str, Any]]) -> str:
             reader = ", ".join(f"`{hit}`" for hit in record["readers"])
         elif record["known_reader"]:
             reader = f"`{record['known_reader']}`"
+        elif awaiting_determination(record):
+            reader = f"_awaiting determination — see above_"
         else:
             reader = "**NO READER**"
         lines.append(f"| `{record['path']}` | {rendered} | {reader} |")
@@ -510,10 +686,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{DOC_PATH}  ({len(records)} leaves, {len(orphans)} orphaned)")
         return 0
 
+    awaiting = [r for r in orphans if awaiting_determination(r)]
+    holes = [r for r in orphans if is_hole(r)]
     print(
         f"{len(records)} declared leaves; "
         f"{len([r for r in records if r['readers']])} with a literal production reader; "
-        f"{len(orphans)} orphaned"
+        f"{len(orphans)} orphaned; {len(awaiting)} awaiting determination; {len(holes)} holes"
     )
     for record in orphans:
         print(f"  {record['path']}: {disposition(record)}")
