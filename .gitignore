@@ -44,3 +44,7 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+
+# platform-local agent scaffolding (never deliver into the repo)
+.pi/
+AGENTS.md
