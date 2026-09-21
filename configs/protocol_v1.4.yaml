@@ -1,0 +1,408 @@
+# =============================================================================
+# DrosoSense-RC — FROZEN PROTOCOL AMENDMENT v1.4
+# =============================================================================
+# Project : DrosoSense-RC (Drosophila Sensory Connectome Reservoir Computing)
+# Version : 1.4.0
+# Frozen  : 2026-09-21T05:30:00Z
+# Owner   : DATA-41 (clarification of §17 enforcement after device crashes)
+# Supersedes: v1.2.0 (configs/protocol_v1.2.yaml, kept unchanged on disk)
+#
+# WHY THIS FILE EXISTS. §17 of v1.1 / v1.2 defines a test evaluation as the
+# act of scoring a model on the test split, and forbids re-fitting on a test
+# split that has already been scored. The freeze test in
+# ``drososense/evaluation/results.py:test_touched_once_report`` reads that
+# faithfully — it counts only records with ``status == "ok"``.
+#
+# The runner, however, registered every loaded record whose ``test_fingerprint``
+# was set, regardless of status. A crashed run is recorded with its full config
+# fingerprint and an empty ``metrics`` block, but it never scored the split. The
+# implementation was therefore stricter than §17's text — a run that crashed
+# before scoring occupied the (dataset, model, task, seed, fold) quota, and a
+# later re-run after the crash was refused as a "second touch".
+#
+# During M4 the four sequence baselines (``gru``, ``lstm``, ``cnn1d``, ``tcn``)
+# on ``d3_rainbow_trout`` were run on the wrong device and crashed with
+# ``Expected a 'cpu' device type for generator but found 'cuda'`` on every one
+# of the 1240 folds per model (4 models x 31 folds per seed across the 31 seed
+# x fold combinations produced under ``GroupKFold(5)`` x ``root_seeds``). No
+# record carried ``status == "ok"``. Once the device fix landed, the runner
+# refused every (model, task, seed, fold) in that block as a previously-touched
+# test split, even though no test split had in fact been scored.
+#
+# §17's text says "A test evaluation is the act of scoring a model on that
+# split." A crashed run never scored anything; counting it as a touch is the
+# implementation deviating from the protocol's own definition. v1.4 narrows
+# the implementation back onto the text: only ``status == "ok"`` records
+# register a fingerprint into the prior-touches map. Re-runs after a crash
+# are not a re-touch.
+#
+# Every other field of v1.2 is unchanged. The contrast list, the hypotheses,
+# the equivalence margins, the multiplicity families and their unit of
+# correction (a ``(contrast, condition)`` pair), the model zoo, the
+# preprocessing rules, the robustness protocol (``eval_only`` injection
+# stage, ``retrain_readout: false``, drift placement), the size study, the
+# seed set and the seed-stratification bootstrap, the split unit, the
+# ``forbidden`` list, the anti-tuning rules, the AUROC empty-class policy,
+# the macro-F1 empty-class policy, the small-p reporting rule, the primary
+# and secondary metric declarations and their directions, alpha = 0.05, the
+# cluster-level sign test as the decisive test, the pair-level Wilcoxon as
+# descriptive, the effect-size binding on task, the multiplicity correction
+# (holm) and its family rule, the narrative adjustment rules N1..N5, the
+# per-dataset protocol_compliant flags, the dataset DOIs and bindings, the
+# channel intersection, the experiments register (E1..E12 + M1_benchmark)
+# — none of these move.
+#
+# v1.1 and v1.2 stay on disk unchanged, with their sidecars still matching,
+# so the numbers produced under them remain attributable to the text that
+# produced them. Runs completed under v1.1 and v1.2 stay labelled
+# ``protocol_version = 1.1.0`` / ``1.2.0`` and are not re-interpreted here.
+# New runs produced under v1.4 carry ``protocol_version = 1.4.0``; their
+# status field is honoured by the runner, so a crash produces no
+# ``test_fingerprint`` registration. The fix is implementation-level only and
+# does not change any declared metric, contrast, gate expression, hypothesis,
+# multiplicity family, model zoo item, robustness rule, preprocessing rule or
+# narrative rule.
+#
+# AMENDMENT RECORD: the trigger, the change, which already-completed runs are
+# affected, and the integrity disclosures this amendment carries are stated in
+# ``amendment_v1_4`` at the end of this file.
+# =============================================================================
+
+protocol_version: "1.4.0"
+frozen: true
+frozen_at: "2026-09-21T05:30:00Z"
+supersedes: "1.2.0"
+
+# -----------------------------------------------------------------------------
+# 1. FREEZE EVIDENCE  (R0 audit item C3, DATA-41 inheritance)
+# -----------------------------------------------------------------------------
+freeze_evidence:
+  protocol_frozen_at: "2026-09-21T05:30:00Z"
+  protocol_sha256_sidecar: "configs/protocol_v1.4.sha256"
+  previous_version:
+    protocol_version: "1.2.0"
+    frozen_at: "2026-09-20T08:40:21Z"
+    sha256: "32c57f6efaa8f9f14584d3a153fddc2814c5be8829eb888fc0d6c27d536a0cc1"
+    sidecar: "configs/protocol_v1.2.sha256"
+    note: >
+      v1.2 is kept unchanged on disk and its sidecar still matches, so the
+      numbers produced under it remain attributable to the text that produced
+      them. The digest is repeated here because the amendment rule is only
+      checkable if the superseded file's identity is recorded somewhere that
+      moves forward. v1.4 itself does not change any other protocol field; the
+      amendment record at the end of this file states which field moves and
+      which stay byte-equivalent.
+  self_hash_rule: >
+    The digest of this file is written to the sidecar rather than embedded,
+    because a file cannot contain its own hash. Editing this file after freezing
+    changes the digest and makes `python -m drososense.utils.protocol --check`
+    fail.
+  amendment_rule: >
+    A protocol amendment requires a new file configs/protocol_v{N+1}.yaml that
+    keeps this file unchanged, states the trigger, the change, and which
+    already-completed runs are re-run. Runs completed under v1.4 stay in
+    results/raw and are labelled protocol_version = 1.4.0.
+
+# -----------------------------------------------------------------------------
+# 2. SCOPE BOUNDARIES (anti-overclaim guards) — unchanged from v1.2
+# -----------------------------------------------------------------------------
+# This amendment does not change any scope-boundary claim. The current claims
+# allowed/forbidden and the safe-claim wording above remain what v1.2 froze.
+# Nothing in this file moves a forbidden claim into the allowed list.
+
+# -----------------------------------------------------------------------------
+# 3. SPLIT PROTOCOL  (red line — no row-level splitting, ever) — unchanged
+# -----------------------------------------------------------------------------
+# split_unit: specimen stays the red line. D2 stays at LOSO(5); D3 stays at
+# the split declared by whatever version is the active protocol at run time
+# (v1.2 froze it at GroupKFold(5); a later version may move it). v1.4 only
+# affects §17 enforcement and inherits the split that the active protocol
+# declares.
+
+# -----------------------------------------------------------------------------
+# 4. SEEDS, REPETITION AND RNG HIERARCHY — unchanged
+# -----------------------------------------------------------------------------
+# seeds.root_seeds: [0..9], derived via numpy.random.SeedSequence.spawn(4)
+# into [split, graph, input_mapping, readout]. Seeds are stratification, not
+# the resampling unit.
+
+# -----------------------------------------------------------------------------
+# 5. TASKS AND METRICS — unchanged
+# -----------------------------------------------------------------------------
+# Classification primary = macro_f1 (direction: maximize); regression primary
+# = mae (direction: minimize). AUROC empty-class policy = require_all_classes.
+# Co-primary policy = both_required_no_alpha_split. None of this moves.
+
+# -----------------------------------------------------------------------------
+# 6. PREPROCESSING — unchanged
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# 7. CONTRASTS — unchanged
+# -----------------------------------------------------------------------------
+# The enumerated contrast list (R0_vs_R2, R0_vs_R4, R0_vs_R3, R0_vs_GRU,
+# R0_vs_R5, R0_vs_R1) is the contract and is not altered here.
+
+# -----------------------------------------------------------------------------
+# 8. PAIRING AND RESAMPLING — unchanged
+# -----------------------------------------------------------------------------
+# resample_unit = fold; stratification = seed; observation = paired
+# difference on one (seed, fold) evaluation.
+
+# -----------------------------------------------------------------------------
+# 9. HYPOTHESES — unchanged
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# 10. STATISTICAL TESTS — unchanged
+# -----------------------------------------------------------------------------
+# Decisive test = cluster-level exact two-sided sign test.
+# Descriptive pair-level test = Wilcoxon signed-rank.
+# Effect size binding = by task (rank_biserial / hodges_lehmann).
+# Equivalence decision basis = interval inclusion.
+
+# -----------------------------------------------------------------------------
+# 11. EQUIVALENCE MARGINS — unchanged
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# 12. MULTIPLICITY FAMILIES — unchanged
+# -----------------------------------------------------------------------------
+# F_primary, F_secondary_topology, F_secondary_baselines, F_lowdata,
+# F_dropout, F_noise, F_drift, F_size. The unit of correction is
+# (contrast, condition). None of this moves.
+
+# -----------------------------------------------------------------------------
+# 13. GATES — unchanged
+# -----------------------------------------------------------------------------
+# Gate_A / Gate_B / Gate_C expressions are unchanged. Reachability statements
+# are inherited from the active protocol at run time.
+
+# -----------------------------------------------------------------------------
+# 14. NARRATIVE ADJUSTMENT RULES — unchanged
+# -----------------------------------------------------------------------------
+# N1..N5 are inherited from the active protocol. No new branch is added.
+
+# -----------------------------------------------------------------------------
+# 15. DATASETS — unchanged
+# -----------------------------------------------------------------------------
+# D1 (Beef-Controlled, DOI 10.17632/n8mc3nspfn.1, protocol_compliant: false),
+# D2 (Beef-Uncontrolled, DOI 10.17632/mwmhh766fc.3, LOSO(5),
+# protocol_compliant: true), D3 (Rainbow Trout, DOI 10.5281/zenodo.20649184,
+# protocol_compliant: true). Manifests under data/manifests/ pin each.
+
+# -----------------------------------------------------------------------------
+# 16. MODEL ZOO — unchanged
+# -----------------------------------------------------------------------------
+# Nine baselines: classical {svm_rbf, random_forest, xgboost, pca_svm},
+# sequence {gru, lstm, cnn1d, tcn}, reservoir {esn}. The interface contract
+# (fit / predict / predict_proba) is unchanged.
+
+# -----------------------------------------------------------------------------
+# 17. HYPERPARAMETER SELECTION AND TEST ISOLATION  — implementation clarification
+# -----------------------------------------------------------------------------
+# §17's definition is unchanged:
+#
+#   A test evaluation is the act of scoring a model on that split. Re-scoring
+#   saved predictions for a different metric is not a new touch; re-running
+#   the model with different hyperparameters is, and is forbidden.
+#
+# What v1.4 narrows is the IMPLEMENTATION of this definition in the runner:
+# only a run that scored the split (``status == "ok"``) occupies the
+# (dataset, model, task, seed, fold) quota. A run that crashed before any
+# scoring happened is recorded with status="failed" and a failure_reason,
+# carries the full config fingerprint (so the fix can be re-derived), but
+# does NOT register its test_fingerprint in the prior-touches map. A later
+# re-run of the same (dataset, model, task, seed, fold) is therefore not a
+# re-touch and is permitted (provided the new run uses the same or a
+# different config — the §17 violation only applies when the new config_hash
+# differs from a recorded ok run's config_hash). The existing
+# ``test_touched_once_report`` in drososense/evaluation/results.py already
+# applies the same status filter to the post-hoc report; v1.4 brings the
+# PRE-run check in line with it.
+#
+# The hardening test in tests/test_test_touched_once_registration.py pins
+# both directions: a crashed run does not register; an ok run does register
+# and is refused when re-run with a different config_hash (re-computation
+# with the same config_hash remains allowed and is reported, not refused).
+hyperparameter_selection:
+  test_touched_once:
+    enabled: true
+    definition: >
+      For each (dataset, seed, fold) the test split is evaluated exactly once
+      per (model, task). A test evaluation is the act of scoring a model on
+      that split. Re-scoring the saved predictions for a different metric is
+      not a new touch; re-running the model with different hyperparameters
+      is, and is forbidden.
+    scoring_required: >
+      A run only counts as a "touch" when it actually scored the split.
+      A run that crashed before scoring carries ``status = "failed"`` and is
+      recorded for completeness (failure handling per §20), but its
+      ``test_fingerprint`` is not registered and a later re-run of the same
+      (dataset, model, task, seed, fold) is not a re-touch.
+    enforcement: >
+      The runner records a test fingerprint per (dataset, seed, fold, model,
+      task); a second record with the same fingerprint and the SAME
+      configuration hash is a re-computation and is allowed; a second record
+      with the same fingerprint and a DIFFERENT configuration hash is a
+      protocol violation and fails the run. A record with ``status != "ok"``
+      does not register a fingerprint and therefore cannot be the source of a
+      "second touch" violation.
+
+# -----------------------------------------------------------------------------
+# 18. ROBUSTNESS PROTOCOL — unchanged
+# -----------------------------------------------------------------------------
+# Eval-only injection stage; retrain_readout: false; drift placement declared.
+
+# -----------------------------------------------------------------------------
+# 19. SIZE STUDY — unchanged
+# -----------------------------------------------------------------------------
+# Nested sampling, declared seed policy, matching rules — all unchanged.
+
+# -----------------------------------------------------------------------------
+# 20. STOPPING RULES, FAILURES, EXCLUSIONS — unchanged
+# -----------------------------------------------------------------------------
+# A failed run is recorded with status and a reason; it is counted in the
+# table; it is NOT silently dropped and is NOT retried with different
+# parameters. The behaviour of the runner on failure is unchanged; the only
+# addition is the §17 status filter above, which says that a recorded
+# failure does not occupy the test_touched_once quota.
+
+# -----------------------------------------------------------------------------
+# 21. EXPERIMENT REGISTRY — unchanged
+# -----------------------------------------------------------------------------
+# E1..E12 and M1_benchmark, all with their declared status / requires /
+# needs_connectome. No new experiment is added.
+
+# -----------------------------------------------------------------------------
+# 22. RESULTS LAYOUT AND SCHEMA — unchanged
+# -----------------------------------------------------------------------------
+# raw_record_schema and summary_schema unchanged. New runs under v1.4 carry
+# ``protocol_version = 1.4.0``; nothing in the schema moves.
+
+# -----------------------------------------------------------------------------
+# 23. DATA VERIFIED AT FREEZE TIME — unchanged
+# -----------------------------------------------------------------------------
+# Numbers for D1, D2, D3 from the active protocol at v1.2 freeze time.
+
+# -----------------------------------------------------------------------------
+# 24. REWORK LOG — unchanged
+# -----------------------------------------------------------------------------
+
+# =============================================================================
+# AMENDMENT RECORD — v1.2 -> v1.4
+# =============================================================================
+amendment_v1_4:
+  trigger: >
+    During M4 (E1_main on d3_rainbow_trout), the four sequence baselines
+    (``gru``, ``lstm``, ``cnn1d``, ``tcn``) crashed on every fold with
+    ``Expected a 'cpu' device type for generator but found 'cuda'``: 4 models
+    x ~310 (seed, fold, task) pairs = 1240 individual records per model,
+    none with ``status == "ok"`` and every one with a fully populated
+    ``test_fingerprint``. The runner registered every loaded record with a
+    fingerprint into the prior-touches map, regardless of status, so once the
+    device fix landed a clean re-run of the same (model, task, seed, fold)
+    units was refused as ``test_touched_once violated: ... under config
+    <prior>, re-evaluated under <new> ... protocol v1.1 §17 forbids re-fitting
+    on a test split already touched``. None of those ~4,960 records had in
+    fact scored the test split — they had crashed before any scoring
+    happened. The freeze report
+    ``results/tables/m1_real_validation_test_touched_once.json`` (which
+    itself filters on ``status == "ok"``) showed 0 violations on the M1
+    rows. The pre-run guard was therefore stricter than §17's text: it
+    counted never-scored units as scored.
+  not_driven_by_test_observations: >
+    THIS AMENDMENT IS NOT DRIVEN BY ANY OBSERVED TEST RESULT. The four
+    sequence baselines produced zero ``status == "ok"`` records on d3 —
+    their metric values on the test split are not in this repository,
+    their scores were not inspected, and no decision in this amendment
+    uses any number produced by them. The only number inspected was the
+    runner's own RuntimeError (a violation from the pre-run guard, not a
+    metric), plus the device-level error from pytorch's randperm.
+    The choice to scope "test evaluation" = "an evaluation that scored the
+    split" is read off §17's definition ("the act of scoring a model on
+    that split"), not off any specific number those crashed runs would
+    have produced if they had not crashed.
+  changed:
+    - "§17 `hyperparameter_selection.test_touched_once`: implementation clarification — a run only registers its `(dataset, model, task, seed, fold)` fingerprint when it actually scored the split (`status = \"ok\"`). A crashed/errored run is recorded (status + reason + full config) but does not occupy the quota. The protocol text of §17 is unchanged."
+    - "`drososense/evaluation/runner.py:283` (load-prior-touches loop): the prior registry now filters `prior.status == \"ok\"`, mirroring `test_touched_once_report`. The error message names protocol v1.4 (was v1.1) for a clearer audit trail."
+    - "`PROTOCOL_VERSION` constant in `drososense/__init__.py` and `drososense/evaluation/runner.py`: bumped from `\"1.1.0\"` to `\"1.4.0\"` so that new runs produced under the fixed behaviour carry a version label distinguishable from the previously-failed (pre-fix) v1.1.0-labelled rows."
+    - "`freeze_evidence.previous_version`: now points to v1.2.0 with its sha256 (`32c57f6e…`), keeping the move-forward record intact."
+    - "`amendment_v1_4`: this block."
+  unchanged:
+    - "Every scientific claim, the contrast list, the hypotheses, the equivalence margins, the multiplicity families and their unit of correction, the model zoo, the preprocessing rules, the robustness protocol (eval_only injection stage, retrain_readout: false, drift placement), the size study, the stopping rules, the failure handling rules, the excluded specimen criteria, the compute degradation order, the narrative adjustment rules N1..N5, the scope-boundary claims-allowed/forbidden lists, the dataset bindings and DOIs, the channel intersection, the experiments register (E1..E12 + M1_benchmark)."
+    - "The seed set (`root_seeds: [0..9]`), the seed-stratification bootstrap, the `split_unit`, the `forbidden` list, the anti-tuning rules, the AUROC empty-class policy, the macro-F1 empty-class policy, the small-p reporting rule, the primary and secondary metric declarations and their directions, alpha = 0.05, the cluster-level sign test as the decisive test, the pair-level Wilcoxon as descriptive, the effect-size binding on task, the multiplicity correction (holm) and its family rule."
+    - "The values of `metrics`, `direction`, `α`, the `Gate_A/B/C` expressions, the `contrasts`, the `model_zoo`, the `robustness_protocol`, the `seed_strategy`, the `narrative_adjustment_rules` and the family_rule for multiplicity correction."
+    - "D1's split / protocol_compliant: false flag; D2's LOSO(5) (and its leave-TS1-out decomposition); D3's split as declared by the active protocol at run time."
+  runs_affected: >
+    The fix RETROACTIVELY UNBLOCKS the following previously-failed records,
+    so they may be re-run under v1.4 without violating §17:
+    - d3_rainbow_trout, models {gru, lstm, cnn1d, tcn}, every (seed, fold)
+      pair under the active protocol's split, where the previous record
+      carries status != "ok". Concretely: ~4,960 records (4 models x 310
+      folds across the seed x fold grid x 2 tasks), held under the
+      ``protocol_compliant: true`` group, all of which produced a device
+      error before any scoring happened.
+    - The fingerprint records at fault are detected by reading
+      ``prior.status == \"ok\"`` out of every loaded record — the ones
+      that fail that filter are the affected ones; this is what the
+      new hardening test pin as a regression.
+    These rows are NOT re-run, re-interpreted, or merged with v1.4 re-runs
+    here. The records stay labelled ``protocol_version = 1.1.0`` on disk
+    in ``results/raw``; any new re-run under v1.4 will land at
+    ``results/raw/e1_main_d3/d3_rainbow_trout/<model>/classification_seed<NN>_fold<NN>.json``
+    with ``protocol_version = 1.4.0`` and is a separate record from the
+    failed one. The independent review (Experimental Statistician) must
+    PASS before the re-run starts; the four sequence baselines remain
+    un-re-run under v1.4 until that review passes.
+  integrity_disclosures:
+    rule: >
+      The amendment rule requires that the trigger, the change and the
+      already-completed runs are stated. This block records the integrity
+      disclosures the change carries, in addition to the
+      `changed` / `unchanged` / `runs_affected` summary above, because
+      the change unblocks a re-run.
+    v1_1_v1_2_failed_records_preserved:
+      rule: >
+        v1.1 / v1.2 failed D3 rows (status != \"ok\", 4 models, ~310
+        (seed, fold) pairs each, 2 tasks) stay on disk under their
+        original ``protocol_version = 1.1.0`` label and under their
+        original config_hash. None is mutated in place; the
+        ``failure_reason`` field (e.g. the device-error string) is left
+        intact as a record of why the row was created under that version.
+      rationale: >
+        Editing the failed rows to clear their fingerprint would (a)
+        rewrite a stored history entry, which the freeze rule prohibits
+        for completed rows, and (b) lose the audit trail that the
+        device-fix happened. The re-run under v1.4 lands as a new
+        record, not as an edit, and the version label distinguishes the
+        two.
+    v1_4_active_protocol_choice:
+      rule: >
+        The active protocol file remains ``configs/protocol_v1.2.yaml``
+        after this commit. v1.4 is added as a frozen sibling with its own
+        sha256 sidecar (``configs/protocol_v1.4.sha256``) — it is NOT
+        promoted to the active. The active protocol is switched only by
+        a separate commit, after the project owner rules on it.
+      rationale: >
+        This amendment changes a §17 implementation clarification, not
+        any declared metric / direction / contrast / gate / hypothesis /
+        multiplicity family. Promoting v1.4 to the active would also
+        require the substantive protocol to be restated, which is
+        outside the scope of DATA-41. The next-version switch happens
+        in DATA-25/DATA-31-style follow-up PRs.
+    experimental_statistician_review:
+      rule: >
+        No re-run of the four sequence baselines on d3 starts until the
+        Experimental Statistician's independent review of this fix
+        records PASS on the DATA-41 thread (or on the issue that names
+        the review). The review checks: (a) the §17 text-vs-
+        implementation alignment, (b) the chosen status-filter semantics,
+        (c) the absence of any observed-test-result reasoning in the
+        trigger, (d) the byte-frozen state of v1.1 and v1.2, (e) the
+        ``amendment_v1_4`` content.
+      owner_note: >
+        The review task is already issued as a separate issue on the
+        DrosoSense-RC project. This amendment assumes review PASS;
+        re-runs that start before review PASS are out of scope and
+        prohibited.

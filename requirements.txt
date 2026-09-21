@@ -1,0 +1,20 @@
+# DrosoSense-RC — runtime dependencies
+# Pinned loosely to minor versions; the frozen environment is environment.yml.
+# Install:  python -m pip install -r requirements.txt
+# Test:     python -m pip install -r requirements-dev.txt
+
+numpy>=1.26,<3
+pandas>=2.1,<4
+scipy>=1.11
+scikit-learn>=1.4
+PyYAML>=6.0
+
+# Gradient boosting baseline (E-table: XGBoost)
+xgboost>=2.0
+
+# Sequence baselines: GRU / LSTM / 1D-CNN / TCN
+# CPU wheel is sufficient for all M1 workloads.
+torch>=2.2
+
+# Data acquisition + integrity
+requests>=2.31
