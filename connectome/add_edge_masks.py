@@ -5,17 +5,18 @@ add_edge_masks.py — Assign pathway_class / pre_class / post_class to olfactory
 DATA-3 post-R1 fix: align pathway_class with DATA-9 §3.2 semantics.
 
 Rule order (DATA-9 §3.2):
-  1. modulatory  — pre/post in {MBDAN, APL}   → DAN (=MBDAN); APL not in cell-type table
-  2. lateral    — pre/post == ALLN            → ALLN not in cell-type table; cannot identify
-  3. forward    — (ORN|ALPN)→(ALPN|KC)  OR  KC→MBON
+  1. modulatory  — pre/post in {MBDAN, APL, DAN}  → DAN (=MBDAN); APL not in cell-type table
+  2. lateral    — pre/post == ALLN                → ALLN not in cell-type table; cannot identify
+  3. forward    — exactly ORN→PN, PN→KC, or KC→MBON  (DATA-9 §3.2 three-pairwise chain)
   4. other      — everything else
 
 Biological scope note:
   ALLN cannot be reliably distinguished from ALPN using layer_mean alone.
+  APL cannot be reliably distinguished from other cell types using layer_mean alone.
   The FlyWire cell-type classifier used for this connectome (v783 olfactory rank table)
-  does not expose an explicit ALLN label.  Consequently the lateral category is
-  empty (or only a heuristically-identified subset); this limitation is recorded
-  in meta.json.edge_mask_counts.note.
+  does not expose an explicit ALLN or APL label.  Consequently the lateral category is
+  empty and APL involvement is unreported; these limitations are recorded in
+  meta.json.edge_mask_counts.note.
 
 Inputs (resolved via connectome/paths.py data-root):
   - neuron_class_ranking_df_783-olfactory-10000.feather  : root_id + layer_mean
@@ -47,9 +48,12 @@ from paths import metadata_path  # noqa: E402
 MODULATORY_CLASSES = frozenset({"MBDAN", "APL", "DAN"})  # DAN = MBDAN in the classifier
 
 # The classifier uses PN for ALPN (antennal-lobe projection neurons).
-# ALLN (AL local neurons) is NOT present in the cell-type table — cannot identify.
-FORWARD_PRE = frozenset({"ORN", "PN"})      # PN ≈ ALPN in DATA-9 naming
-FORWARD_POST = frozenset({"PN", "KC"})       # PN ≈ ALPN; includes ALPN→ALPN, ALPN→KC
+# ALLN (AL local neurons) and APL are NOT present in the cell-type table — cannot identify.
+# DATA-9 §3.2 forward chain is exactly three pairwise types:
+#   ORN→PN  (ORN→ALPN in DATA-9 naming)
+#   PN→KC   (ALPN→KC in DATA-9 naming)
+#   KC→MBON
+# Cross-level ORN→KC and intra-AL PN→PN are excluded from forward per §3.2.
 
 
 def classify_edge(pre_class: str, post_class: str) -> str:
@@ -61,10 +65,10 @@ def classify_edge(pre_class: str, post_class: str) -> str:
     #    (annotator: if ALLN annotation is added to the cell-type table, activate this)
     # if pre_class == "ALLN" or post_class == "ALLN":
     #     return "lateral"
-    # 3. Forward: (ORN|ALPN)→(ALPN|KC)  OR  KC→MBON
-    if pre_class in FORWARD_PRE and post_class in FORWARD_POST:
-        return "forward"
-    if pre_class == "KC" and post_class == "MBON":
+    # 3. Forward: exactly the three pairwise types in DATA-9 §3.2
+    if (pre_class == "ORN" and post_class == "PN") or \
+       (pre_class == "PN" and post_class == "KC") or \
+       (pre_class == "KC" and post_class == "MBON"):
         return "forward"
     # 4. Everything else
     return "other"
@@ -130,8 +134,11 @@ def main():
         "note": (
             "pathway_class assigned by add_edge_masks.py (DATA-9 §3.2 rules). "
             "ALLN cannot be identified from layer_mean alone — lateral category is empty. "
+            "APL also cannot be identified from layer_mean alone — modulatory DAN-only "
+            "edges are classified as modulatory; APL involvement may be present but "
+            "unreported. "
             "pre_class/post_class are the FlyWire cell-type classifier labels "
-            "(PN ≈ ALPN; ALLN not exposed in v783 olfactory rank table). "
+            "(PN ≈ ALPN; ALLN and APL not exposed in v783 olfactory rank table). "
             "higher_order neurons are classified as 'other' (not forward) per DATA-9 §3.2 rule."
         ),
     }
@@ -154,12 +161,12 @@ def main():
 
     # Also update edge_mask_mapping_rules in meta.json
     meta["edge_mask_mapping_rules"] = {
-        "modulatory": "pre_class or post_class in {MBDAN, APL, DAN} (MBDAN=DAN in classifier)",
+        "modulatory": "pre_class or post_class in {MBDAN, APL, DAN} (MBDAN=DAN in classifier; APL NOT in cell-type table)",
         "lateral": (
             "pre_class==ALLN or post_class==ALLN — ALLN NOT in cell-type table; "
             "category empty; requires explicit ALLN annotation to activate"
         ),
-        "forward": "pre_class in {ORN,PN} AND post_class in {PN,KC}  OR  pre=KC AND post=MBON",
+        "forward": "exactly (ORN→PN) OR (PN→KC) OR (KC→MBON) per DATA-9 §3.2",
         "other": "all remaining edges",
         "class_names": {
             "ORN": "olfactory receptor neuron (afferent sensory)",
@@ -170,6 +177,7 @@ def main():
             "higher_order": "higher-order olfactory neuron (outside the primary forward chain)",
             "other": "unclassified or boundary-audit class",
             "ALLN": "AL local neuron — NOT in cell-type table (annotate to activate lateral rule)",
+            "APL": "APL neuron — NOT in cell-type table (annotate to activate modulatory rule)",
         },
     }
 

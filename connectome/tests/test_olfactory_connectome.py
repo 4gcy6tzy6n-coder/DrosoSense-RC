@@ -610,6 +610,22 @@ class TestEdgeMaskCounts:
             "higher_order is not in the forward chain per DATA-9 §3.2"
         )
 
+    def test_forward_only_three_pairwise_types(self, classified):
+        """Forward edges must be exactly one of: ORN→PN, PN→KC, or KC→MBON.
+
+        DATA-9 §3.2 enumerates the forward chain as ORN→ALPN→KC→MBON,
+        which maps to the classifier's three pairwise types: ORN→PN, PN→KC, KC→MBON.
+        PN→PN (intra-AL), ORN→KC (cross-level), and all other pairs belong in 'other'.
+        """
+        forward = classified[classified["pathway_class"] == "forward"]
+        valid_pairs = {("ORN", "PN"), ("PN", "KC"), ("KC", "MBON")}
+        forward_pairs = set(zip(forward["pre_class"], forward["post_class"]))
+        invalid = forward_pairs - valid_pairs
+        assert len(invalid) == 0, (
+            f"Forward contains {len(invalid)} unexpected pairwise type(s): {invalid}. "
+            "Only ORN→PN, PN→KC, KC→MBON are forward per DATA-9 §3.2"
+        )
+
     def test_modulatory_is_dan_apl_only(self, classified):
         """Modulatory edges must involve DAN (MBDAN) or APL neurons only."""
         mod = classified[classified["pathway_class"] == "modulatory"]
@@ -627,11 +643,14 @@ class TestEdgeMaskCounts:
         unknown = classified[~classified["pathway_class"].isin(valid)]
         assert len(unknown) == 0, f"{len(unknown):,} edges have unknown pathway_class"
 
-    def test_edge_mask_note_present_in_meta(self, meta):
-        """meta.json.edge_mask_counts.note must document the ALLN limitation."""
+    def test_edge_mask_note_documents_alln_and_apl(self, meta):
+        """meta.json.edge_mask_counts.note must document ALLN and APL limitations."""
         emc = meta.get("edge_mask_counts", {})
         note = emc.get("note", "")
         assert len(note) > 20, "edge_mask_counts.note must be substantive"
         assert "ALLN" in note or "alln" in note.lower(), (
             "note must mention the ALLN (lateral) limitation"
+        )
+        assert "APL" in note, (
+            "note must mention the APL limitation (APL not in cell-type table)"
         )
