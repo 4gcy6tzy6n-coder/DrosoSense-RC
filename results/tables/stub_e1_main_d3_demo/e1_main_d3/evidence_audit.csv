@@ -1,0 +1,8 @@
+claim_type,claim_id,claim_text,contrast_id,metric,status,supporting_evidence,reproduction_command,unresolved_terms
+hypothesis,H1,"On the datasets whose published grouping satisfies split_unit: specimen, the frozen real olfactory connectome reservoir (R0) achieves a higher macro-F1 than the degree-preserving rewired control (R2) ",R0_vs_R2,macro_f1,PENDING (E2/E1-reservoir bundle),,python -m drososense.evaluation.evidence_stats --experiment e2_topology,
+hypothesis,H2,R0 achieves higher macro-F1 than an echo-state network (R4) with matched size and edge density.,R0_vs_R4,macro_f1,PENDING (E2/E1-reservoir bundle),,python -m drososense.evaluation.evidence_stats --experiment e2_topology,
+hypothesis,H3,R0 achieves higher macro-F1 than a random sparse reservoir (R3) with matched node and edge count.,R0_vs_R3,macro_f1,PENDING (E2/E1-reservoir bundle),,python -m drososense.evaluation.evidence_stats --experiment e2_topology,
+hypothesis,H4,R0 achieves higher macro-F1 than a tuned GRU baseline.,R0_vs_GRU,macro_f1,PENDING (E2/E1-reservoir bundle),,python -m drososense.evaluation.evidence_stats --experiment e2_topology,
+hypothesis,H5,"R0 retains a larger fraction of its full-data macro-F1 than R4 at 10% and 25% training specimens (low-data robustness).
+",R0_vs_R4,retention_ratio_10pct,PENDING (E2/E1-reservoir bundle),,python -m drososense.evaluation.evidence_stats --experiment e2_topology,
+hypothesis,H6,R0 degrades less than R4 under sensor-channel dropout at p_drop in {0.1..0.5}.,R0_vs_R4,macro_f1,PENDING (E2/E1-reservoir bundle),,python -m drososense.evaluation.evidence_stats --experiment e2_topology,

@@ -1,0 +1,7 @@
+dataset,model,task,status,n_runs,STUB
+d3_rainbow_trout,R0,classification,ok,10,True
+d3_rainbow_trout,R0,regression,ok,10,True
+d3_rainbow_trout,R2,classification,ok,10,True
+d3_rainbow_trout,R2,regression,ok,10,True
+d3_rainbow_trout,esn,classification,ok,10,True
+d3_rainbow_trout,esn,regression,ok,10,True
