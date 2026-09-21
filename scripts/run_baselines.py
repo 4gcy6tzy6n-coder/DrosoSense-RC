@@ -183,9 +183,48 @@ def main(argv: list[str] | None = None) -> int:
         for entry in skipped:
             print(f"  - {entry['model']}: {entry['reason']}", file=sys.stderr)
 
-    if summary.empty:
+    # DATA-51 skip disclosure: units already held by a status == "ok" record
+    # (same config re-shard, or a different-config prior ok record) were SKIPPED,
+    # not re-scored and not aborted. The full list lands on disk next to the
+    # summary as <experiment>_skip_disclosure.json; this block is the
+    # operator-visible receipt so a re-shard that "ran" nothing still reports
+    # exactly what it skipped and under which prior config hashes.
+    skipped_units = summary.attrs.get("skipped_units", [])
+    if skipped_units:
+        n_same = summary.attrs.get("n_skipped_same_config", 0)
+        n_diff = summary.attrs.get("n_skipped_different_config", 0)
+        print(
+            f"skipped units: {len(skipped_units)} total "
+            f"({n_same} same-config re-computations, {n_diff} different-config prior ok records)",
+            file=sys.stderr,
+        )
+        distinct_prior = sorted({d["prior_config_hash"] for d in skipped_units})
+        if distinct_prior:
+            print(f"  prior config_hash(es): {', '.join(distinct_prior)}", file=sys.stderr)
+        for entry in skipped_units:
+            print(
+                f"  - {entry['dataset']} {entry['model']}/{entry['task']} "
+                f"seed{entry['seed']:02d} fold{entry['fold_id']:02d} w{entry['window_length']} "
+                f"[{entry['reason']}]: prior ok config {entry['prior_config_hash']} "
+                f"(run {entry['prior_run_id']}), this batch {entry['run_config_hash']}",
+                file=sys.stderr,
+            )
+        print(
+            f"  full disclosure: results/tables/{args.experiment}_skip_disclosure.json",
+            file=sys.stderr,
+        )
+
+    if summary.empty and not summary.attrs.get("skipped_units"):
         print("no results produced", file=sys.stderr)
         return 1
+
+    if summary.empty:
+        print(
+            "no NEW results produced — every requested unit was skipped (already "
+            "held by a status == 'ok' record). See the skip disclosure above.",
+            file=sys.stderr,
+        )
+        return 0
 
     columns = [
         c

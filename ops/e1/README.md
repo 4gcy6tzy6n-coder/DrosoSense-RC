@@ -8,6 +8,7 @@ than inferred from a chat log.
 |---|---|
 | `run_e1_d2_sweep.sh` | D2 (`d2_beef_uncontrolled`) fan-out: 4 parallel `scripts/run_baselines.py` invocations (cpu_trees / esn / gpu_rnn / gpu_conv), 10 seeds x 5 folds x 2 tasks x 9 models |
 | `run_e1_d3_sweep.sh` | same shape for D3 (`d3_rainbow_trout`), LOSO(62) |
+| `run_e1_d3_sweep_v3.sh` | DATA-51 deep-model re-shard: 8 processes, one model x seed-half each (`gru` / `lstm` / `cnn1d` / `tcn`, seeds 0-4 and 5-9), logs per group to `$LOGDIR/e1_d3_deep_<STAMP>_<tag>.log` |
 | `chain_d3_after_d2.sh` | waits for the D2 fan-out to exit, then starts D3 detached (`setsid nohup`) |
 | `summarize_when_idle.sh` | waits for each sweep to go idle, then regenerates its summary from raw records |
 | `summarize_per_run_when_idle.sh` | sequenced follow-up: after D3 goes idle **and** the first watcher's marker artefact exists, also writes the tidy `<experiment>_per_run.csv` and logs the closure anchors (sha256 / bytes / line counts). Evidence-based sequencing so the two `summarize.py` runs never overlap and no process is killed |
