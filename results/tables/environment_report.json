@@ -1,0 +1,80 @@
+{
+  "complete": false,
+  "declared_source": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-16-f4a19cd940fa/workdir/DrosoSense-RC/environment.yml",
+  "mismatched": [],
+  "missing": [
+    "pytest-cov",
+    "xgboost"
+  ],
+  "packages": [
+    {
+      "declared": "=3.12",
+      "installed": "3.12.13",
+      "meets_specifier": true,
+      "name": "python"
+    },
+    {
+      "declared": ">=1.26,<3",
+      "installed": "2.4.4",
+      "meets_specifier": true,
+      "name": "numpy"
+    },
+    {
+      "declared": ">=2.1,<4",
+      "installed": "3.0.2",
+      "meets_specifier": true,
+      "name": "pandas"
+    },
+    {
+      "declared": ">=1.11",
+      "installed": "1.17.1",
+      "meets_specifier": true,
+      "name": "scipy"
+    },
+    {
+      "declared": ">=1.4",
+      "installed": "1.8.0",
+      "meets_specifier": true,
+      "name": "scikit-learn"
+    },
+    {
+      "declared": ">=6.0",
+      "installed": "6.0.3",
+      "meets_specifier": true,
+      "name": "pyyaml"
+    },
+    {
+      "declared": ">=2.31",
+      "installed": "2.33.1",
+      "meets_specifier": true,
+      "name": "requests"
+    },
+    {
+      "declared": ">=8.0",
+      "installed": "9.1.1",
+      "meets_specifier": true,
+      "name": "pytest"
+    },
+    {
+      "declared": ">=5.0",
+      "installed": null,
+      "meets_specifier": false,
+      "name": "pytest-cov"
+    },
+    {
+      "declared": ">=2.0",
+      "installed": null,
+      "meets_specifier": false,
+      "name": "xgboost"
+    },
+    {
+      "declared": ">=2.2",
+      "installed": "2.11.0",
+      "meets_specifier": true,
+      "name": "torch"
+    }
+  ],
+  "platform_local": "macOS-26.2-arm64-arm-64bit",
+  "python_declared": "=3.12",
+  "python_local": "3.12.13"
+}

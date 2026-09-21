@@ -1,0 +1,147 @@
+# D2 — Beef-Uncontrolled. Acquisition manifest.
+#
+# Bound to 10.17632/mwmhh766fc.3 by the R0 rework (DATA-16). The provider's own
+# title is "Electronic nose dataset for beef quality monitoring under an
+# uncontrolled environment" — which is what makes this DOI D2 and not D1.
+#
+# VERSION 3 is the revision this project uses. Version 1 is a single 4553-row
+# file with no sample grouping; version 3 publishes the same measurements as five
+# series, one per beef cut, so a specimen-level split becomes possible. The v1
+# digest is retained at the bottom of this file for audit only — nothing in the
+# project reads v1.
+#
+# Verified 2026-09-20 against the Mendeley public API and by checksum.
+
+dataset_id: d2_beef_uncontrolled
+display_name: "Beef-Uncontrolled (e-nose)"
+status: auto
+synthetic: false
+
+license: "CC BY 4.0"
+license_url: "https://creativecommons.org/licenses/by/4.0/"
+source_url: "https://data.mendeley.com/datasets/mwmhh766fc/3"
+doi: "10.17632/mwmhh766fc.3"
+version: "3"
+
+citation: >
+  Wijaya, Dedy Rahman; Sarno, Riyanarto; Zulaika, Enny (2018). Electronic nose
+  dataset for beef quality monitoring under an uncontrolled environment.
+  Mendeley Data, V3. doi:10.17632/mwmhh766fc.3
+
+files:
+  - name: source_v3.zip
+    local_name: source_v3.zip
+    sha256: "772bc2c75f2ac4b785538ea38311bdefaee65059b3391b080b4da5ea619963e3"
+    size_bytes: 188165
+    required: true
+    origin: download
+    download_url: "https://data.mendeley.com/public-files/datasets/mwmhh766fc/files/2e65305f-5e53-4395-9b28-91dfc73ff490/file_downloaded"
+    note: >
+      Published filename is 'e-nose dataset in uncontrolled ambient
+      conditions.zip'. The provider's description states it "consists of five
+      series correspond to five beef cuts where one series contains 2160 minutes
+      of measurement points. Every series is distributed in comma-separated value
+      (csv)." SHA-256 is the value the provider's API reports and was reproduced
+      after download.
+  - name: TS1.csv
+    local_name: TS1.csv
+    sha256: "b061fd2b8d3917400cb241b95f0b8f40a7942b5cbf853a03dfbaeff3546f859c"
+    size_bytes: 177729
+    required: true
+    origin: series_member
+    note: "Extracted from source_v3.zip. One beef cut, 2160 rows. Header ends (..., Humidity, Temperature)."
+  - name: TS2.csv
+    local_name: TS2.csv
+    sha256: "61085a0ebcde02b1da9e06f3154e476b41856372d907675a52d0ad9d43ae1b9d"
+    size_bytes: 173633
+    required: true
+    origin: series_member
+    note: "Extracted from source_v3.zip. Header ends (..., Temperature, Humidity) — the reverse of TS1."
+  - name: TS3.csv
+    local_name: TS3.csv
+    sha256: "e9c059dc6cc881e4a7a70abcb59f11f6c69a93ccd83d73da8d993431884c02e5"
+    size_bytes: 173519
+    required: true
+    origin: series_member
+    note: "Extracted from source_v3.zip. Header ends (..., Temperature, Humidity)."
+  - name: TS4.csv
+    local_name: TS4.csv
+    sha256: "538e88b4b631a7c1a36dadb83410781576a7b3aaa3152aa6a22ef0fd4bf13fdd"
+    size_bytes: 173532
+    required: true
+    origin: series_member
+    note: "Extracted from source_v3.zip. Header ends (..., Temperature, Humidity)."
+  - name: TS5.csv
+    local_name: TS5.csv
+    sha256: "0305332781669adf518b8ef1378d75b92ed7c2424814f548bd70c39ee54eb164"
+    size_bytes: 177832
+    required: true
+    origin: series_member
+    note: "Extracted from source_v3.zip. Header ends (..., Temperature, Humidity)."
+
+schema_notes: >
+  VERIFIED on the extracted files: five CSVs, each 2160 rows (10,800 total),
+  columns ['minute', 'class', 'TVC', 'MQ135', 'MQ136', 'MQ2', 'MQ3', 'MQ4',
+  'MQ5', 'MQ6', 'MQ8', 'MQ9', ..., 'Humidity', 'Temperature'].
+  `minute` is 1..2160 with 2160 unique values in every file, so each file is one
+  continuous acquisition.
+  COLUMN ORDER IS NOT UNIFORM: TS1 ends with (Humidity, Temperature) while
+  TS2..TS5 end with (Temperature, Humidity). Every column is read BY NAME; no
+  column is read by position anywhere in this project, and a unit test asserts it.
+  `class` in {excellent, good, acceptable, spoiled} — provider-stated words.
+  `TVC` in [2.233, 5.098] (whole dataset). Per-class TVC: excellent
+  [2.233, 2.989], good [3.044, 3.847], acceptable [4.762, 5.000], spoiled
+  [4.875, 5.098]. Class balance across the five files: excellent 1680,
+  good 2820, acceptable 2100, spoiled 4200 rows.
+  There is no MQ7 and no MQ137 in this dataset.
+
+specimen_note: >
+  SPECIMEN IDENTIFIER IS PUBLISHED, as the file itself. The provider states the
+  five series correspond to five beef cuts, so `specimen.source: series_file`
+  takes the file stem (TS1..TS5) as the specimen id. This is the provider's own
+  grouping, not an assumption, which is why D2 satisfies split_unit: specimen
+  under LOSO(5). Five specimens is few; the protocol records that the exact
+  two-sided minimum p over five clusters is 0.0625, so D2 is reported as
+  underpowered rather than as evidence of no effect.
+
+blockers: []
+
+manual_steps:
+  - "Automated path: python scripts/download_data.py --dataset d2_beef_uncontrolled"
+  - "Manual path: open https://data.mendeley.com/datasets/mwmhh766fc/3, download 'e-nose dataset in uncontrolled ambient conditions.zip', extract TS1.csv..TS5.csv into data/raw/d2_beef_uncontrolled/."
+  - "Version 1 of this DOI is NOT used. See `superseded_versions` below."
+
+notes: >
+  188 KB, public, CC BY 4.0, downloaded, checksum-verified and extracted
+  automatically. The archive is kept on disk next to the extracted series so the
+  extraction can be re-derived from the pinned bytes.
+
+extra:
+  provider_api: "https://data.mendeley.com/public-api/datasets/mwmhh766fc/files?folder_id=root&version=3"
+  provider_title: "Electronic nose dataset for beef quality monitoring under an uncontrolled environment"
+  publication_year: 2018
+  verified_on: "2026-09-20"
+  checksum_match: true
+  superseded_versions:
+    - version: "1"
+      doi: "10.17632/mwmhh766fc.1"
+      published_filename: "e-nose dataset.csv"
+      sha256: "6b426956600de3bff1ae72fc716dabbc92fce86b1b066a233c56c3fd8a58ba03"
+      size_bytes: 396875
+      rows: 4553
+      why_not_used: >
+        One continuous 4553-minute session with no sample grouping and no reset
+        in the time axis. Using it forced the earlier revision of D2 to declare
+        specimen-level splitting impossible. Version 3 supersedes it and removes
+        that blocker. The digest is kept so a local copy of v1 can be told apart
+        from v3 rather than silently used.
+    - version: "2"
+      doi: "10.17632/mwmhh766fc.2"
+      published_filename: "not inspected"
+      sha256: null
+      size_bytes: null
+      rows: null
+      why_not_used: >
+        Superseded by v3. The provider's DataCite record carries the same title
+        and year for v1, v2 and v3; only v3 was fetched and inspected, so no
+        digest is recorded for v2 rather than an invented one.

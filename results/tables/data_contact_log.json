@@ -1,0 +1,250 @@
+{
+  "datasets_touched": [
+    "d2_beef_uncontrolled",
+    "d3_rainbow_trout"
+  ],
+  "entries": [
+    {
+      "at": "2026-09-20T06:05:40.492008+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d3_rainbow_trout",
+      "evidence_class": "real",
+      "experiment": "probe",
+      "n_models": 1,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    },
+    {
+      "at": "2026-09-20T06:10:56.687134+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d3_rainbow_trout",
+      "evidence_class": "real",
+      "experiment": "probe",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    },
+    {
+      "at": "2026-09-20T06:16:43.051708+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d3_rainbow_trout",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    },
+    {
+      "at": "2026-09-20T06:23:01.780064+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d3_rainbow_trout",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    },
+    {
+      "at": "2026-09-20T06:28:49.160176+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d3_rainbow_trout",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    },
+    {
+      "at": "2026-09-20T06:34:26.977852+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d3_rainbow_trout",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    },
+    {
+      "at": "2026-09-20T06:39:54.322918+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d3_rainbow_trout",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    },
+    {
+      "at": "2026-09-20T06:45:28.749692+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d3_rainbow_trout",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    },
+    {
+      "at": "2026-09-20T06:51:11.872707+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d3_rainbow_trout",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    },
+    {
+      "at": "2026-09-20T06:56:26.957265+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d3_rainbow_trout",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    },
+    {
+      "at": "2026-09-20T07:19:51.696009+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d3_rainbow_trout",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    },
+    {
+      "at": "2026-09-20T07:24:49.367590+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d3_rainbow_trout",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    },
+    {
+      "at": "2026-09-20T07:28:12.036076+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d2_beef_uncontrolled",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "loso"
+    },
+    {
+      "at": "2026-09-20T07:31:28.936879+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d2_beef_uncontrolled",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "loso"
+    },
+    {
+      "at": "2026-09-20T07:34:48.971826+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d2_beef_uncontrolled",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "loso"
+    },
+    {
+      "at": "2026-09-20T07:38:19.583406+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d2_beef_uncontrolled",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "loso"
+    },
+    {
+      "at": "2026-09-20T07:41:45.489176+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d2_beef_uncontrolled",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "loso"
+    },
+    {
+      "at": "2026-09-20T07:45:09.781608+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d2_beef_uncontrolled",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "loso"
+    },
+    {
+      "at": "2026-09-20T07:48:37.811402+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d2_beef_uncontrolled",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "loso"
+    },
+    {
+      "at": "2026-09-20T07:52:06.819850+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d2_beef_uncontrolled",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "loso"
+    },
+    {
+      "at": "2026-09-20T07:55:42.969218+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d2_beef_uncontrolled",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "loso"
+    },
+    {
+      "at": "2026-09-20T07:59:05.946337+00:00",
+      "counts_as_first_test_evaluation": true,
+      "dataset": "d2_beef_uncontrolled",
+      "evidence_class": "real",
+      "experiment": "m1_benchmark",
+      "n_models": 80,
+      "protocol_compliant": true,
+      "split_strategy": "loso"
+    },
+    {
+      "at": "2026-09-20T08:04:22.430584+00:00",
+      "counts_as_first_test_evaluation": false,
+      "dataset": "d1_beef_controlled",
+      "evidence_class": "real",
+      "experiment": "m1_real_validation",
+      "n_models": 80,
+      "protocol_compliant": false,
+      "split_strategy": "time_block_holdout"
+    },
+    {
+      "at": "2026-09-20T08:06:29.592303+00:00",
+      "counts_as_first_test_evaluation": false,
+      "dataset": "synthetic_enose",
+      "evidence_class": "synthetic_fixture",
+      "experiment": "smoke",
+      "n_models": 32,
+      "protocol_compliant": true,
+      "split_strategy": "group_kfold"
+    }
+  ],
+  "first_test_evaluation_at": "2026-09-20T06:05:40.492008+00:00",
+  "note": "Records when a test split was first evaluated. Runs on the synthetic fixture and runs under a time-block stand-in split do not count: neither can produce a protocol result, so neither may be used to claim the frozen metrics were already known. Protocol v1.1 freeze_evidence.data_contact_log states the rule; this file is the evidence."
+}
