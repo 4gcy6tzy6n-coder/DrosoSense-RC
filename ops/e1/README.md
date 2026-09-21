@@ -80,3 +80,56 @@ A summary is derived data: regenerate it from the raw records with
 `python scripts/summarize.py --experiment <label> --fingerprints`. Because the four fan-out
 invocations share one `--experiment` label and `write_summary_csv()` truncates, the CSV must be
 regenerated after a sweep goes idle rather than read mid-flight (see the caveat above).
+
+## E1 generation and metric semantics (recorded 2026-09-21)
+
+These are the facts a reader needs to interpret the E1 tables without re-deriving them
+from the run records. They are record semantics, not paper prose.
+
+### Splits per dataset
+| dataset | E1 split | fold count | note |
+|---|---|---|---|
+| `d2_beef_uncontrolled` | LOSO | 5 | one cut per fold; every fold's test set contains all four classes |
+| `d3_rainbow_trout` | **LOSO(62)** | 62 | one fillet per fold; introduced by the v1.3 owner amendment (OD1 option (a)) because the exact two-sided sign test needs >= 6 clusters for alpha = 0.05 (floor `2/2^5 = 0.0625 > 0.05`; 62 clusters give `2/2^62`) |
+
+The m1-era D3 benchmark used `GroupKFold(5)` under protocol v1.1 (folds of 13/13/12/12/12
+specimens). It is **not** a like-for-like baseline for the E1 LOSO(62) numbers, and the v1.3
+text states that the v1.1/v1.2 D3 rows are kept under their original labels and not
+re-interpreted.
+
+### `config_hash` is invocation-scoped
+`BenchmarkConfig.as_dict()` includes the `models` list, so each fan-out invocation gets its own
+`config_hash` (one per batch, not one per unit). E1/D2 produced exactly four:
+
+| `config_hash` | models | records |
+|---|---|---:|
+| `c84d501b1a72` | pca_svm, random_forest, svm_rbf, xgboost | 400 |
+| `d9a050a656ab` | gru, lstm | 200 |
+| `a60d157027a1` | cnn1d, tcn | 200 |
+| `d9528be0bd0a` | esn | 100 |
+
+Consequences: "same config" statements are scoped to one invocation, a re-run must preserve the
+batch grouping, and the §17 guard compares these hashes per test fingerprint (see DATA-48).
+
+### Metric semantics that differ between D2 and D3
+- **AUROC is defined only when all four classes are present in the test split.** On D3 LOSO(62)
+  each fold holds one fillet, so most folds lack classes; the protocol requires reporting
+  `n_auroc_defined` next to any AUROC mean, and a partial average is never reported.
+- **macro-F1 is always scored over the fixed label set 0..3 with `zero_division=0`**, so a class
+  absent from a fold contributes F1 = 0. Per-fold ceilings are therefore 0.25 / 0.50 / 0.75 / 1.00
+  for 1 / 2 / 3 / 4 classes present. D3 macro-F1 is consequently **not magnitude-comparable** with
+  D2 (four classes in every fold) or with the m1-era GroupKFold(5) D3 values.
+- Conclusions must come from **fold-level paired comparisons** (the protocol's decisive test is
+  the cluster-level paired sign test); pooled means across differently-covered folds are not a
+  substitute.
+- A class-complete-subset comparison may be used **only** as a pipeline-consistency check
+  (`n_complete` and the partition difference must be stated); using it as evidence would require a
+  protocol amendment.
+
+### Known environment caveats affecting reproduction
+- `DROSOSENSE_DATA` does not redirect raw data: `drososense/utils/paths.py` hard-codes
+  `DATA_RAW_DIR = PROJECT_ROOT/"data"/"raw"` (DATA-45); the server bridges this with symlinks for D1/D2,
+  while D3's raw sits **inside** the repo tree.
+- `configs/datasets/d3_rainbow_trout.yaml` still declares `group_kfold(5)` while the active protocol
+  requires LOSO(62), so `--split-strategy auto` (the default) would silently produce non-compliant D3
+  records; the sweeps here pass `--split-strategy loso` explicitly (DATA-47).
