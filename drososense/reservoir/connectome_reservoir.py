@@ -79,6 +79,22 @@ ALLOWED_NORMALIZATIONS: tuple[str, ...] = (
     "n5_binary",
 )
 
+#: NPZ key prefix used by each normalization when reading CSR components.
+#: ``n0_raw`` is the raw adjacency — the build script (DATA-3) stores it
+#: under the ``adj_*`` keys rather than emitting a redundant ``norm_n0_raw_*``
+#: copy, per meta.json's "n0_raw ... same as adjacency_data" semantic. The
+#: other five normalizations are stored under their ``norm_<name>_*`` prefix.
+#: This mapping keeps :func:`load_reservoir_topology_from_npz` symmetric with
+#: the build script and avoids inventing a third NPZ layout for the raw case.
+_NORMALIZATION_NPZ_PREFIX: dict[str, str] = {
+    "n0_raw": "adj",
+    "n1_pre_l1": "norm_n1_pre_l1",
+    "n2_post_l1": "norm_n2_post_l1",
+    "n3_global_max": "norm_n3_global_max",
+    "n4_log_pre_l1": "norm_n4_log_pre_l1",
+    "n5_binary": "norm_n5_binary",
+}
+
 #: Topology family identifiers. Used in run records, the registry and the
 #: constraint-checker. The order is the comparison order in the protocol.
 TOPOLOGY_FAMILY_IDS: tuple[str, ...] = (
@@ -295,6 +311,15 @@ def load_reservoir_topology_from_npz(
 ) -> ReservoirTopology:
     """Build the R0 (real fly) reservoir topology.
 
+    The six DATA-3 normalizations share the same loader shape — read the CSR
+    triples at the normalization's NPZ key prefix, build a :class:`csr_matrix`,
+    optionally subselect nodes, then rescale to ``target_spectral_radius``.
+    The ``n0_raw`` case is the only special one: the build script (DATA-3)
+    does not emit a redundant ``norm_n0_raw_*`` copy, because per meta.json
+    "n0_raw ... same as adjacency_data". :data:`_NORMALIZATION_NPZ_PREFIX`
+    routes that case to the ``adj_*`` keys, keeping the loader symmetric with
+    the build.
+
     Args:
         npz_path: Path to ``olfactory_v1.npz`` (or any compatible artifact).
         normalization: One of :data:`ALLOWED_NORMALIZATIONS`. The biological
@@ -319,7 +344,7 @@ def load_reservoir_topology_from_npz(
             f"{list(ALLOWED_NORMALIZATIONS)}"
         )
     data = np.load(npz_path, allow_pickle=True)
-    prefix = "norm_" + normalization
+    prefix = _NORMALIZATION_NPZ_PREFIX[normalization]
     for suffix in ("_data", "_indices", "_indptr", "_shape"):
         key = prefix + suffix
         if key not in data.files:
