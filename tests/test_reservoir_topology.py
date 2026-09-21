@@ -110,17 +110,19 @@ def reference_topology() -> ReservoirTopology:
 
 @pytest.fixture(scope="module")
 def real_npz_path() -> Path | None:
-    """Resolve the olfactory NPZ when the data root is provisioned."""
-    candidates = [
-        Path("/Users/yyl/Desktop/workshop/DrosoSense-RC/data-root")
-        / "connectome/adjacency/olfactory_v1.npz",
-        Path(__file__).resolve().parents[1]
-        / "connectome/adjacency/olfactory_v1.npz",
-    ]
-    for candidate in candidates:
-        if candidate.is_file():
-            return candidate
-    return None
+    """Resolve the olfactory NPZ when the data root is provisioned.
+
+    Uses the canonical ``connectome.paths.adjacency_path()`` helper so the
+    test follows the same resolution order as the runner — $DROSOSENSE_DATA
+    first, then the in-repo layout, with both ``adjacency/`` and flat
+    ``connectome/`` candidates inside each root.
+    """
+    # Importing inside the fixture keeps the module importable on a
+    # minimal install (no scipy) where ``connectome.paths`` is unused.
+    from connectome.paths import adjacency_path
+
+    candidate = adjacency_path()
+    return candidate if candidate.is_file() else None
 
 
 # ---------------------------------------------------------------------------
