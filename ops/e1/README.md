@@ -10,6 +10,7 @@ than inferred from a chat log.
 | `run_e1_d3_sweep.sh` | same shape for D3 (`d3_rainbow_trout`), LOSO(62) |
 | `chain_d3_after_d2.sh` | waits for the D2 fan-out to exit, then starts D3 detached (`setsid nohup`) |
 | `summarize_when_idle.sh` | waits for each sweep to go idle, then regenerates its summary from raw records |
+| `d3_progress_sampler.sh` | server-side progress sampler: appends one line per interval (default 300 s) with all nine per-model record counts and the total to `logs/e1_d3_progress.log`. Exists because interactive ssh to the box flaps, which forced short, noisy rate windows; with the log, any >=10 min window is computable from one short command |
 | `summarize_per_run_when_idle.sh` | sequenced follow-up: after D3 goes idle **and** the first watcher's marker artefact exists, also writes the tidy `<experiment>_per_run.csv` and logs the closure anchors (sha256 / bytes / line counts). Evidence-based sequencing so the two `summarize.py` runs never overlap and no process is killed |
 
 ## Known caveat: per-invocation summary clobbering
