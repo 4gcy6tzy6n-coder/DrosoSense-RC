@@ -243,17 +243,17 @@
     }
   },
   "edge_mask_counts": {
-    "forward": 511205,
+    "forward": 245931,
     "modulatory": 746700,
     "lateral": 0,
-    "other": 13570752,
+    "other": 13836026,
     "total": 14828657,
-    "note": "pathway_class assigned by add_edge_masks.py (DATA-9 \u00a73.2 rules). ALLN cannot be identified from layer_mean alone \u2014 lateral category is empty. pre_class/post_class are the FlyWire cell-type classifier labels (PN \u2248 ALPN; ALLN not exposed in v783 olfactory rank table). higher_order neurons are classified as other (not forward) per DATA-9 \u00a73.2 rule."
+    "note": "pathway_class assigned by add_edge_masks.py (DATA-9 \u00a73.2 rules). ALLN cannot be identified from layer_mean alone \u2014 lateral category is empty. APL also cannot be identified from layer_mean alone \u2014 modulatory DAN-only edges are classified as modulatory; APL involvement may be present but unreported. pre_class/post_class are the FlyWire cell-type classifier labels (PN \u2248 ALPN; ALLN and APL not exposed in v783 olfactory rank table). higher_order neurons are classified as 'other' (not forward) per DATA-9 \u00a73.2 rule."
   },
   "edge_mask_mapping_rules": {
-    "modulatory": "pre_class or post_class in {MBDAN, APL, DAN} (MBDAN=DAN in classifier)",
+    "modulatory": "pre_class or post_class in {MBDAN, APL, DAN} (MBDAN=DAN in classifier; APL NOT in cell-type table)",
     "lateral": "pre_class==ALLN or post_class==ALLN \u2014 ALLN NOT in cell-type table; category empty; requires explicit ALLN annotation to activate",
-    "forward": "pre_class in {ORN,PN} AND post_class in {PN,KC}  OR  pre=KC AND post=MBON",
+    "forward": "exactly (ORN\u2192PN) OR (PN\u2192KC) OR (KC\u2192MBON) per DATA-9 \u00a73.2",
     "other": "all remaining edges",
     "class_names": {
       "ORN": "olfactory receptor neuron (afferent sensory)",
@@ -263,7 +263,8 @@
       "DAN": "dopaminergic neuron (\u2248 MBDAN in DATA-9)",
       "higher_order": "higher-order olfactory neuron (outside the primary forward chain)",
       "other": "unclassified or boundary-audit class",
-      "ALLN": "AL local neuron \u2014 NOT in cell-type table (annotate to activate lateral rule)"
+      "ALLN": "AL local neuron \u2014 NOT in cell-type table (annotate to activate lateral rule)",
+      "APL": "APL neuron \u2014 NOT in cell-type table (annotate to activate modulatory rule)"
     }
   },
   "size_structure_curve": [
@@ -333,6 +334,6 @@
     }
   ],
   "node_count_note": "Node count 124,185 is outside the 500\u20135000 advisory range. Biological rationale: the FlyWire olfactory rank table includes all neurons the FlyWire classifier assigns to the olfactory modality (ORNs \u2248 4,643, PNs \u2248 741, KCs \u2248 13,538, MBONs \u2248 12,105, DANs \u2248 11,428, and higher-order olfactory neurons \u2248 100,911), providing a complete circuit snapshot of the Drosophila olfactory system. Engineering rationale: the full graph (N=124,185, edges=14,828,657, spectral radius \u03c1\u2248522) is the necessary base for M3 (DATA-4) to generate N=250/500/1000/2000/4000 subgraphs with matched topology controls via seed-based selection. With \u03c1\u2248522 and 14,828,657 edges, sparse propagation in M3 is feasible at this scale using standard sparse matrix operations; ablation studies at this density are tractable.",
-  "commit_sha": "3a6704fd46c13b855c234c03870d5f59758ae3dc",
+  "commit_sha": "461aa305f175336217dee0768cdfe7c517b5b042",
   "pr_url": "https://github.com/4gcy6tzy6n-coder/DrosoSense-RC/pull/3"
 }
