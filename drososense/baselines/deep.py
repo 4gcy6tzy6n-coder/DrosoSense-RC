@@ -369,7 +369,10 @@ class TorchSequenceModel(BaseModel):
         generator = torch.Generator(device=device).manual_seed(self.seed)
 
         for _ in range(int(self.params["epochs"])):
-            order = torch.randperm(inputs.shape[0], generator=generator)
+            # randperm defaults to CPU; a device-matched generator alone is not
+            # enough (torch raises "Expected a 'cpu' device type for generator
+            # but found 'cuda'"), so the target device has to be stated too.
+            order = torch.randperm(inputs.shape[0], generator=generator, device=device)
             for start in range(0, inputs.shape[0], batch_size):
                 index = order[start : start + batch_size]
                 optimizer.zero_grad()
