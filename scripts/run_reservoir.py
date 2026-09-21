@@ -174,19 +174,21 @@ def resolve_npz_path(explicit: str | None) -> Path | None:
 
     Order:
         1. ``--npz-path`` argument;
-        2. ``$DROSOSENSE_DATA/connectome/adjacency/olfactory_v1.npz``;
-        3. ``<project-root>/connectome/adjacency/olfactory_v1.npz``.
+        2. ``connectome.paths.adjacency_path()`` (DATA-3 / DATA-4 entry
+           point — handles both the documented ``adjacency/`` sub-layout
+           and the flat ``connectome/`` layout some server syncs produce);
+        3. ``<project-root>/connectome/adjacency/olfactory_v1.npz`` fallback.
 
     The olfactory NPZ is gitignored (739 MB). When the data root is not
     provisioned the script falls back to a deterministic synthetic graph so
     it can still be smoke-tested, and the run record flags the gap.
     """
+    from connectome.paths import adjacency_path as _adjacency_path
+
     candidates: list[Path] = []
     if explicit:
         candidates.append(Path(explicit))
-    env = os.environ.get("DROSOSENSE_DATA")
-    if env:
-        candidates.append(Path(env) / "connectome" / "adjacency" / "olfactory_v1.npz")
+    candidates.append(_adjacency_path())
     candidates.append(PROJECT_ROOT / "connectome" / "adjacency" / "olfactory_v1.npz")
     for candidate in candidates:
         if candidate.is_file():
