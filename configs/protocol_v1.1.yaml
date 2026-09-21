@@ -1,0 +1,1058 @@
+# =============================================================================
+# DrosoSense-RC — FROZEN EXPERIMENTAL PROTOCOL v1.1
+# =============================================================================
+# Project : DrosoSense-RC (Drosophila Sensory Connectome Reservoir Computing)
+# Version : 1.1.0
+# Frozen  : 2026-09-20T06:04:51Z
+# Owner   : DATA-16 (R0 rework: protocol, data binding and benchmark foundation)
+# Supersedes: v1.0.0 (configs/protocol_v1.yaml, kept unchanged on disk)
+#
+# WHY THIS FILE EXISTS. The R0 audit (DATA-11) returned Stage 1 as CONDITIONAL
+# and identified four defects that would have been unrecoverable once real test
+# evaluation started. Each is closed here, and the closure is machine-checkable
+# rather than prose:
+#
+#   X1  D1 and D2 were bound to each other's DOIs. Corrected; the binding now
+#       follows the providers' own titles (see `datasets`).
+#   X2  D2 used version 1, whose single 4553-row session has no sample grouping,
+#       and concluded specimen-level splitting was impossible. It now uses
+#       version 3, which publishes five beef cuts as five series, and LOSO(5).
+#   C2  Gates and narrative rules were unfalsifiable prose ('~=', '>',
+#       'competitive'). They are now boolean expressions over a fixed predicate
+#       vocabulary, evaluated by drososense/evaluation/gates.py.
+#   C1  The bootstrap resampling unit was named as 'over seeds' — the one unit
+#       that must never be resampled. Now `pairing.resample_unit: fold`, with
+#       seeds declared a stratification.
+#
+# FROZEN means the values in this file may NOT be changed after the first
+# test-set evaluation of a primary experiment. Amendment means a NEW file
+# (protocol_v1.2.yaml) with a written justification; runs produced under this
+# version stay labelled 1.1.0. The digest of this file is recorded in
+# configs/protocol_v1.1.sha256 and checked by `python -m drososense.utils.protocol
+# --check`, so a post-freeze edit is detectable rather than merely discouraged.
+# =============================================================================
+
+protocol_version: "1.1.0"
+frozen: true
+frozen_at: "2026-09-20T06:04:51Z"
+supersedes: "1.0.0"
+
+# -----------------------------------------------------------------------------
+# 1. FREEZE EVIDENCE  (R0 audit item C3)
+# -----------------------------------------------------------------------------
+# What makes "the protocol was fixed before the data was touched" checkable
+# rather than asserted. `data_contact_log` must still read as untouched: it is
+# the executable form of the freeze rule, and a test fails if it is populated
+# before the gates are opened.
+freeze_evidence:
+  protocol_frozen_at: "2026-09-20T06:04:51Z"
+  protocol_sha256_sidecar: "configs/protocol_v1.1.sha256"
+  self_hash_rule: >
+    The digest of this file is written to the sidecar rather than embedded,
+    because a file cannot contain its own hash. Editing this file after freezing
+    changes the digest and makes `verify_protocol_freeze()` fail.
+  data_contact_log:
+    first_test_evaluation_at: null
+    datasets_touched: []
+    live_log: "results/tables/data_contact_log.json"
+    note: >
+      These two fields are the freeze-time values and stay null/empty in this
+      file; the LIVE record is written by the runner to
+      results/tables/data_contact_log.json, because recording the event inside a
+      frozen file would invalidate its digest exactly when the freeze starts to
+      matter. A run counts as test contact only when it is real observed data on
+      a split that satisfies split_unit: specimen — so fixture runs and D1's
+      time-block stand-in never count, and a benchmark run on D2 or D3 does.
+      See drososense/evaluation/contact_log.py.
+  freeze_policy:
+    immutable_fields:
+      - split_unit
+      - split_protocol
+      - seeds
+      - tasks
+      - classification_metrics.primary
+      - regression_metrics.primary
+      - contrasts
+      - primary_hypothesis
+      - secondary_hypotheses
+      - statistical_tests
+      - multiplicity
+      - equivalence
+      - gates
+      - narrative_adjustment_rules
+      - preprocessing
+      - pairing
+      - excluded_specimen_criteria
+    mutable_with_justification:
+      - window.length_candidates   # length is SELECTED on validation, not on test
+      - model_hyperparameters      # tuned per-model on validation only
+    forbidden:
+      - changing the primary metric after observing test results
+      - changing the primary hypothesis after observing test results
+      - adding or removing specimens after observing test results
+      - adding an excluded_specimen_criterion after observing test results
+      - reporting a metric that was selected on the test set
+      - reporting any contrast that is not enumerated in `contrasts`
+    amendment_rule: >
+      A protocol amendment requires a new file configs/protocol_v{N+1}.yaml that
+      keeps this file unchanged, states the trigger, the change, and which
+      already-completed runs are re-run. Runs completed under v1.1 stay in
+      results/raw and are labelled protocol_version = 1.1.0.
+
+# -----------------------------------------------------------------------------
+# 2. SCOPE BOUNDARIES (anti-overclaim guards)
+# -----------------------------------------------------------------------------
+scope_boundaries:
+  current_claims_allowed:
+    - "A reproducible, leakage-audited specimen-level food-sensing benchmark exists."
+    - "Classical and sequence baselines are compared under an identical split/scaling protocol."
+    - "Data availability, licensing and specimen provenance for D1/D2/D3 are reported transparently."
+  current_claims_forbidden:
+    - "Any claim that a connectome reservoir outperforms, or is competitive with, baselines."
+    - "Any claim about biological topology as an inductive bias."
+    - "Any claim based on synthetic fixture results presented as experimental evidence."
+    - "Any claim based on a run whose record carries protocol_compliant: false."
+  safe_claim_wording: >
+    We investigate whether a Drosophila olfactory connectome can serve as a
+    fixed sparse computational substrate for lightweight food-quality sensing.
+  upgrade_condition: >
+    The stronger claim ("The biological topology provides a useful inductive
+    bias under limited-data and sensor-degraded conditions.") may only be used
+    after Gate_B evaluates to true under the expressions below.
+
+# -----------------------------------------------------------------------------
+# 3. SPLIT PROTOCOL  (red line — no row-level splitting, ever)
+# -----------------------------------------------------------------------------
+split_unit: specimen
+split_protocol:
+  forbidden:
+    - "sklearn.model_selection.train_test_split applied to rows"
+    - "KFold / ShuffleSplit / StratifiedKFold over rows"
+    - "any split where one specimen_id appears in more than one of train/val/test"
+  required:
+    - "All timesteps of a specimen stay together in exactly one split."
+    - "Windows are constructed inside a specimen AND inside a single acquisition session."
+    - "Class balance is checked AFTER the split and reported; it is never fixed by moving specimens."
+  grouping_variable: specimen_id
+  session_variable: session_id
+  session_rule: >
+    A session is one uninterrupted acquisition block. The session boundary is a
+    second red line, because a specimen measured on seven storage days has seven
+    different TVC values; a window straddling two of them would carry channels
+    from one occasion and a label from another. Both boundaries are audited from
+    the produced windows (drososense.data.leakage.audit_windows runs on the
+    specimen key and again on the session key).
+  strategies:
+    group_kfold:
+      description: >
+        Specimen identifiers are permuted with numpy.random.default_rng(seed),
+        then partitioned into `n_splits` contiguous blocks. For block i:
+        test = block i, val = block (i+1) mod n_splits, train = the rest. The
+        permutation makes the partition seed-dependent while remaining exactly
+        reproducible; no two blocks share a specimen.
+      default_n_splits: 5
+    loso:
+      description: >
+        Leave-One-Specimen-Out. Each specimen is the test set exactly once;
+        validation is the next specimen in the seeded permutation.
+      use_when: "n_specimens <= 10, or when the reviewer asks for the exhaustive variant"
+    time_block_holdout:
+      description: >
+        Contiguous time blocks of a single continuous session, used ONLY for a
+        dataset that publishes no sample identifier. NOT protocol-compliant;
+        every run record produced with it carries protocol_compliant: false.
+      use_when: "D1 only. Never for a Gate evaluation."
+  per_dataset:
+    D1: {strategy: time_block_holdout, n_splits: 5, protocol_compliant: false}
+    D2: {strategy: loso, n_splits: 5, protocol_compliant: true}
+    D3: {strategy: group_kfold, n_splits: 5, protocol_compliant: true}
+  power_note: >
+    D2 has five specimens, so its five LOSO folds are five independent clusters
+    and the exact two-sided minimum p over five clusters is 2/2^5 = 0.0625 —
+    above alpha. A significant specimen-level result is therefore NOT reachable
+    on D2 alone, and D2 is reported as underpowered rather than as evidence of no
+    effect. This is recorded here, before any result exists, precisely so it
+    cannot later be presented as a finding.
+
+# -----------------------------------------------------------------------------
+# 4. SEEDS, REPETITION AND RNG HIERARCHY  (R0 audit item M6)
+# -----------------------------------------------------------------------------
+seeds:
+  root_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  primary_seed_count: 10
+  extension_to: 20
+  extension_rule: >
+    Seeds 10..19 may be added only as a whole block and only if compute permits;
+    results computed over 10 and over 20 seeds are reported separately and never
+    pooled.
+  derive_fn: >
+    numpy.random.SeedSequence(root_seed).spawn(4) — one child per stage, in the
+    fixed order [split, graph, input_mapping, readout]. A stage's seed is
+    therefore a pure function of the root seed, so re-running one stage does not
+    perturb another.
+  rng_hierarchy:
+    split: "child 0 of SeedSequence(root_seed)"
+    graph: "child 1 — connectome sub-sampling and any rewiring"
+    input_mapping: "child 2 — W_in initialisation"
+    readout: "child 3 — readout initialisation and any stochastic solver"
+  seed_role: >
+    A seed controls (a) the specimen permutation used by the split and (b) every
+    stochastic component of the model. Splits therefore differ across seeds,
+    which is the intended source of variance. Because seeds share specimens, a
+    seed is NOT an independent replicate of specimen sampling and is never
+    resampled (see `pairing`).
+  deterministic_models_note: >
+    Deterministic models (SVM-RBF, PCA+SVM, Ridge readouts) are still evaluated
+    on all 10 seeds, because the seed changes the SPLIT, not just the weights.
+
+# -----------------------------------------------------------------------------
+# 5. TASKS AND METRICS  (primary metric is frozen)
+# -----------------------------------------------------------------------------
+tasks:
+  classification:
+    label_column: freshness_class
+    label_names: [Excellent, Good, Acceptable, Spoiled]
+    n_classes: 4
+    label_provenance: >
+      The four-level label is a TVC-threshold discretisation on every dataset.
+      On D2 the names are the provider's own words; on D1 the provider ships
+      integers 1..4 with no names and the names are the project's; on D3 the
+      provider ships only Fresh/Spoiled and the four levels are derived at
+      trout-specific thresholds. Per-dataset provenance is in the dataset configs
+      and is repeated in every table that reports a class-level number.
+    metrics:
+      primary: macro_f1
+      secondary: [balanced_accuracy, auroc, accuracy]
+      direction: maximize
+      auroc:
+        scheme: macro_ovr
+        averaging: "unweighted mean of the one-vs-rest AUROC over all four classes"
+        empty_class_policy: require_all_classes
+        empty_class_policy_detail: >
+          AUROC is defined ONLY when all four classes are present in the test
+          split. Otherwise the fold's AUROC is null and `auroc_n_classes_scored`
+          is 0. A partial average over two or three classes is a different
+          quantity under the same name and is never reported; the number of
+          folds with an undefined AUROC is reported alongside the mean so the
+          loss of coverage is visible. (R0 audit item X5: v1 declared four
+          classes and the implementation averaged over two or three.)
+      macro_f1_empty_class_policy: >
+        macro-F1 is always scored over the fixed label set 0..3 with
+        zero_division=0, so a class absent from a fold contributes F1 = 0 rather
+        than removing itself from the average. The value is therefore always
+        defined and always four-class.
+    primary_metric_direction: maximize
+  regression:
+    label_column: tvc
+    definition: "Total Viable Count, log10 CFU/g (see dataset manifests for the exact unit)."
+    metrics:
+      primary: mae
+      secondary: [rmse, r2]
+    primary_metric_direction: minimize
+    direction: minimize
+
+co_primary_policy:
+  policy: both_required_no_alpha_split
+  detail: >
+    macro-F1 and MAE are co-primary and are declared together. A dataset's
+    headline result requires the declared effect to be in the pre-registered
+    direction on BOTH, each evaluated inside its own multiplicity family at
+    alpha = 0.05 with no alpha split. If only one holds, the result is reported
+    as partial and the claim is restricted to that task; the other is reported as
+    not supported rather than as a trend.
+  independence_caveat: >
+    The class label is a threshold of TVC on every dataset, so the two co-primary
+    metrics are two views of one variable and are never counted as two
+    independent pieces of evidence.
+
+reporting:
+  format: "mean +/- SD across seeds"
+  include: [n_seeds, n_specimens, n_sessions, n_windows, n_clusters, per_seed_values]
+  confidence_interval: >
+    95% CI from the paired bootstrap declared in `statistical_tests.bootstrap`.
+    The resampling unit is the fold, never the seed.
+
+# -----------------------------------------------------------------------------
+# 6. PREPROCESSING (fitted on TRAIN ONLY — enforced by unit tests)
+# -----------------------------------------------------------------------------
+preprocessing:
+  normalization:
+    formula: "x' = (x - mu_train) / (sigma_train + eps)"
+    eps: 1.0e-8
+    fit_scope: train_split_only
+    per: feature_channel
+    save_artifact: "scaler.pkl (joblib) alongside the split, per fold and per seed"
+    forbidden:
+      - "fitting the scaler on train+val"
+      - "fitting the scaler on train+test"
+      - "refitting the scaler per batch, per window, or per specimen"
+  windowing:
+    enabled: true
+    length_candidates: [8, 16, 32, 64]
+    stride: 1
+    selection: "validation macro_f1 (classification) / validation MAE (regression), per model family"
+    boundary_rule: >
+      A window is discarded, not padded, if it does not fit inside one specimen
+      or inside one session.
+    forbidden:
+      - "a window containing timesteps from two different specimens"
+      - "a window containing timesteps from two different acquisition sessions"
+      - "selecting the window length on the test set"
+  missing_values:
+    policy: reject
+    note: "Rows with missing sensor channels are dropped at load time and the count is recorded in the manifest check report."
+
+# -----------------------------------------------------------------------------
+# 7. CONTRASTS  (every comparison the project may report; R0 audit item H1)
+# -----------------------------------------------------------------------------
+# A contrast id is a first-class object. Multiplicity families, gates and the
+# narrative rules all reference these ids, so a comparison cannot be introduced
+# after the results are seen without editing this list — which changes the file
+# digest and breaks the freeze check.
+contrasts:
+  primary: R0_vs_R2
+  list:
+    - id: R0_vs_R2
+      first: R0
+      second: R2
+      role: primary
+      note: "Real olfactory connectome vs degree-preserving rewired control."
+    - id: R0_vs_R4
+      first: R0
+      second: R4
+      role: secondary
+      note: "Real connectome vs matched echo-state network."
+    - id: R0_vs_R3
+      first: R0
+      second: R3
+      role: secondary
+      note: "Real connectome vs random sparse reservoir."
+    - id: R0_vs_GRU
+      first: R0
+      second: GRU
+      role: secondary
+      note: "Real connectome vs tuned GRU."
+    - id: R0_vs_R5
+      first: R0
+      second: R5
+      role: secondary
+      note: "Real connectome vs small-world control."
+    - id: R0_vs_R1
+      first: R0
+      second: R1
+      role: secondary
+      note: "Real connectome vs weight-shuffled control."
+
+# -----------------------------------------------------------------------------
+# 8. PAIRING AND RESAMPLING  (R0 audit item C1)
+# -----------------------------------------------------------------------------
+pairing:
+  unit: "(seed, fold)"
+  detail: >
+    One observation is a paired difference on one (seed, fold) evaluation: both
+    models see the identical tensor, the identical train-only scaler and the
+    identical split, so the difference isolates the model.
+  pairing_key: [dataset, window_length, seed, fold_id]
+  resample_unit: fold
+  resample_unit_detail: >
+    The bootstrap resamples FOLD IDENTIFIERS — the specimen-disjoint test blocks
+    whose metrics actually enter the difference. It never resamples seeds: ten
+    seeds on one specimen partition are ten model initialisations, not ten draws
+    of specimens, and bootstrapping them produces an interval that is too narrow
+    to support any claim about new food samples. For LOSO a fold is a single
+    specimen, so the fold bootstrap IS a specimen bootstrap.
+  stratification: seed
+  stratification_detail: >
+    Seeds are held fixed while folds are resampled, and the per-seed means are
+    averaged afterwards, so seed-level variability enters the interval without
+    being mistaken for specimen sampling variability.
+  n_pairs_formula: "n_folds * n_seeds"
+  n_clusters_formula: "n_folds"
+  reported_alongside: [n_pairs, n_clusters, n_seeds, n_nonzero]
+  minimum_reported_clusters: 5
+  matching_requirements:
+    - "same split_id (identical fold fingerprint)"
+    - "same W_in initialisation seed (input_mapping child seed)"
+    - "same readout hyperparameters"
+    - "same spectral scaling rule — identical across R0..R6; a differing rule destroys the causal reading of the primary contrast"
+    - "same preprocessing artefacts (the same scaler.pkl)"
+
+# -----------------------------------------------------------------------------
+# 9. HYPOTHESES  (pre-registered, each bound to a contrast id)
+# -----------------------------------------------------------------------------
+primary_hypothesis:
+  id: H1
+  contrast: R0_vs_R2
+  metric: macro_f1
+  datasets: [D2, D3]
+  statement: >
+    On the datasets whose published grouping satisfies split_unit: specimen, the
+    frozen real olfactory connectome reservoir (R0) achieves a higher macro-F1
+    than the degree-preserving rewired control (R2) under identical nodes,
+    matched edge count, matched spectral scaling, identical input mapping,
+    identical readout and identical splits.
+  direction: two_sided
+  alpha: 0.05
+
+secondary_hypotheses:
+  - id: H2
+    contrast: R0_vs_R4
+    metric: macro_f1
+    statement: "R0 achieves higher macro-F1 than an echo-state network (R4) with matched size and edge density."
+  - id: H3
+    contrast: R0_vs_R3
+    metric: macro_f1
+    statement: "R0 achieves higher macro-F1 than a random sparse reservoir (R3) with matched node and edge count."
+  - id: H4
+    contrast: R0_vs_GRU
+    metric: macro_f1
+    statement: "R0 achieves higher macro-F1 than a tuned GRU baseline."
+  - id: H5
+    contrast: R0_vs_R4
+    metric: retention_ratio_10pct
+    statement: >
+      R0 retains a larger fraction of its full-data macro-F1 than R4 at 10% and
+      25% training specimens (low-data robustness).
+  - id: H6
+    contrast: R0_vs_R4
+    metric: macro_f1
+    condition: sensor_dropout
+    statement: "R0 degrades less than R4 under sensor-channel dropout at p_drop in {0.1..0.5}."
+
+exploratory_note: >
+  Any comparison not listed in `contrasts` is exploratory, must be labelled as
+  such in every table and figure caption, and may not be used to support a
+  headline claim.
+
+# -----------------------------------------------------------------------------
+# 10. STATISTICAL TESTS  (R0 audit items C1, H2)
+# -----------------------------------------------------------------------------
+statistical_tests:
+  alpha: 0.05
+  primary_test:
+    name: wilcoxon_signed_rank
+    applied_to: "paired differences, one per (seed, fold)"
+    alternative: two-sided
+    zero_method: wilcox
+    correction: false
+    mode: auto
+    tie_handling: >
+      zero_method 'wilcox' drops pairs whose difference is exactly zero, so the
+      effective n is n_nonzero and is reported on every line. The zero count is
+      never used to pad n. `minimum_achievable_p(n_nonzero)` is reported beside
+      every p-value so an underpowered comparison cannot be read as evidence of
+      no effect.
+  bootstrap:
+    enabled: true
+    n_resamples: 10000
+    seed: 20260920
+    resample_unit: fold
+    stratification: seed
+    ci_type: percentile
+    ci_level: 0.95
+    statistic: mean_of_paired_differences
+    note: >
+      The bootstrap seed is fixed independently of the run seed, so the interval
+      for a given result is reproducible without re-running the experiment.
+  effect_size:
+    classification: rank_biserial
+    regression: hodges_lehmann
+    report_ci: true
+    note: "A p-value alone is never reported; every line carries delta, its CI and the effect size."
+  equivalence:
+    method: tost
+    detail: >
+      Equivalence is decided by interval inclusion: the 95% interval must lie
+      strictly inside the margin. 'No significant difference' is NEVER reported
+      as equivalence — that would be accepting a null, which is the error the R0
+      audit flagged.
+  assumption_failure: >
+    If fewer than 6 non-zero pairs remain, the pre-registered sign test is
+    substituted, the substitution is recorded in the result row, and the affected
+    comparison is marked underpowered.
+
+# -----------------------------------------------------------------------------
+# 11. EQUIVALENCE MARGINS  (numeric, in each metric's own units; R0 item C2)
+# -----------------------------------------------------------------------------
+equivalence:
+  enabled: true
+  method: tost
+  margins:
+    macro_f1: 0.02
+    balanced_accuracy: 0.02
+    accuracy: 0.02
+    auroc: 0.02
+    mae: 0.05
+    rmse: 0.05
+    r2: 0.05
+  rationale: >
+    The classification margins are 2 absolute macro-F1 points and the regression
+    margins 0.05 log10 CFU/g. Both are the smallest differences this project is
+    willing to call meaningful, fixed before any result existed. They are used in
+    two places only: the TOST equivalence decision, and Gate_A's non-inferiority
+    term.
+
+# -----------------------------------------------------------------------------
+# 12. MULTIPLICITY FAMILIES  (enumerated; R0 audit item H1)
+# -----------------------------------------------------------------------------
+multiplicity:
+  method: holm
+  alpha: 0.05
+  families:
+    - id: F_primary
+      alpha: 0.05
+      tests: [R0_vs_R2]
+      note: "A single pre-registered primary comparison; no correction applies, and none is claimed."
+    - id: F_secondary_topology
+      alpha: 0.05
+      tests: [R0_vs_R3, R0_vs_R4, R0_vs_R5, R0_vs_R1]
+      note: "Topology controls within one dataset and condition."
+    - id: F_secondary_baselines
+      alpha: 0.05
+      tests: [R0_vs_GRU]
+    - id: F_lowdata
+      alpha: 0.05
+      tests: [R0_vs_R4]
+      conditions: [train10pct, train25pct, train50pct, train75pct]
+      note: "E3. One family across the four fractions, not one family per fraction."
+    - id: F_dropout
+      alpha: 0.05
+      tests: [R0_vs_R4]
+      conditions: [dropout_p0.1, dropout_p0.2, dropout_p0.3, dropout_p0.4, dropout_p0.5]
+    - id: F_noise
+      alpha: 0.05
+      tests: [R0_vs_R4]
+      conditions: [noise_s0.01, noise_s0.05, noise_s0.1, noise_s0.2]
+    - id: F_drift
+      alpha: 0.05
+      tests: [R0_vs_R4]
+      conditions: [drift_gain, drift_offset, drift_combined]
+    - id: F_size
+      alpha: 0.05
+      tests: [R0_vs_R4]
+      conditions: [size250, size500, size1000, size2000, size4000]
+  family_rule: >
+    The unit of correction is a (contrast, condition) pair, not a bare contrast:
+    R0_vs_R4 at p_drop = 0.3 and R0_vs_R4 at full data are different tests and
+    are corrected in different families. Every declared (contrast, condition)
+    pair belongs to exactly ONE family. A pair that appears in no family is
+    reported without correction AND labelled exploratory; a pair appearing in two
+    families is a protocol error and the analysis stops.
+
+# -----------------------------------------------------------------------------
+# 13. GATES  (evaluable boolean expressions; R0 audit item C2)
+# -----------------------------------------------------------------------------
+# Every expression below can be evaluated by drososense/evaluation/gates.py
+# against the contrast table. Bare names resolve to declared models, metrics,
+# datasets or conditions. Nothing in an expression may be read as "failed to
+# reject".
+#
+#   compete(R0,R4,macro_f1,d) := ci_contains_zero(...) or noninferior(...)
+# Gate_A asks for TWO datasets on which R0 is at least not meaningfully worse
+# than the matched ESN, plus the efficiency claim. It deliberately does NOT
+# accept a third dataset: D1 is excluded because its split is not compliant.
+gates:
+  Gate_A:
+    name: "Project is viable"
+    evaluated_on: [D2, D3]
+    terms:
+      - id: A1
+        rule: "R0 is not meaningfully worse than R4 on D2 and on D3"
+      - id: A2
+        rule: "R0 has strictly fewer trainable parameters than a tuned GRU"
+    expression: >
+      sum([
+        ci_contains_zero(R0, R4, macro_f1, D2) or noninferior(R0, R4, macro_f1, D2),
+        ci_contains_zero(R0, R4, macro_f1, D3) or noninferior(R0, R4, macro_f1, D3)
+      ]) == 2
+      and params(R0) < params(GRU)
+    if_failed: "Do not proceed to claim a connectome contribution; report the negative result."
+  Gate_B:
+    name: "Sufficient for a TAFE submission"
+    evaluated_on: [D2, D3]
+    expression: >
+      sig(R0, R2, macro_f1, D2) or sig(R0, R2, macro_f1, D3)
+      or sig_any(R0, R4, macro_f1, [D2, D3],
+                 ["dropout_p0.3", "noise_s0.1", "train10pct", "train25pct"])
+    if_failed: "Use the narrative adjustment rules below."
+  Gate_C:
+    name: "Strong paper"
+    expression: >
+      sig(R0, R2, macro_f1, D3) and sig(R0, R3, macro_f1, D3)
+      and sig_any(R0, R4, macro_f1, [D2, D3],
+                  ["dropout_p0.3", "noise_s0.1", "train10pct", "train25pct"])
+    evaluated_on: [D3, E3, E4, E5]
+    note: >
+      D2 is not required for the chain: with five specimens its exact minimum
+      two-sided p over five clusters is 0.0625, so a significant R0 > R2 on D2
+      alone is not reachable and requiring it would make Gate_C unreachable by
+      construction.
+    if_failed: "The paper is written at the Gate_B level; the chain is not claimed."
+  gate_rules:
+    - "A gate whose expression cannot be evaluated (missing contrast) is reported as UNEVALUABLE, never as false and never as passed."
+    - "Every gate evaluation is recorded with the per-term values that produced it."
+    - "Gates are evaluated on protocol-compliant runs only; a run with protocol_compliant: false is excluded from every gate and is marked as excluded in the table."
+
+# -----------------------------------------------------------------------------
+# 14. NARRATIVE ADJUSTMENT RULES  (evaluable triggers, decided in advance)
+# -----------------------------------------------------------------------------
+narrative_adjustment_rules:
+  list:
+  - id: N1
+    trigger_expression: >
+      equiv(R0, R2, macro_f1, D3) and sig(R0, R3, macro_f1, D3)
+    action: >
+      Conclude that degree / statistical structure matters, not the specific
+      Drosophila wiring. Rewrite the title and abstract accordingly. It is
+      forbidden to state that the biological wiring is important.
+  - id: N2
+    trigger_expression: >
+      equiv(R0, R4, macro_f1, D3)
+      and sig_any(R0, R4, macro_f1, [D2, D3], ["dropout_p0.3", "noise_s0.1"])
+    action: >
+      Reframe the paper as a robust sparse biological reservoir contribution
+      rather than a performance contribution. Performance claims are dropped
+      from the title and abstract.
+  - id: N3
+    trigger_expression: "sig(R4, R0, macro_f1, D3)"
+    action: >
+      Report the negative result honestly. Reframe as an investigation of why
+      biological connectomes do not transfer directly to artificial sensory
+      streams; state explicitly that this may be a computational-neuroscience
+      result rather than a TAFE result.
+  - id: N4
+    trigger_expression: >
+      (sig(R0, R2, macro_f1, D2) and sig(R2, R0, macro_f1, D3))
+      or (sig(R2, R0, macro_f1, D2) and sig(R0, R2, macro_f1, D3))
+    action: >
+      Report both. Cross-food generalization is claimed only if the ordering is
+      consistent across both foods; otherwise the inconsistency is reported as a
+      limitation and no cross-food claim is made.
+  - id: N5
+    trigger_expression: "unavailable(D1) or unavailable(D2) or unavailable(D3)"
+    action: >
+      Report the blocker with the exact manual acquisition steps. Do not run,
+      plot or tabulate a substitute. The affected dataset is marked UNAVAILABLE
+      in every table.
+  evaluation_note: >
+    Exactly one branch of N1–N5 is expected to fire; if more than one fires the
+    analysis stops and the conflict is reported rather than resolved by choice.
+
+# -----------------------------------------------------------------------------
+# 15. DATASETS  (binding corrected by the R0 audit; R0 items X1, X2)
+# -----------------------------------------------------------------------------
+datasets:
+  D1:
+    id: d1_beef_controlled
+    name: Beef-Controlled
+    doi: "10.17632/n8mc3nspfn.1"
+    provider_title: "e nose based Beef Quality Classification Dataset(4classes)"
+    role: "primary food task"
+    config: configs/datasets/d1_beef_controlled.yaml
+    tasks: [classification, regression]
+    split_strategy: time_block_holdout
+    protocol_compliant: false
+    label_provenance: "provider integers 1..4; the four names are the project's TVC-threshold names"
+    notes: >
+      The provider publishes no sample identifier, so split_unit: specimen cannot
+      be satisfied and every D1 run is flagged protocol_compliant: false. D1 is
+      reported as a non-compliant secondary benchmark and is excluded from every
+      gate. Removing the blocker requires an acquisition log from the authors.
+  D2:
+    id: d2_beef_uncontrolled
+    name: Beef-Uncontrolled
+    doi: "10.17632/mwmhh766fc.3"
+    provider_title: "Electronic nose dataset for beef quality monitoring under an uncontrolled environment"
+    role: "environmental robustness"
+    config: configs/datasets/d2_beef_uncontrolled.yaml
+    tasks: [classification, regression]
+    split_strategy: loso
+    protocol_compliant: true
+    label_provenance: "provider-stated names excellent / good / acceptable / spoiled"
+    notes: >
+      Version 3 publishes five beef cuts as five series, so LOSO(5) is a real
+      specimen-level split. Five specimens is nonetheless few; see split_protocol.power_note.
+  D3:
+    id: d3_rainbow_trout
+    name: Rainbow Trout
+    doi: "10.5281/zenodo.20649184"
+    provider_title: "A multimodal dataset of images, gas sensor responses, and microbiological measurements for assessing the freshness of rainbow trout fillets"
+    role: "cross-food validation"
+    config: configs/datasets/d3_rainbow_trout.yaml
+    tasks: [classification, regression]
+    split_strategy: group_kfold
+    protocol_compliant: true
+    label_provenance: "provider ships binary Fresh/Spoiled; the four levels are derived at frozen trout thresholds 4.3 / 5.0 / 6.5"
+    notes: >
+      210 sensor CSVs, 62 fillets, 210 sessions, 25,080 rows, acquired by HTTP
+      range request from a 21.1 GB archive. Phase 1 uses the gas, temperature,
+      humidity and TVC channels only; images are out of scope.
+  acquisition_policy:
+    - "Every dataset has a machine-readable manifest under data/manifests/."
+    - "Manifests record: official source URL, version, license, checksum, schema, specimen identifier rule, and manual steps when automated download is not permitted."
+    - "Missing or unverifiable data is reported as a blocker; it is NEVER substituted with synthetic data in a results table."
+  channel_intersection:
+    common_to_D1_D2_D3: [MQ2, MQ3, MQ4, MQ5, MQ135, temperature, humidity]
+    note: >
+      A cross-food comparison is described on the matched channel subset when one
+      is claimed; a comparison on each dataset's full channel set is reported
+      separately and is not presented as channel-matched.
+
+# -----------------------------------------------------------------------------
+# 16. MODEL ZOO  (M1 baselines — connectome-independent)
+# -----------------------------------------------------------------------------
+model_zoo:
+  classical:
+    - id: svm_rbf
+      family: classical
+      tasks: [classification, regression]
+    - id: random_forest
+      family: classical
+      tasks: [classification, regression]
+    - id: xgboost
+      family: classical
+      tasks: [classification, regression]
+    - id: pca_svm
+      family: classical
+      tasks: [classification, regression]
+  sequence:
+    - id: gru
+      family: sequence
+      tasks: [classification, regression]
+    - id: lstm
+      family: sequence
+      tasks: [classification, regression]
+    - id: cnn1d
+      family: sequence
+      tasks: [classification, regression]
+    - id: tcn
+      family: sequence
+      tasks: [classification, regression]
+  reservoir:
+    - id: esn
+      family: reservoir
+      tasks: [classification, regression]
+      note: >
+        Standard leaky echo-state network with a fixed random sparse reservoir
+        and a trained linear/ridge readout. This is the R4 control of M4; it is
+        NOT a connectome reservoir and carries no biological claim in M1.
+  interface_contract:
+    fit: "fit(X_train, y_train) -> self, where X has shape (n_windows, window_len, n_channels)"
+    predict: "predict(X) -> array of shape (n_windows,)"
+    predict_proba: "classification models only; shape (n_windows, n_classes)"
+    flattening: "classical models flatten (n, L, C) -> (n, L*C) internally"
+    shared_training_conditions: >
+      Every model receives the same split, the same standardizer and the same
+      window tensors for a given (dataset, seed, fold, window length).
+  parameter_reporting: >
+    `params(model)` in the gates refers to TRAINABLE parameters — the count of
+    parameters updated by the fitting procedure, not the reservoir's node count.
+    Frozen reservoir weights are reported separately and are never folded into
+    the trainable count.
+
+# -----------------------------------------------------------------------------
+# 17. HYPERPARAMETER SELECTION AND TEST ISOLATION  (R0 audit item H3)
+# -----------------------------------------------------------------------------
+hyperparameter_selection:
+  grid:
+    window_length: [8, 16, 32, 64]
+    readout_regularisation: [1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1, 1.0]
+    reservoir_leak_alpha: [0.1, 0.3, 0.5, 0.7, 0.9]
+    reservoir_gain_g: [0.5, 1.0, 1.5, 2.0]
+    input_scale_gamma: [0.1, 0.5, 1.0, 2.0]
+    spectral_scaling: [0.9, 1.0, 1.1]
+  selection_metric: {classification: validation_macro_f1, regression: validation_mae}
+  selection_split: validation
+  scope: per_fold
+  detail: >
+    Selection happens once per (dataset, seed, fold, model family) on that fold's
+    validation specimens. The test split takes no part in it.
+  spectral_scaling_rule: >
+    The spectral scaling applied to a reservoir graph is chosen once per
+    (dataset, seed, fold) and applied identically to R0..R6. A reservoir that
+    received a different scaling from its control would make the primary
+    contrast uninterpretable; the runner records the chosen value on every run so
+    this is checkable after the fact.
+  test_touched_once:
+    enabled: true
+    definition: >
+      For each (dataset, seed, fold) the test split is evaluated exactly once per
+      (model, task). A test evaluation is the act of scoring a model on that
+      split. Re-scoring the saved predictions for a different metric is not a new
+      touch; re-running the model with different hyperparameters is, and is
+      forbidden.
+    enforcement: >
+      The runner records a test fingerprint per (dataset, seed, fold, model,
+      task); a second record with the same fingerprint and a different
+      configuration hash is a protocol violation and fails the run.
+
+# -----------------------------------------------------------------------------
+# 18. ROBUSTNESS PROTOCOL  (R0 audit item H6)
+# -----------------------------------------------------------------------------
+robustness_protocol:
+  injection_stage: eval_only
+  retrain_readout: false
+  drift_applied_after_standardization: true
+  detail: >
+    Sensor dropout, noise and drift are applied to the TEST data only, after the
+    frozen train-only standardizer has been applied, and the readout is NOT
+    retrained on the degraded data. This measures deployment robustness — a
+    domain shift between clean training and degraded operation — and it is a
+    different experiment from robustness training. The choice is fixed now so
+    that a favourable reading cannot be selected later.
+  channel_dropout:
+    levels: [0.1, 0.2, 0.3, 0.4, 0.5]
+    mechanism: "random sensor channels masked to their training mean, per window"
+    seed: "child-seed of the run seed; the SAME mask is applied to every model in a paired comparison"
+  noise:
+    levels: [0.01, 0.05, 0.1, 0.2]
+    units: "standard deviations of the standardised inputs"
+    seed: "child-seed of the run seed; identical noise realisation for every model in a paired comparison"
+  drift:
+    model: "x'_t = a_t * x_t + b_t, applied after standardisation"
+    conditions: [drift_gain, drift_offset, drift_combined]
+    a_t: "linear ramp over the window from 1.0 to (1 + delta), delta in {0.05, 0.10, 0.20}"
+    b_t: "linear ramp over the window from 0.0 to delta, delta in {0.05, 0.10, 0.20}"
+    note: "Applied identically to every model in a paired comparison."
+  single_channel_ablation:
+    method: "each input channel switched off in turn; Delta macro-F1 reported per channel"
+    family: "exploratory unless the channel list is enumerated in a multiplicity family"
+
+# -----------------------------------------------------------------------------
+# 19. SIZE STUDY  (R0 audit item M5)
+# -----------------------------------------------------------------------------
+size_study:
+  sizes: [250, 500, 1000, 2000, 4000]
+  sampling: nested
+  detail: >
+    The N=250 subgraph is a subgraph of the N=500 subgraph, and so on, so the
+    Performance(N) curve is not contaminated by independent resampling noise.
+    Subgraph selection is degree-preserving-by-stratum where the biological
+    constraint allows, and the exact selection rule is recorded per size.
+  seed_policy: "the graph child-seed of the run seed; identical across every model compared at that N"
+  matching_rules:
+    - "every control reservoir at size N has the same node count and matched edge count"
+    - "every control reservoir at size N has the same spectral scaling rule applied"
+    - "the same input mapping and readout are used at every N"
+
+# -----------------------------------------------------------------------------
+# 20. STOPPING RULES, FAILURES, EXCLUSIONS AND COMPUTE DEGRADATION  (R0 item H5)
+# -----------------------------------------------------------------------------
+stopping_rules:
+  sequential_testing: forbidden
+  optional_stopping: forbidden
+  interim_looks: none
+  detail: >
+    Every declared contrast is computed once, on the full pre-registered set of
+    seeds, folds and conditions, and its p-value is corrected inside its
+    pre-declared family. No result may be inspected and then used to decide
+    whether to collect more seeds, drop a condition, or change a family.
+
+failure_handling:
+  nan_policy: >
+    A run whose metric is NaN is kept in the raw records with status 'failed' and
+    a failure_reason, is counted in the table as failed, and is NOT silently
+    dropped. If a contrast loses observations to failures, the reduced n_pairs is
+    reported.
+  nonconvergence_policy: "recorded as status 'failed' with the exception text; never imputed and never re-run with different hyperparameters"
+  missing_class_policy: >
+    Macro-F1 is scored over the fixed label set with zero_division=0 and is
+    therefore always defined. AUROC follows `auroc.empty_class_policy`.
+  oom_or_timeout_policy: "status 'oom' or 'timeout'; the run is reported as missing rather than retried with other parameters"
+  record_schema: "run_id, status, failure_reason, plus the full configuration hash of the failed run"
+  rule: "A table never reports a mean over a subset of runs without stating how many were excluded and why."
+
+excluded_specimen_criteria:
+  criteria:
+    - id: E1
+      rule: "A specimen with fewer rows than the window length cannot contribute a window and is excluded before the split is built."
+      recorded_as: "usable_specimens(dataset, window_length)"
+    - id: E2
+      rule: "A row with a non-finite value in any declared feature channel is dropped at load time."
+      recorded_as: "provenance.dropped_non_finite_rows"
+  frozen: true
+  note: >
+    These two and no others. They are fixed before any test evaluation; adding a
+    criterion afterwards is a forbidden amendment.
+
+compute_degradation:
+  order: [E12, E11, E9, E7, E10, E6, E5, E4, E3, E2, E1]
+  seed_reduction_allowed: false
+  minimum_seeds: 10
+  detail: >
+    If compute is short, experiments are dropped from the tail of this list —
+    analysis and mechanism studies first, then robustness variants, then
+    topology, and the main experiment last. Seeds are never reduced below 10: the
+    exact minimum achievable p depends on n, so a smaller seed count silently
+    changes what the pre-registered test can detect.
+
+# -----------------------------------------------------------------------------
+# 21. EXPERIMENT REGISTRY (declared now, executed later)
+# -----------------------------------------------------------------------------
+experiments:
+  E1_main:       { status: planned, requires: [D2, D3], needs_connectome: false }
+  E2_topology:   { status: planned, requires: [D2, D3], needs_connectome: true }
+  E3_lowdata:    { status: planned, requires: [D2, D3], needs_connectome: true, fractions: [0.10, 0.25, 0.50, 0.75, 1.00], test_set_fixed_across_fractions: true, sampling: nested }
+  E4_robustness: { status: planned, requires: [D2, D3], needs_connectome: true, p_drop: [0.1, 0.2, 0.3, 0.4, 0.5] }
+  E5_noise:      { status: planned, requires: [D2, D3], needs_connectome: true, sigma: [0.01, 0.05, 0.1, 0.2] }
+  E6_drift:      { status: planned, requires: [D2, D3], needs_connectome: true }
+  E7_efficiency: { status: planned, requires: [D2, D3], needs_connectome: true }
+  E8_crossfood:  { status: planned, requires: [D2, D3], needs_connectome: true }
+  E9_size:       { status: planned, requires: [D2, D3], needs_connectome: true }
+  E10_dynamics:  { status: planned, requires: [D2, D3], needs_connectome: true }
+  E11_mechanism: { status: planned, requires: [D2, D3], needs_connectome: true }
+  E12_graph:     { status: planned, requires: [D2, D3], needs_connectome: true }
+  M1_benchmark:  { status: delivered, requires: [D1, D2, D3], needs_connectome: false }
+  environment_reporting:
+    required_fields: [instrument, os, cpu_threads, warmup_s, measurement_window]
+    note: >
+      Efficiency numbers without a declared instrument and measurement window are
+      not reproducible and are reported as exploratory.
+
+# -----------------------------------------------------------------------------
+# 22. RESULTS LAYOUT AND SCHEMA
+# -----------------------------------------------------------------------------
+results:
+  raw_dir: results/raw          # one JSON per (experiment, dataset, model, seed, fold)
+  tables_dir: results/tables    # aggregated summaries, committed
+  figures_dir: results/figures
+  separation_rule: "Raw per-run records and aggregated summaries are never mixed in one file."
+  raw_record_schema:
+    required:
+      - run_id
+      - experiment
+      - dataset
+      - model
+      - task
+      - seed
+      - fold_id
+      - protocol_version
+      - window_length
+      - metrics
+      - n_train_windows
+      - n_test_windows
+      - train_specimens
+      - test_specimens
+      - duration_s
+      - environment
+      - timestamp_utc
+    v1_1_additions:
+      - session_count_train
+      - session_count_test
+      - fold_fingerprint
+      - class_coverage
+      - config_hash
+      - evidence_class
+      - protocol_compliant
+      - test_fingerprint
+      - empty_class_policy
+      - status
+      - failure_reason
+  summary_schema:
+    required:
+      - contrast_id
+      - metric
+      - dataset
+      - condition
+      - n_pairs
+      - n_clusters
+      - n_nonzero
+      - delta
+      - delta_ci_low
+      - delta_ci_high
+      - effect_size
+      - effect_size_name
+      - p_value
+      - p_holm
+      - equivalent
+      - test
+    rule: "p_value and p_holm are reported side by side; a reader must be able to see both the raw and the corrected value."
+
+# -----------------------------------------------------------------------------
+# 23. DATA VERIFIED AT FREEZE TIME  (R0 audit item L4)
+# -----------------------------------------------------------------------------
+# Numbers here were measured on the acquired files, not estimated. They are the
+# inputs to the power note in `split_protocol` and to the dataset table.
+data_verified:
+  verified_on: "2026-09-20"
+  D1:
+    source_sha256: "866367252b8498eddff2f488629e3e38341b2014a2e0a941d88e71a7499e7026"
+    rows: 20815
+    columns: 14
+    specimens: 12
+    specimen_basis: "assumed time blocks of 150 distinct minutes — NOT a published identifier"
+    protocol_compliant: false
+    class_counts: {0: 2940, 1: 2268, 2: 2292, 3: 13315}
+    tvc_range: [2.002, 6.314]
+    sensor_channels: 8
+  D2:
+    source_sha256: "772bc2c75f2ac4b785538ea38311bdefaee65059b3391b080b4da5ea619963e3"
+    archive_members: 5
+    rows: 10800
+    rows_per_series: 2160
+    specimens: 5
+    specimen_basis: "one published series per beef cut (TS1..TS5)"
+    protocol_compliant: true
+    class_counts: {0: 1680, 1: 2820, 2: 2100, 3: 4200}
+    tvc_range: [2.233, 5.098]
+    sensor_channels: 9
+    column_order_caveat: >
+      TS1 ends (..., Humidity, Temperature) while TS2..TS5 end
+      (..., Temperature, Humidity). All columns are read by name.
+  D3:
+    archive_md5_published: "32749a6232515bd3c3b50e2e848f1b15"
+    archive_bytes: 21134576519
+    members_extracted: 210
+    extracted_bytes: 1092874
+    rows: 25080
+    specimens: 62
+    sessions: 210
+    specimen_basis: "the fillet token in each filename (F<group>F<index>), measured across 1-7 storage days"
+    protocol_compliant: true
+    class_thresholds: [4.3, 5.0, 6.5]
+    class_counts: {0: 3479, 1: 3601, 2: 10800, 3: 7200}
+    provider_binary_labels: {Fresh: 150, Spoiled: 60}
+    tvc_values: [4.16, 4.46, 5.48, 5.56, 6.08, 7.75, 7.86]
+    sensor_channels: 5
+    filename_aliases_applied: 2
+  caveats:
+    - "D3's archive-level md5 is NOT verified: the archive is never downloaded whole. Integrity is anchored per member by the archive's own CRC-32 and by a recorded SHA-256 for every extracted CSV."
+    - "D1's nine channel names differ from D2's by spelling only; both are mapped to canonical names in the dataset configs."
+    - "The four-level label is a TVC discretisation on all three datasets, so classification and regression are not independent evidence."
+
+# -----------------------------------------------------------------------------
+# 24. R0 REWORK LOG  (what changed from v1, and why)
+# -----------------------------------------------------------------------------
+rework_log:
+  - item: X1
+    change: "D1 -> 10.17632/n8mc3nspfn.1 and D2 -> 10.17632/mwmhh766fc.3, following the providers' own titles."
+  - item: X2
+    change: "D2 moved from version 1 to version 3 (five cuts); split changed to LOSO(5) and now satisfies split_unit: specimen."
+  - item: X4
+    change: "D3 schema replaced with the measured header; 210 CSVs acquired by HTTP range request; four-level label derived at frozen trout thresholds and declared as derived."
+  - item: X5
+    change: "AUROC empty-class policy declared and implemented; auroc_n_classes_scored is either 4 or 0."
+  - item: X6
+    change: "Run counts restated as 18 per dataset and 36 in total; the earlier '36 runs each' overstated the coverage by a factor of two."
+  - item: C1
+    change: "Bootstrap resampling unit fixed to the fold; seeds declared a stratification and never resampled."
+  - item: C2
+    change: "Gates and narrative rules rewritten as evaluable boolean expressions with numeric equivalence margins."
+  - item: C3
+    change: "Freeze evidence added: RFC3339 timestamp, sidecar digest, and a data_contact_log that must remain empty."
+  - item: H1
+    change: "Multiplicity families enumerated; every test id belongs to exactly one family."
+  - item: H2
+    change: "Wilcoxon alternative/zero_method/correction/mode, bootstrap B/seed/ci_type and effect sizes all fixed."
+  - item: H3
+    change: "Hyperparameter grid, per-fold selection scope and test_touched_once declared."
+  - item: H4
+    change: "E3 test set fixed across fractions and sampling declared nested."
+  - item: H5
+    change: "Stopping rules, failure handling, frozen exclusion criteria and compute degradation order added."
+  - item: H6
+    change: "Robustness injection stage, retraining policy and drift placement declared."
+  - item: M5
+    change: "Size study sampling declared nested with a fixed seed policy."
+  - item: M6
+    change: "RNG hierarchy declared; matching requirements for a paired contrast enumerated."
