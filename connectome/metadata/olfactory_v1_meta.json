@@ -335,5 +335,5 @@
   ],
   "node_count_note": "Node count 124,185 is outside the 500\u20135000 advisory range. Biological rationale: the FlyWire olfactory rank table includes all neurons the FlyWire classifier assigns to the olfactory modality (ORNs \u2248 4,643, PNs \u2248 741, KCs \u2248 13,538, MBONs \u2248 12,105, DANs \u2248 11,428, and higher-order olfactory neurons \u2248 100,911), providing a complete circuit snapshot of the Drosophila olfactory system. Engineering rationale: the full graph (N=124,185, edges=14,828,657, spectral radius \u03c1\u2248522) is the necessary base for M3 (DATA-4) to generate N=250/500/1000/2000/4000 subgraphs with matched topology controls via seed-based selection. With \u03c1\u2248522 and 14,828,657 edges, sparse propagation in M3 is feasible at this scale using standard sparse matrix operations; ablation studies at this density are tractable.",
   "commit_sha": "70e4a85954b0d867102e7b58359cd45dd443632e",
-  "pr_url": "https://github.com/4gcy6tzy6n-coder/DrosoSense-RC/pull/3"
+  "pr_url": "https://github.com/4gcy6tzy6n-coder/DrosoSense-RC/pull/12"
 }
