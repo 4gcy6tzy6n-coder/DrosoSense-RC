@@ -30,39 +30,43 @@ import scipy.sparse as sp
 
 RNG_SEED = 20260920
 
-parser = argparse.ArgumentParser(description="Deterministic node selection for subgraphs")
-parser.add_argument(
-    "--adjacency",
-    default="connectome/adjacency/olfactory_v1.npz",
-    help="Path to olfactory_v1.npz"
-)
-parser.add_argument(
-    "--node-meta",
-    default="connectome/metadata/olfactory_v1_node_meta.csv",
-)
-parser.add_argument(
-    "--target-n", type=int, required=True,
-    help="Target number of nodes to select (N ∈ {250, 500, 1000, 2000, 4000})"
-)
-parser.add_argument(
-    "--seed", type=int, default=RNG_SEED,
-    help="Random seed for reproducibility"
-)
-parser.add_argument(
-    "--output-dir", default="connectome/annotations",
-    help="Output directory for selection artifacts"
-)
-parser.add_argument(
-    "--output-json", action="store_true",
-    help="Also print JSON provenance to stdout"
-)
-args = parser.parse_args()
+
+def parse_cli_args():
+    """Parse ``sys.argv``; only invoked under ``__main__`` (import-safe)."""
+    parser = argparse.ArgumentParser(
+        description="Deterministic node selection for subgraphs"
+    )
+    parser.add_argument(
+        "--adjacency",
+        default="connectome/adjacency/olfactory_v1.npz",
+        help="Path to olfactory_v1.npz"
+    )
+    parser.add_argument(
+        "--node-meta",
+        default="connectome/metadata/olfactory_v1_node_meta.csv",
+    )
+    parser.add_argument(
+        "--target-n", type=int, required=True,
+        help="Target number of nodes to select (N ∈ {250, 500, 1000, 2000, 4000})"
+    )
+    parser.add_argument(
+        "--seed", type=int, default=RNG_SEED,
+        help="Random seed for reproducibility"
+    )
+    parser.add_argument(
+        "--output-dir", default="connectome/annotations",
+        help="Output directory for selection artifacts"
+    )
+    parser.add_argument(
+        "--output-json", action="store_true",
+        help="Also print JSON provenance to stdout"
+    )
+    return parser.parse_args()
+
+
+args = None  # populated only by parse_cli_args()
 
 ROOT = Path(__file__).parent.parent
-ADJ_PATH = ROOT / args.adjacency
-NM_PATH = ROOT / args.node_meta
-OUT_DIR = ROOT / args.output_dir
-OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def sha256_of_array(arr: np.ndarray) -> str:
@@ -92,9 +96,10 @@ def select_neurons(
     Returns dict with keys:
       node_indices, root_ids, sha256, N_selected, target_n, seed, layer_distribution
     """
-    # S0
-    adj = sp.load_npz(str(adj_path))
-    # Load node_ids from npz (DATA-9 §7 schema)
+    # S0 — load the node ids from the NPZ. The NPZ holds every stored
+    # normalization as `norm_<name>_*` CSR blocks plus the `node_ids` index,
+    # not a bare scipy sparse array, so `sp.load_npz` cannot open it. The
+    # selection itself never reads the matrix, only the node index order.
     nm_arr = np.load(str(adj_path), allow_pickle=True)
     if "node_ids" in nm_arr.files:
         all_root_ids = nm_arr["node_ids"]
@@ -113,7 +118,7 @@ def select_neurons(
     else:
         # S1: Layer-stratified sampling
         rng = np.random.RandomState(seed)
-        layer = nm_df["layer_mean"].values
+        layer = nm_df["layer_mean"].values[:N_full]
 
         # Define layer bins with priority
         # KC layer_mean ≈ 5.0, PN ≈ 2.0, ORN ≈ 1.0, higher-order > 3.86
@@ -121,7 +126,7 @@ def select_neurons(
         n_layers = len(layers_sorted)
 
         # Compute target per layer proportional to degree centrality
-        total_deg = nm_df["total_degree"].values
+        total_deg = nm_df["total_degree"].values[:N_full]
         deg_by_layer = {}
         for l in layers_sorted:
             mask = layer == l
@@ -132,21 +137,30 @@ def select_neurons(
             l: max(1, int(round(target_n * deg_by_layer[l] / total_deg_sum)))
             for l in layers_sorted
         }
-        # Adjust for rounding
-        while sum(layer_targets.values()) != target_n:
-            diff = target_n - sum(layer_targets.values())
-            largest_layer = max(layer_targets, key=lambda l: layer_targets[l])
-            layer_targets[largest_layer] += diff if diff > 0 else 0
-            if diff < 0:
-                smallest_layer = min([l for l in layer_targets if layer_targets[l] > 1],
-                                     key=lambda l: layer_targets[l])
-                layer_targets[smallest_layer] -= 1
-            break  # avoid infinite loop
+        # Adjust for rounding: trim the smallest layers first, then top up
+        # with the layer that has the most spare capacity. Both loops are
+        # capacity-guarded so they terminate on any layer mix, including one
+        # where every layer's target is already at its capacity.
+        layer_capacity = {l: int((layer == l).sum()) for l in layers_sorted}
+        while sum(layer_targets.values()) > target_n:
+            candidates = [l for l in layers_sorted if layer_targets[l] > 1]
+            if not candidates:
+                break
+            smallest = min(candidates, key=lambda l: layer_targets[l])
+            layer_targets[smallest] -= 1
+        while sum(layer_targets.values()) < target_n:
+            candidates = [l for l in layers_sorted if layer_targets[l] < layer_capacity[l]]
+            if not candidates:
+                break
+            largest = max(candidates, key=lambda l: layer_targets[l])
+            layer_targets[largest] += 1
 
-        # S2: Select from each layer
+        # S2: Select from each layer. The sampling universe is the graph's
+        # node index order (the first N_full rows of the metadata CSV, which
+        # is how the NPZ's `node_ids` is laid out) — not the whole CSV.
         node_indices_all = np.arange(N_full)
         selected_indices = []
-        for l, t in sorted(layer_targets.items(), key=lambda x: x[0], reverse=True):
+        for l, t in sorted(layer_targets.items(), key=lambda item: item[0], reverse=True):
             layer_mask = layer == l
             layer_indices = node_indices_all[layer_mask]
             k = min(t, len(layer_indices))
@@ -156,12 +170,12 @@ def select_neurons(
                 chosen = rng.choice(layer_indices, size=k, replace=False)
                 selected_indices.extend(chosen)
 
-        # S3: Sort and trim/pad
-        selected_indices = np.sort(np.array(selected_indices))
+        # S3: Sort, dedupe, then fill or trim to exactly target_n.
+        selected_indices = np.sort(np.unique(selected_indices))
         if len(selected_indices) > target_n:
             selected_indices = selected_indices[:target_n]
         elif len(selected_indices) < target_n:
-            # Fill remaining with highest-degree nodes not yet selected
+            # Fill remaining with highest-degree nodes not yet selected.
             remaining_mask = np.ones(N_full, dtype=bool)
             remaining_mask[selected_indices] = False
             remaining_indices = np.where(remaining_mask)[0]
@@ -194,17 +208,18 @@ def select_neurons(
 
 
 def main():
-    result = select_neurons(
-        adj_path=ADJ_PATH,
-        nm_path=NM_PATH,
-        target_n=args.target_n,
-        seed=args.seed,
-    )
+    args = parse_cli_args()
+    ROOT = Path(__file__).parent.parent
+    adj_path = ROOT / args.adjacency
+    nm_path = ROOT / args.node_meta
+    out_dir = ROOT / args.output_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    result = select_neurons(adj_path, nm_path, args.target_n, args.seed)
 
     # Save artifacts
-    idx_path = OUT_DIR / f"selected_n{args.target_n}_seed{args.seed}_indices.npy"
-    root_path = OUT_DIR / f"selected_n{args.target_n}_seed{args.seed}_root_ids.npy"
-    prov_path = OUT_DIR / f"selected_n{args.target_n}_seed{args.seed}_provenance.json"
+    idx_path = out_dir / f"selected_n{args.target_n}_seed{args.seed}_indices.npy"
+    root_path = out_dir / f"selected_n{args.target_n}_seed{args.seed}_root_ids.npy"
+    prov_path = out_dir / f"selected_n{args.target_n}_seed{args.seed}_provenance.json"
 
     np.save(idx_path, result["node_indices"].astype(np.int32))
     np.save(root_path, result["root_ids"].astype(np.int64))
