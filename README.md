@@ -100,9 +100,9 @@ read it.** That class had now appeared three times (gate symbols, `model_params`
 declarative field and its reader — see [`docs/protocol_field_readers.md`](docs/protocol_field_readers.md),
 regenerate with `python scripts/protocol_field_readers.py --write`.
 
-682 declared leaves: 225 read by the production path, 2 read through a named exception, 189
-free text, and 266 orphaned with a recorded disposition — 195 of them statements or
-declarations whose operative copy lives elsewhere, 16 **awaiting human determination**, and
+717 declared leaves: 232 read by the production path, 2 read through a named exception, 206
+free text, and 277 orphaned with a recorded disposition — 208 of them statements or
+declarations whose operative copy lives elsewhere, 14 **awaiting human determination**, and
 **55 real holes** where nothing reads the field and something should.
 
 The reader criterion was tightened in DATA-21, and the numbers above are the tightened ones. A
