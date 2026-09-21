@@ -13,11 +13,11 @@ nowhere in the production path at all.
 | Bucket | Count |
 | --- | ---: |
 | Declared leaves | 682 |
-| With a literal reader in the production path | 227 |
+| With a literal reader in the production path | 230 |
 | Read elsewhere, by a named exception | 2 |
 | Prose (no reader expected) | 189 |
-| Orphaned (a recorded disposition) | 264 |
-| — of which statements or mirrored declarations | 195 |
+| Orphaned (a recorded disposition) | 261 |
+| — of which statements or mirrored declarations | 192 |
 | — of which awaiting human determination | 14 |
 | **— of which real holes (nothing reads them and something should)** | **55** |
 
@@ -186,7 +186,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `gates.Gate_A.if_failed` | statement — guidance for the write-up |
 | `gates.Gate_B.evaluated_on` | statement — the expression itself names the datasets it uses, and the field is descriptive |
 | `gates.Gate_B.if_failed` | statement — guidance for the write-up |
-| `gates.Gate_C.evaluated_on` | statement — the expression itself names the datasets it uses |
+| `gates.Gate_C.evaluated_on` | known inconsistency — declared `[D3, E3, E4, E5]` but the expression `sig_any(..., [D2, D3], ...)` reads `D2`; Gate_A / Gate_B are internally consistent. Disposition: deferred to M4 gate-expression finalisation; this guard does NOT block M4. See the *Gate_C evaluated_on vs expression* note under *Known limitations* below. |
 | `gates.Gate_C.if_failed` | statement — guidance for the write-up |
 | `datasets.D1.provider_title` | statement — provenance, repeated in the manifest |
 | `datasets.D1.role` | statement — a label for the write-up |
@@ -223,7 +223,6 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `data_verified.D1.source_sha256` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D1.specimens` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D1.class_counts.0` | statement — measured at freeze time; the manifests are the machine-readable copy |
-| `data_verified.D1.class_counts.1` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D1.class_counts.2` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D1.class_counts.3` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D1.tvc_range` | statement — measured at freeze time; the manifests are the machine-readable copy |
@@ -250,7 +249,6 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `data_verified.D2.acquisition_campaigns.TS5.end` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D2.acquisition_campaigns.TS5.campaign` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D2.class_counts.0` | statement — measured at freeze time; the manifests are the machine-readable copy |
-| `data_verified.D2.class_counts.1` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D2.class_counts.2` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D2.class_counts.3` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D2.tvc_range` | statement — measured at freeze time; the manifests are the machine-readable copy |
@@ -261,7 +259,6 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `data_verified.D3.extracted_bytes` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D3.specimens` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D3.class_counts.0` | statement — measured at freeze time; the manifests are the machine-readable copy |
-| `data_verified.D3.class_counts.1` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D3.class_counts.2` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D3.class_counts.3` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D3.provider_binary_labels.Fresh` | statement — measured at freeze time; the manifests are the machine-readable copy |
@@ -870,7 +867,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `data_verified.D1.split_surrogate.note` | assumed time blocks of 150 distinct minutes — a modelling… | _prose — no reader expected_ |
 | `data_verified.D1.protocol_compliant` | False | `drososense/evaluation/contact_log.py:72`, `drososense/evaluation/results.py:368`, `drososense/evaluation/results.py:561` |
 | `data_verified.D1.class_counts.0` | 2940 | **NO READER** |
-| `data_verified.D1.class_counts.1` | 2268 | **NO READER** |
+| `data_verified.D1.class_counts.1` | 2268 | `scripts/server/concurrency_sweep.py:131` |
 | `data_verified.D1.class_counts.2` | 2292 | **NO READER** |
 | `data_verified.D1.class_counts.3` | 13315 | **NO READER** |
 | `data_verified.D1.tvc_range` | [2.002, 6.314] | **NO READER** |
@@ -900,7 +897,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `data_verified.D2.acquisition_campaigns.TS5.campaign` | 2 | **NO READER** |
 | `data_verified.D2.protocol_compliant` | True | `drososense/evaluation/contact_log.py:72`, `drososense/evaluation/results.py:368`, `drososense/evaluation/results.py:561` |
 | `data_verified.D2.class_counts.0` | 1680 | **NO READER** |
-| `data_verified.D2.class_counts.1` | 2820 | **NO READER** |
+| `data_verified.D2.class_counts.1` | 2820 | `scripts/server/concurrency_sweep.py:131` |
 | `data_verified.D2.class_counts.2` | 2100 | **NO READER** |
 | `data_verified.D2.class_counts.3` | 4200 | **NO READER** |
 | `data_verified.D2.tvc_range` | [2.233, 5.098] | **NO READER** |
@@ -917,7 +914,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `data_verified.D3.protocol_compliant` | True | `drososense/evaluation/contact_log.py:72`, `drososense/evaluation/results.py:368`, `drososense/evaluation/results.py:561` |
 | `data_verified.D3.class_thresholds` | [4.3, 5.0, 6.5] | `drososense/data/loaders.py:538` |
 | `data_verified.D3.class_counts.0` | 3479 | **NO READER** |
-| `data_verified.D3.class_counts.1` | 3601 | **NO READER** |
+| `data_verified.D3.class_counts.1` | 3601 | `scripts/server/concurrency_sweep.py:131` |
 | `data_verified.D3.class_counts.2` | 10800 | **NO READER** |
 | `data_verified.D3.class_counts.3` | 7200 | **NO READER** |
 | `data_verified.D3.provider_binary_labels.Fresh` | 150 | **NO READER** |
@@ -997,3 +994,83 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `amendment_v1_2.open_decisions[0].decision_owner` | project owner (Mika) / Thinker at the R0.1 gate | **NO READER** |
 | `amendment_v1_2.open_decisions[0].not_taken_here` | Deliberately not decided in this amendment. Changing a sp… | _prose — no reader expected_ |
 | `amendment_v1_2.open_decisions[0].owner_note` | RAISED IN THE DATA-16 REPLY, NOT RESOLVED HERE | _prose — no reader expected_ |
+
+## Known limitations (carried forward, not fixed in this freeze)
+
+These are documented defects that the frozen protocol does NOT correct.
+They are recorded here so a reader does not have to re-derive them, and
+so the next amendment knows what to take up. Nothing in this section
+changes `configs/protocol_v1.1.yaml` or `configs/protocol_v1.2.yaml`; both
+files remain frozen and identical to the bytes that produced the recorded
+digests.
+
+### Bucket math is self-consistent
+
+The bucket counts in the table at the top of this document are stated by
+the generator and verified by hand. The sums are:
+
+- `682 = 230 + 2 + 189 + 261`
+  — every declared leaf falls in exactly one of {literal reader, named-exception reader, prose, orphaned}.
+- `261 = 192 + 14 + 55`
+  — every orphan is classified as one of {statement, awaiting determination, real hole}.
+
+The historical context for these sums: DATA-21's tightened reader rule
+(a literal-in-code match, never a declared-value match) promoted
+`tasks.regression.primary_metric_direction` from *awaiting determination*
+to *literal reader*. That is the +1 row added by the previous round; its
+matched pair (`tasks.classification.primary_metric_direction`) was already
+in the literal-reader bucket and so did not change the hole set. The two
+together explain why the bucket math holds today.
+
+### r2 direction is task-scoped (DATA-23, pre-flight item)
+
+`protocol_metric_direction(p, "r2")` returns `minimize` because the
+regression task declares one direction (`minimize`) and every metric
+declared under it inherits it. R²'s natural direction is the opposite: a
+higher r2 means a better fit. Reading r2 as `minimize` therefore flips the
+sign of every "favourable" test and selector argmax/argmin that consults it.
+
+What the active protocol currently uses r2 for:
+
+- Reported as a secondary regression metric (no decision is taken on it).
+- Margins in `equivalence.margins.r2` for TOST.
+- Effect-size reads via `protocol_effect_size_name(protocol, "regression")`,
+  which is keyed on TASK and therefore sends r2 through `hodges_lehmann`,
+  the right estimator.
+
+What the active protocol does NOT use r2 for:
+
+- No `contrasts[*].metric` is `r2`.
+- No hypothesis (`primary_hypothesis.metric`, `secondary_hypotheses[*].metric`)
+  names `r2`.
+- `hyperparameter_selection.selection_metric` does not name `r2` for any task.
+- No gate expression names `r2`.
+
+So the wrong-direction reading has zero effect on the current freeze. A
+future protocol that promotes r2 to a decision metric MUST first introduce
+per-metric direction declarations — that work is protocol v1.3 and is NOT a
+one-line edit. The pre-registered guard
+(`tests/test_protocol_and_manifests.py::test_no_decision_metric_is_r2`) makes
+the rule mechanical: any future `r2` on a decision metric fails the suite
+with a message that names the remedy.
+
+### Gate_C evaluated_on vs expression (DATA-23, pre-flight item)
+
+`gates.Gate_C.evaluated_on` is declared as `[D3, E3, E4, E5]`, but the
+gate's expression includes `sig_any(R0, R4, macro_f1, [D2, D3], [...])` —
+that is, the expression reads `D2` even though `evaluated_on` does not
+list it. Gate_A and Gate_B are internally consistent: their `evaluated_on`
+lists match the datasets their expression references.
+
+The disposition is deferred to the M4 gate-expression finalisation pass;
+this guard does not block M4 from opening. Possible remedies the owner
+will weigh:
+
+- Drop `D2` from the `sig_any` clause (Gate_C is documented as not
+  requiring D2 because D2's five-cluster floor makes its `sig` term
+  unreachable).
+- Add `D2` to `evaluated_on` so the declared scope matches what the
+  expression actually consults.
+
+Either remedy is a protocol amendment and must be filed as
+`protocol_v1.3.yaml` when taken.
