@@ -1,0 +1,22 @@
+{
+  "torch_num_threads": 1,
+  "workers": [
+    1,
+    4,
+    8,
+    16,
+    32
+  ],
+  "runs_per_worker": 2,
+  "models": [
+    "svm_rbf",
+    "random_forest",
+    "gru",
+    "esn"
+  ],
+  "gpu_sample": {
+    "util_pct": "0",
+    "mem_used_mb": "1",
+    "mem_total_mb": "12288"
+  }
+}
