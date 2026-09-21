@@ -27,6 +27,7 @@ a passing test meaningful.
 from __future__ import annotations
 
 import json
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -239,6 +240,148 @@ def test_record_schema_isomorphic_with_e1(
         "R0_real_fly",
         "R2_degree_rewired",
     )
+
+    # DATA-52 runner schema: the fresh runner records CPU time next to
+    # wall-clock time, and it is actually measured (the synthetic fixture
+    # still burns nonzero user CPU on fit + predict).
+    assert record.cpu_seconds > 0.0, (
+        f"fresh record must carry a measured cpu_seconds, got {record.cpu_seconds!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Regression guard (DATA-52, item 2): fcac719's silent-merge regression is
+# exactly this class of bug — the ALLOWED_NORMALIZATIONS tuple stayed intact
+# while the loader's NPZ-key mapping lost n0_raw, so only a test that
+# actually *loads* every allowed normalization would have caught it. This
+# tripwire must fail on any future merge that drops a routing key.
+# ---------------------------------------------------------------------------
+def test_all_allowed_normalizations_load_from_repo_npz() -> None:
+    """Every ALLOWED_NORMALIZATIONS entry resolves a real key prefix in the NPZ.
+
+    The synthetic NPZ fixture (:func:`_write_synthetic_olfactory_npz`) is
+    written with the *exact* key layout the DATA-3 build script emits into
+    the shipped ``olfactory_v1.npz``: raw CSR under ``adj_*`` (the
+    ``n0_raw`` semantic per meta.json's "n0_raw ... same as
+    adjacency_data"), the other five under ``norm_<name>_*``. Loading each
+    allowed normalization against that layout must succeed; a ValueError
+    means the loader's key routing disagrees with the build layout for that
+    normalization — the silent-merge failure mode.
+    """
+    from pathlib import Path as _Path
+
+    from drososense.reservoir import connectome_reservoir as _cr
+    from drososense.reservoir.connectome_reservoir import (
+        ALLOWED_NORMALIZATIONS,
+        load_reservoir_topology_from_npz,
+    )
+
+    # The synthetic NPZ written here mirrors the DATA-3 build layout exactly:
+    # raw CSR under adj_* (n0_raw), the other five under norm_<name>_* — the
+    # same key set tests/test_reservoir_topology.py's fixture writes.
+    n = 24
+    m = 90
+    rng = np.random.default_rng(20260921)
+    rows = rng.integers(0, n, size=m)
+    cols = rng.integers(0, n, size=m)
+    sl = rows == cols
+    rows[sl] = (rows[sl] + 1) % n
+    raw_values = rng.uniform(1.0, 8.0, size=m).astype(np.float32)
+    raw = sp.csr_matrix((raw_values, (rows, cols)), shape=(n, n))
+    dense = raw.toarray()
+    n1_dense = dense / np.where(dense.sum(axis=1, keepdims=True) > 0,
+                                 dense.sum(axis=1, keepdims=True), 1.0)
+    n2_dense = dense / np.where(dense.sum(axis=0, keepdims=True) > 0,
+                                 dense.sum(axis=0, keepdims=True), 1.0)
+    n3_dense = dense / dense.max()
+    n4_dense = np.log1p(dense)
+    n4_dense = n4_dense / np.where(n4_dense.sum(axis=1, keepdims=True) > 0,
+                                    n4_dense.sum(axis=1, keepdims=True), 1.0)
+    n5_dense = (dense > 0).astype(np.float32)
+    others = {
+        "n1_pre_l1": sp.csr_matrix(n1_dense.astype(np.float32)),
+        "n2_post_l1": sp.csr_matrix(n2_dense.astype(np.float32)),
+        "n3_global_max": sp.csr_matrix(n3_dense.astype(np.float32)),
+        "n4_log_pre_l1": sp.csr_matrix(n4_dense.astype(np.float32)),
+        "n5_binary": sp.csr_matrix(n5_dense),
+    }
+    arrays = {
+        "adj_data": raw.data, "adj_indices": raw.indices,
+        "adj_indptr": raw.indptr, "adj_shape": np.array(raw.shape),
+    }
+    for name, mat in others.items():
+        prefix = f"norm_{name}"
+        arrays[f"{prefix}_data"] = mat.data
+        arrays[f"{prefix}_indices"] = mat.indices
+        arrays[f"{prefix}_indptr"] = mat.indptr
+        arrays[f"{prefix}_shape"] = np.array(mat.shape)
+
+    missing = []
+    with tempfile.TemporaryDirectory() as tmp:
+        npz_path = _Path(tmp) / "synthetic_olfactory.npz"
+        np.savez(npz_path, **arrays)
+        for name in ALLOWED_NORMALIZATIONS:
+            try:
+                topo = load_reservoir_topology_from_npz(
+                    str(npz_path),
+                    normalization=name,
+                    target_spectral_radius=0.9,
+                    seed=0,
+                )
+            except ValueError as exc:
+                missing.append(f"{name}: {exc}")
+            else:
+                assert topo.normalization == name
+        assert not missing, (
+            "Some ALLOWED_NORMALIZATIONS entries do not load from the shipped "
+            f"NPZ layout — loader key routing out of sync with the build: "
+            f"{missing}"
+        )
+
+    # Structural companion: the routing dict's domain must cover exactly the
+    # allowed set, so a future regression cannot drop or add a routing key
+    # without this line failing on the set comparison.
+    assert set(_cr._NORMALIZATION_NPZ_PREFIX) == set(ALLOWED_NORMALIZATIONS), (
+        "_NORMALIZATION_NPZ_PREFIX must route every ALLOWED_NORMALIZATIONS "
+        "entry (and nothing else); a drop or add here is the silent-merge "
+        "regression this guard exists to catch"
+    )
+
+
+
+
+def test_cpu_seconds_is_appended_not_retried(
+    fake_dataset: tuple[str, Path],
+    reservoir_npz: Path,
+    runner_dirs: tuple[Path, Path],
+) -> None:
+    """cpu_seconds is a new-schema appended field: old records load, new ones carry it.
+
+    A record JSON written without ``cpu_seconds`` (pre-DATA-52 schema) still
+    loads and defaults to 0.0; a record the runner writes now always carries
+    a nonzero measured value. Neither direction is silently back-filled into
+    history.
+    """
+    dataset_id, _ = fake_dataset
+    raw_dir, tables_dir = runner_dirs
+
+    run_reservoir_benchmark(
+        _config(dataset_id, reservoir_npz, raw_dir, tables_dir),
+        raw_dir=raw_dir,
+        tables_dir=tables_dir,
+    )
+
+    record = next((r for r in load_records(raw_dir) if r.status == "ok"), None)
+    assert record is not None
+
+    # Legacy direction: strip the key from the record's own JSON view, reload.
+    view = record.to_dict()
+    view.pop("cpu_seconds", None)
+    reloaded = RunRecord.from_dict(view)
+    assert reloaded.cpu_seconds == 0.0, "legacy record must default cpu_seconds to 0.0"
+
+    # New direction: the runner's own record carries the measured value.
+    assert record.cpu_seconds > 0.0
 
 
 # ---------------------------------------------------------------------------
