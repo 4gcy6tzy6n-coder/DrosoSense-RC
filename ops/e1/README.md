@@ -10,6 +10,7 @@ than inferred from a chat log.
 | `run_e1_d3_sweep.sh` | same shape for D3 (`d3_rainbow_trout`), LOSO(62) |
 | `chain_d3_after_d2.sh` | waits for the D2 fan-out to exit, then starts D3 detached (`setsid nohup`) |
 | `summarize_when_idle.sh` | waits for each sweep to go idle, then regenerates its summary from raw records |
+| `summarize_per_run_when_idle.sh` | sequenced follow-up: after D3 goes idle **and** the first watcher's marker artefact exists, also writes the tidy `<experiment>_per_run.csv` and logs the closure anchors (sha256 / bytes / line counts). Evidence-based sequencing so the two `summarize.py` runs never overlap and no process is killed |
 
 ## Known caveat: per-invocation summary clobbering
 
@@ -73,6 +74,7 @@ when it produced these results:
 | `results/tables/e1_main_d2_summary.csv` | `c8369331a00c1cdb` | 19 |
 | `results/tables/e1_main_d2_fingerprints.csv` | `933f3850ca507e96` | 901 |
 | `results/tables/e1_main_d2_test_touched_once.json` | `345f7fcaa74faca8` | 10 (`awk 'END{print NR}'`; `wc -l` reports 9 — no trailing newline) |
+| `results/tables/e1_main_d2_per_run.csv` | `1e796ccb85a5bb86` | 901 (header + 900 tidy per-run rows; the frame M4's paired tests read) |
 
 A summary is derived data: regenerate it from the raw records with
 `python scripts/summarize.py --experiment <label> --fingerprints`. Because the four fan-out
