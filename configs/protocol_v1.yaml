@@ -1,0 +1,417 @@
+# =============================================================================
+# DrosoSense-RC — FROZEN EXPERIMENTAL PROTOCOL v1
+# =============================================================================
+# Project : DrosoSense-RC (Drosophila Sensory Connectome Reservoir Computing)
+# Version : 1.0.0
+# Frozen  : 2026-09-20
+# Owner   : DATA-2 (M0–M1 protocol freeze + food benchmark foundation)
+#
+# FROZEN means: the values in this file may NOT be changed after the first
+# test-set evaluation of a primary experiment. Any change requires a new file
+# (protocol_v2.yaml) with a written justification, and the results produced
+# under v1 remain reported under v1. See `freeze_policy` below.
+#
+# Scope of v1: this protocol covers the CONNECTOME-INDEPENDENT food benchmark
+# (M1) and pre-declares the connectome comparison (M2–M4) so that those
+# experiments cannot be tuned after seeing results. M1 makes NO claim about
+# connectome advantage; see `scope_boundaries`.
+# =============================================================================
+
+protocol_version: "1.0.0"
+frozen: true
+frozen_at: "2026-09-20"
+supersedes: null
+
+# -----------------------------------------------------------------------------
+# 1. FREEZE POLICY
+# -----------------------------------------------------------------------------
+freeze_policy:
+  immutable_fields:
+    - split_unit
+    - seeds
+    - classification_metrics.primary
+    - regression_metrics.primary
+    - primary_hypothesis
+    - secondary_hypotheses
+    - statistical_tests
+    - gates
+    - narrative_adjustment_rules
+    - preprocessing
+  mutable_with_justification:
+    - window.length_candidates   # length is SELECTED on validation, not on test
+    - model_hyperparameters      # tuned per-model on validation only
+  forbidden:
+    - changing the primary metric after observing test results
+    - changing the primary hypothesis after observing test results
+    - adding or removing specimens after observing test results
+    - reporting a metric that was selected on the test set
+  amendment_rule: >
+    A protocol amendment requires a new file configs/protocol_v{N+1}.yaml that
+    keeps this file unchanged, states the trigger, the change, and which
+    already-completed runs are re-run. Runs completed under v1 stay in
+    results/raw and are labelled with protocol_version = 1.0.0.
+
+# -----------------------------------------------------------------------------
+# 2. SCOPE BOUNDARIES (anti-overclaim guards)
+# -----------------------------------------------------------------------------
+scope_boundaries:
+  m1_claims_allowed:
+    - "A reproducible, leakage-audited specimen-level food-sensing benchmark exists."
+    - "Classical and sequence baselines are compared under an identical split/scaling protocol."
+    - "Data availability and licensing status for D1/D2/D3 is reported transparently."
+  m1_claims_forbidden:
+    - "Any claim that a connectome reservoir outperforms, or is competitive with, baselines."
+    - "Any claim about biological topology as an inductive bias."
+    - "Any claim based on synthetic fixture results presented as experimental evidence."
+  safe_claim_wording: >
+    We investigate whether a Drosophila olfactory connectome can serve as a
+    fixed sparse computational substrate for lightweight food-quality sensing.
+  upgrade_condition: >
+    The stronger claim ("The biological topology provides a useful inductive
+    bias under limited-data and sensor-degraded conditions.") may only be used
+    after Gate B is met on at least one real dataset with the primary test.
+
+# -----------------------------------------------------------------------------
+# 3. SPLIT PROTOCOL  (red line — no row-level splitting, ever)
+# -----------------------------------------------------------------------------
+split_unit: specimen
+split_rules:
+  forbidden:
+    - "sklearn.model_selection.train_test_split applied to rows"
+    - "KFold / ShuffleSplit / StratifiedKFold over rows"
+    - "any split where one specimen_id appears in more than one of train/val/test"
+  required:
+    - "All timesteps of a specimen stay together in exactly one split."
+    - "Windows are constructed inside a specimen and never span two specimens."
+    - "Class balance is checked AFTER the split and reported; it is never fixed by moving specimens."
+  strategies:
+    group_kfold:
+      description: >
+        Specimen identifiers are permuted with numpy.random.default_rng(seed),
+        then partitioned into `n_splits` contiguous blocks. For block i:
+        test = block i, val = block (i+1) mod n_splits, train = the rest.
+        The permutation makes the partition seed-dependent while remaining
+        exactly reproducible; no two blocks share a specimen.
+      default_n_splits: 5
+    loso:
+      description: >
+        Leave-One-Specimen-Out. Each specimen is the test set exactly once;
+        validation is the next specimen in the seeded permutation.
+      use_when: "n_specimens <= 10, or when the reviewer asks for the exhaustive variant"
+  default_strategy: group_kfold
+  fallback_strategy: loso
+
+# -----------------------------------------------------------------------------
+# 4. SEEDS AND REPETITION
+# -----------------------------------------------------------------------------
+seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+primary_seed_count: 10
+seed_role: >
+  A seed controls (a) the specimen permutation used by the split and (b) every
+  stochastic component of the model. Splits therefore differ across seeds,
+  which is the intended source of variance for the paired tests below.
+random_models_min_seeds: 10
+deterministic_models_note: >
+  Deterministic models (SVM-RBF, PCA+SVM, Ridge readouts) are still evaluated
+  on all 10 seeds, because the seed changes the SPLIT, not just the weights.
+
+# -----------------------------------------------------------------------------
+# 5. TASKS AND METRICS  (primary metric is frozen)
+# -----------------------------------------------------------------------------
+tasks:
+  classification:
+    label_column: freshness_class
+    label_names: [Excellent, Good, Acceptable, Spoiled]
+    n_classes: 4
+    metrics:
+      primary: macro_f1
+      secondary: [balanced_accuracy, auroc, accuracy]
+    primary_metric_direction: maximize
+    auroc:
+      scheme: macro_ovr
+      note: "One-vs-rest AUROC averaged over the 4 classes, computed from predicted probabilities."
+  regression:
+    label_column: tvc
+    definition: "Total Viable Count, log10 CFU/g (see dataset manifests for the exact unit)."
+    metrics:
+      primary: mae
+      secondary: [rmse, r2]
+    primary_metric_direction: minimize
+
+reporting:
+  format: "mean +/- SD across seeds"
+  include: [n_seeds, n_specimens, n_windows, per_seed_values]
+  confidence_interval: "95% CI (bootstrap, 10000 resamples, over seeds)"
+
+# -----------------------------------------------------------------------------
+# 6. PREPROCESSING (fitted on TRAIN ONLY — enforced by unit tests)
+# -----------------------------------------------------------------------------
+preprocessing:
+  normalization:
+    formula: "x' = (x - mu_train) / (sigma_train + eps)"
+    eps: 1.0e-8
+    fit_scope: train_split_only
+    per: feature_channel
+    save_artifact: "scaler.pkl (joblib) alongside the split, per fold and per seed"
+    forbidden:
+      - "fitting the scaler on train+val"
+      - "fitting the scaler on train+test"
+      - "refitting the scaler per batch, per window, or per specimen"
+  windowing:
+    enabled: true
+    length_candidates: [8, 16, 32, 64]
+    stride: 1
+    selection: "validation macro_f1 (classification) / validation MAE (regression), per model family"
+    boundary_rule: "A window is discarded, not padded, if it does not fit inside one specimen."
+    forbidden:
+      - "a window containing timesteps from two different specimens"
+      - "selecting the window length on the test set"
+  missing_values:
+    policy: reject
+    note: "Rows with missing sensor channels are dropped at load time and the count is recorded in the manifest check report."
+
+# -----------------------------------------------------------------------------
+# 7. HYPOTHESES  (pre-registered)
+# -----------------------------------------------------------------------------
+primary_hypothesis:
+  id: H1
+  statement: >
+    On D1 (Beef-Controlled) and D3 (Rainbow Trout), the frozen real olfactory
+    connectome reservoir (R0) achieves a higher macro-F1 than the
+    degree-preserving rewired control (R2) under identical nodes, matched edge
+    count, matched spectral scaling, identical input mapping, identical readout
+    and identical splits.
+  test: "paired Wilcoxon signed-rank on per-seed macro-F1 differences (R0 - R2)"
+  direction: two_sided
+  alpha: 0.05
+
+secondary_hypotheses:
+  - id: H2
+    statement: "R0 achieves higher macro-F1 than an echo-state network (R4) with matched size and edge density."
+    test: "paired Wilcoxon signed-rank (R0 - R4)"
+  - id: H3
+    statement: "R0 achieves higher macro-F1 than a random sparse reservoir (R3) with matched node and edge count."
+    test: "paired Wilcoxon signed-rank (R0 - R3)"
+  - id: H4
+    statement: "R0 achieves higher macro-F1 than a tuned GRU baseline."
+    test: "paired Wilcoxon signed-rank (R0 - GRU)"
+  - id: H5
+    statement: >
+      R0 retains a larger fraction of its full-data macro-F1 than R4 at 10% and
+      25% training specimens (low-data robustness).
+    test: "paired Wilcoxon signed-rank on the retention ratio"
+  - id: H6
+    statement: "R0 degrades less than R4 under sensor-channel dropout at p_drop in {0.1..0.5}."
+    test: "paired Wilcoxon signed-rank on Delta macro-F1"
+
+exploratory_note: >
+  Any comparison not listed above is exploratory, must be labelled as such in
+  every table and figure caption, and may not be used to support a headline claim.
+
+# -----------------------------------------------------------------------------
+# 8. STATISTICAL TESTS  (pre-registered)
+# -----------------------------------------------------------------------------
+statistical_tests:
+  unit_of_analysis: "one (seed, fold) pair — models being compared share the split"
+  pairing: >
+    All compared models are evaluated on the SAME split for a given seed, so
+    differences are paired. The test statistic is computed on paired differences
+    (e.g. F1_s^R0 - F1_s^R2), never on two independent samples.
+  primary_test:
+    name: wilcoxon_signed_rank
+    alternative: two-sided
+    zero_method: wilcox
+  interval_estimate:
+    name: paired_bootstrap
+    n_resamples: 10000
+    confidence: 0.95
+    report: "Delta mean and its 95% CI, in addition to the p-value"
+  multiplicity:
+    method: holm
+    family: "all secondary hypotheses within one dataset"
+    alpha: 0.05
+  minimum_report: "effect size (Delta) + CI + p-value + n. A p-value alone is never reported."
+  assumption_failure: >
+    If the paired difference distribution is degenerate (all zeros or fewer than
+    6 non-zero pairs), report the sign test instead and state the substitution.
+
+# -----------------------------------------------------------------------------
+# 9. DATASETS
+# -----------------------------------------------------------------------------
+datasets:
+  D1:
+    id: d1_beef_controlled
+    name: Beef-Controlled
+    role: "primary food task"
+    config: configs/datasets/d1_beef_controlled.yaml
+    tasks: [classification, regression]
+    notes: "Controlled storage conditions; 4-class freshness + TVC."
+  D2:
+    id: d2_beef_uncontrolled
+    name: Beef-Uncontrolled
+    role: "environmental robustness"
+    config: configs/datasets/d2_beef_uncontrolled.yaml
+    tasks: [classification, regression]
+    notes: "Uncontrolled temperature/humidity; used for controlled -> uncontrolled sensitivity."
+  D3:
+    id: d3_rainbow_trout
+    name: Rainbow Trout
+    role: "cross-food validation"
+    config: configs/datasets/d3_rainbow_trout.yaml
+    tasks: [classification, regression]
+    notes: "Phase 1 uses the gas/temperature/humidity channels and TVC only; no images."
+  acquisition_policy:
+    - "Every dataset has a machine-readable manifest under data/manifests/."
+    - "Manifests record: official source URL, version, license, checksum, schema, specimen identifier rule, and manual steps when automated download is not permitted."
+    - "Missing or unverifiable data is reported as a blocker; it is NEVER substituted with synthetic data in a results table."
+
+# -----------------------------------------------------------------------------
+# 10. MODEL ZOO  (M1 baselines — connectome-independent)
+# -----------------------------------------------------------------------------
+model_zoo:
+  classical:
+    - id: svm_rbf
+      family: classical
+      tasks: [classification, regression]
+    - id: random_forest
+      family: classical
+      tasks: [classification, regression]
+    - id: xgboost
+      family: classical
+      tasks: [classification, regression]
+    - id: pca_svm
+      family: classical
+      tasks: [classification, regression]
+  sequence:
+    - id: gru
+      family: sequence
+      tasks: [classification, regression]
+    - id: lstm
+      family: sequence
+      tasks: [classification, regression]
+    - id: cnn1d
+      family: sequence
+      tasks: [classification, regression]
+    - id: tcn
+      family: sequence
+      tasks: [classification, regression]
+  reservoir:
+    - id: esn
+      family: reservoir
+      tasks: [classification, regression]
+      note: >
+        Standard leaky echo-state network with a fixed random sparse reservoir
+        and a trained linear/ridge readout. This is the R4 control of M4; it is
+        NOT a connectome reservoir and carries no biological claim in M1.
+  interface_contract:
+    fit: "fit(X_train, y_train) -> self, where X has shape (n_windows, window_len, n_channels)"
+    predict: "predict(X) -> array of shape (n_windows,)"
+    predict_proba: "classification models only; shape (n_windows, n_classes)"
+    flattening: "classical models flatten (n, L, C) -> (n, L*C) internally"
+    shared_training_conditions: >
+      Every model receives the same split, the same standardizer and the same
+      window tensors for a given (dataset, seed, fold, window length).
+
+# -----------------------------------------------------------------------------
+# 11. GATES  (pre-registered decision rules)
+# -----------------------------------------------------------------------------
+gates:
+  Gate_A:
+    name: "Project is viable"
+    condition: >
+      The real connectome reservoir (R0) is competitive with the ESN (R4) on at
+      least two datasets, defined as: the paired 95% CI of (macro-F1_R0 -
+      macro-F1_R4) contains 0 OR its lower bound is above -0.02 absolute, AND R0
+      has strictly fewer trainable parameters than a tuned GRU.
+    evaluated_on: [D1, D3]
+    if_failed: "Do not proceed to claim a connectome contribution; report the negative result."
+  Gate_B:
+    name: "Sufficient for a TAFE submission"
+    condition: >
+      R0 > R2 (degree-rewired) with the primary test significant after Holm
+      correction, OR R0 shows a significant advantage in the robustness
+      (sensor dropout / noise), low-data or efficiency analysis.
+    evaluated_on: [D1, D3]
+    if_failed: "Use the narrative adjustment rules below."
+  Gate_C:
+    name: "Strong paper"
+    condition: >
+      R0 > R2 > R3 (random sparse) ordering holds, AND the ordering is preserved
+      across beef, fish, low-data and sensor-noise conditions.
+    evaluated_on: [D1, D3, E3, E4, E5]
+
+# -----------------------------------------------------------------------------
+# 12. NARRATIVE ADJUSTMENT RULES  (decided in advance, not after the fact)
+# -----------------------------------------------------------------------------
+narrative_adjustment_rules:
+  - id: N1
+    trigger: "R0 ~= R2 and both > R3"
+    action: >
+      Conclude that degree / statistical structure matters, not the specific
+      Drosophila wiring. Rewrite the title and abstract accordingly. It is
+      forbidden to state that the biological wiring is important.
+  - id: N2
+    trigger: "R0 ~= R4 but R0 is significantly more robust"
+    action: >
+      Reframe the paper as a robust sparse biological reservoir contribution
+      rather than a performance contribution. Performance claims are dropped
+      from the title and abstract.
+  - id: N3
+    trigger: "R0 < R4"
+    action: >
+      Report the negative result honestly. Reframe as an investigation of why
+      biological connectomes do not transfer directly to artificial sensory
+      streams; state explicitly that this may be a computational-neuroscience
+      result rather than a TAFE result.
+  - id: N4
+    trigger: "D3 (trout) results contradict D1 (beef)"
+    action: >
+      Report both. Cross-food generalization is claimed only if the ordering is
+      consistent across both foods; otherwise the inconsistency is reported as a
+      limitation and no cross-food claim is made.
+  - id: N5
+    trigger: "A dataset cannot be obtained legally or reproducibly"
+    action: >
+      Report the blocker with the exact manual acquisition steps. Do not run,
+      plot or tabulate a substitute. The affected dataset is marked UNAVAILABLE
+      in every table.
+
+# -----------------------------------------------------------------------------
+# 13. EXPERIMENT REGISTRY (declared now, executed later)
+# -----------------------------------------------------------------------------
+experiments:
+  E1_main:      { status: planned, requires: [D1, D3], needs_connectome: false }
+  E2_topology:  { status: planned, requires: [D1, D3], needs_connectome: true }
+  E3_lowdata:   { status: planned, requires: [D1, D3], needs_connectome: true, fractions: [0.10, 0.25, 0.50, 0.75, 1.00] }
+  E4_robustness: { status: planned, requires: [D1, D3], needs_connectome: true, p_drop: [0.1, 0.2, 0.3, 0.4, 0.5] }
+  E5_efficiency: { status: planned, requires: [D1, D3], needs_connectome: true }
+  E6_analysis:   { status: planned, requires: [D1, D3], needs_connectome: true }
+  M1_benchmark: { status: delivered, requires: [D1, D2, D3], needs_connectome: false }
+
+# -----------------------------------------------------------------------------
+# 14. RESULTS LAYOUT AND SCHEMA
+# -----------------------------------------------------------------------------
+results:
+  raw_dir: results/raw          # one JSON per (experiment, dataset, model, seed, fold)
+  tables_dir: results/tables    # aggregated summaries, committed
+  figures_dir: results/figures
+  separation_rule: "Raw per-run records and aggregated summaries are never mixed in one file."
+  raw_record_schema:
+    required:
+      - run_id
+      - experiment
+      - dataset
+      - model
+      - task
+      - seed
+      - fold_id
+      - protocol_version
+      - window_length
+      - metrics
+      - n_train_windows
+      - n_test_windows
+      - train_specimens
+      - test_specimens
+      - duration_s
+      - environment
+      - timestamp_utc
