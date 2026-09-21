@@ -1,0 +1,46 @@
+{
+  "committed_table": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-16-f4a19cd940fa/workdir/DrosoSense-RC/results/tables/model_parameters.json",
+  "models": {
+    "GRU": {
+      "n_trainable_parameters": 4452,
+      "source": "committed results/tables/model_parameters.json"
+    },
+    "R4": {
+      "n_trainable_parameters": 804,
+      "source": "committed results/tables/model_parameters.json"
+    },
+    "cnn1d": {
+      "n_trainable_parameters": 1220,
+      "source": "committed results/tables/model_parameters.json"
+    },
+    "esn": {
+      "n_trainable_parameters": 804,
+      "source": "committed results/tables/model_parameters.json"
+    },
+    "gru": {
+      "n_trainable_parameters": 4452,
+      "source": "committed results/tables/model_parameters.json"
+    },
+    "lstm": {
+      "n_trainable_parameters": 5892,
+      "source": "committed results/tables/model_parameters.json"
+    },
+    "random_forest": {
+      "n_trainable_parameters": 355623,
+      "source": "committed results/tables/model_parameters.json"
+    },
+    "tcn": {
+      "n_trainable_parameters": 1604,
+      "source": "committed results/tables/model_parameters.json"
+    }
+  },
+  "n_committed_models": 8,
+  "protocol_id_bindings": {
+    "esn": "R4",
+    "gru": "GRU"
+  },
+  "unresolved_note": "Each unresolved name is a model a gate names in params(...) that has no run record and no committed entry. On the delivered data this is R0..R5: the connectome reservoirs have never been run, so their parameter count does not exist yet. That is different from 'the data is git-ignored' and the reason string in the gate output now says which one it is.",
+  "unresolved_params_terms": [
+    "R0"
+  ]
+}
