@@ -31,9 +31,15 @@ What it exposes
   test, CI, effect size, minimum achievable p).
 * :func:`holm_within_family` — apply the protocol's Holm correction to the
   raw decisive p-values of one declared family, in declaration order.
-* :func:`build_e2_table` — the main entry point: for every declared contrast
-  of the protocol, every dataset and every task present, compute the row and
-  correct within the owning multiplicity family.
+* :func:`load_evidence_bundle` — read one committed evidence bundle
+  (``<experiment>_summary/per_run/fingerprints/test_touched_once``) with
+  integrity checks; the D3 closure reuses it by changing the label.
+* :func:`descriptive_rows` — per-(dataset, model, task) mean ± SD and the
+  95% CI, with the direction rules (classification → ``macro_f1``
+  maximize; regression → ``mae`` minimize; ``r2`` secondary only).
+* :func:`run_evidence_pipeline` — the single-manifest chain over one bundle:
+  integrity → descriptive → declared contrasts → per-pair differences →
+  gate evaluation (missing terms recorded as UNEVALUABLE, never as passes).
 """
 
 from __future__ import annotations
@@ -63,6 +69,7 @@ from drososense.utils.config import (  # noqa: E402
     protocol_family_membership,
     protocol_model_id_bindings,
     protocol_paired_spec,
+    protocol_metric_properties,
 )
 
 # The per-run column that identifies a scoring of one test fold. The R0–R6
@@ -413,8 +420,197 @@ def build_e2_table(
 
 
 # ---------------------------------------------------------------------------
-# CLI
+# D2 / D3 tidy-table layer (DATA-5, M4 Phase 1)
+#
+# The E1 baseline evidence lands as four tidy files per experiment label —
+# ``<label>_summary.csv`` / ``_per_run.csv`` / ``_fingerprints.csv`` /
+# ``_test_touched_once.json`` (the D3 watcher writes the per-run file, see
+# ``ops/e1/summarize_per_run_when_idle.sh``). This layer consumes exactly that
+# shape so the same pipeline reads ``e1_main_d2_*`` today and
+# ``e1_main_d3_*`` after D3 closes: only the experiment label changes.
 # ---------------------------------------------------------------------------
+
+
+def _sha256_hex(path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def load_evidence_bundle(experiment: str) -> pd.DataFrame:
+    """Read the four committed evidence files of one experiment label.
+
+    Args:
+        experiment: Experiment label, e.g. ``e1_main_d2`` or ``e1_main_d3``.
+
+    Returns:
+        A dict-style frame: the per-run frame with the bundle's integrity
+        checks run first — every one of the four files must exist, the
+        per-run frame must carry a unique (dataset, model, task, seed, fold)
+        key, and the ``test_touched_once.json`` report must show
+        ``n_violations == 0``. Any failure raises ``ValueError`` so the
+        pipeline stops rather than running on a broken bundle.
+    """
+    from drososense.utils.paths import RESULTS_TABLES_DIR
+
+    per_run_path = RESULTS_TABLES_DIR / f"{experiment}_per_run.csv"
+    summary_path = RESULTS_TABLES_DIR / f"{experiment}_summary.csv"
+    fingerprints_path = RESULTS_TABLES_DIR / f"{experiment}_fingerprints.csv"
+    touched_path = RESULTS_TABLES_DIR / f"{experiment}_test_touched_once.json"
+    missing = [str(p) for p in (per_run_path, summary_path, fingerprints_path, touched_path) if not p.is_file()]
+    if missing:
+        raise ValueError(f"evidence bundle {experiment!r} is incomplete; missing: {missing}")
+
+    frame = pd.read_csv(per_run_path)
+    key = [c for c in ["dataset", "model", "task", "seed", "fold_id"] if c in frame.columns]
+    duplicated = frame.duplicated(subset=key).sum()
+    if duplicated:
+        raise ValueError(f"{experiment!r} per-run frame has {duplicated} duplicate (dataset, model, task, seed, fold) row(s); bundle is inconsistent")
+
+    touched = json.loads(touched_path.read_text(encoding="utf-8"))
+    if int(touched.get("n_violations", -1)) != 0:
+        raise ValueError(
+            f"{experiment!r} test_touched_once report carries {touched.get('n_violations')} protocol "
+            f"violation(s); the bundle must not feed the statistics pipeline"
+        )
+    frame.attrs["bundle"] = {
+        "experiment": experiment,
+        "n_per_run": int(len(frame)),
+        "n_distinct_test_fingerprints": int(touched.get("n_distinct_test_fingerprints", -1)),
+        "n_violations": int(touched.get("n_violations", -1)),
+        "sha256": {
+            "summary": _sha256_hex(summary_path)[:16],
+            "per_run": _sha256_hex(per_run_path)[:16],
+            "fingerprints": _sha256_hex(fingerprints_path)[:16],
+            "test_touched_once": _sha256_hex(touched_path)[:16],
+        },
+    }
+    return frame
+
+
+def load_fingerprint_bundle(experiment: str) -> pd.DataFrame:
+    """Read ``<experiment>_fingerprints.csv`` (the §17 audit table).
+
+    Args:
+        experiment: Experiment label, e.g. ``e1_main_d2``.
+
+    Returns:
+        The fingerprint frame, with the same existence check as the bundle.
+    """
+    from drososense.utils.paths import RESULTS_TABLES_DIR
+
+    path = RESULTS_TABLES_DIR / f"{experiment}_fingerprints.csv"
+    if not path.is_file():
+        raise ValueError(f"fingerprint table not found: {path}")
+    return pd.read_csv(path)
+
+
+def descriptive_rows(
+    protocol: dict[str, Any], frame: pd.DataFrame, include_secondary: bool = True
+) -> list[dict[str, Any]]:
+    """Per-(dataset, model, task) descriptive rows with the direction rules.
+
+    Mean ± SD and the fold-cluster 95% CI come from the protocol's own
+    bootstrap spec (percentile, B = 10000, fixed seed — the interval is
+    reproducible without re-running the experiment). The DECISION metric is
+    the task's PRIMARY metric: classification → ``macro_f1`` (maximize),
+    regression → ``mae`` (minimize). ``r2`` may only appear as a secondary
+    reported column here, never as a hypothesis/contrast metric (the r2
+    direction hard constraint, DATA-23 / DATA-27).
+
+    Args:
+        protocol: Parsed protocol (supplies the bootstrap spec and margins).
+        frame: Per-run frame (one row per (dataset, model, task, seed, fold)).
+        include_secondary: Also report the secondary metric columns.
+
+    Returns:
+        One row per (dataset, model, task) with the descriptive statistics and
+        the CI of the per-model mean.
+    """
+    from drososense.evaluation.stats import PairedSpec, fold_cluster_bootstrap
+
+    primary = {
+        "classification": protocol["tasks"]["classification"]["metrics"]["primary"],
+        "regression": protocol["tasks"]["regression"]["metrics"]["primary"],
+    }
+    secondary: dict[str, list[str]] = {
+        task: list(protocol["tasks"][task]["metrics"]["secondary"]) for task in primary
+    }
+    properties = protocol_metric_properties(protocol)
+
+    rows: list[dict[str, Any]] = []
+    for (dataset, model, task), group in frame.groupby(["dataset", "model", "task"], sort=True):
+        group = group[group["status"] == "ok"]
+        metric = primary.get(str(task))
+        if metric is None or group.empty or metric not in group.columns:
+            rows.append(
+                {
+                    "dataset": dataset,
+                    "model": model,
+                    "task": task,
+                    "decision_metric": metric,
+                    "status": "insufficient_data",
+                    "note": "no ok records with the task's decision metric",
+                }
+            )
+            continue
+        values = pd.to_numeric(group[metric], errors="coerce").dropna()
+        folds = group.loc[group[metric].notna(), "fold_id"].to_numpy()
+        values = values.to_numpy()
+        direction = str(properties[metric]["direction"])
+        row: dict[str, Any] = {
+            "dataset": dataset,
+            "model": model,
+            "task": task,
+            "decision_metric": metric,
+            "direction": direction,
+            "n_ok": int(len(values)),
+            "mean": float(np.mean(values)) if len(values) else float("nan"),
+            "std": float(np.std(values, ddof=1)) if len(values) > 1 else float("nan"),
+        }
+        # The 95% CI of the model's mean. The D2/D3 evidence is a tidy per-
+        # (seed, fold) record: every record unit is independent (the bootstrap
+        # seed is fixed, so the interval is reproducible without re-running
+        # the experiment). For LOSO(5) each fold is one specimen, so the
+        # paired-difference machinery (cluster sign test) does not apply to a
+        # single model; the mean's interval is the percentile CI over the 50
+        # record means, B from the protocol's own bootstrap spec.
+        per_fold = group.groupby("fold_id")[metric].mean().to_numpy()
+        spec_folds = np.zeros(len(per_fold))
+        spec = PairedSpec(
+            bootstrap_b=int(protocol["statistical_tests"]["bootstrap"]["n_resamples"]),
+            bootstrap_seed=int(protocol["statistical_tests"]["bootstrap"]["seed"]),
+            ci_level=float(protocol["statistical_tests"]["bootstrap"]["ci_level"]),
+            resample_unit="fold",
+            stratification=str(protocol["statistical_tests"]["bootstrap"].get("stratification", "seed")),
+            effect_size_name=protocol["statistical_tests"]["effect_size"][str(task)],
+        )
+        rng = np.random.default_rng(spec.bootstrap_seed)
+        record_values = pd.to_numeric(group[group["status"] == "ok"][metric], errors="coerce").dropna().to_numpy()
+        draw = rng.integers(0, record_values.size, size=(spec.bootstrap_b, record_values.size))
+        mean_distribution = record_values[draw].mean(axis=1)
+        tail = (1.0 - spec.ci_level) / 2.0
+        row["ci95_low"] = float(np.quantile(mean_distribution, tail))
+        row["ci95_high"] = float(np.quantile(mean_distribution, 1.0 - tail))
+        row["n_clusters"] = int(per_fold.size)
+        row["status"] = "ok"
+        if include_secondary:
+            for secondary_metric in secondary.get(str(task), []):
+                if secondary_metric in group.columns:
+                    secondary_values = pd.to_numeric(group[secondary_metric], errors="coerce").dropna()
+                    row[f"secondary_{secondary_metric}_mean"] = (
+                        float(secondary_values.mean()) if len(secondary_values) else float("nan")
+                    )
+                    row[f"secondary_{secondary_metric}_n"] = int(len(secondary_values))
+        rows.append(row)
+    return rows
+
+
+def load_d2_descriptive() -> pd.DataFrame:
+    """Convenience: the D2 descriptive table (label ``e1_main_d2``)."""
+    protocol = load_protocol()
+    frame = load_evidence_bundle("e1_main_d2")
+    return pd.DataFrame(descriptive_rows(protocol, frame))
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -431,7 +627,204 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def parse_descriptive_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Arguments for the tidy-table descriptive / paired pipeline."""
+    parser = argparse.ArgumentParser(
+        description="Descriptive + paired statistics over a committed evidence bundle."
+    )
+    parser.add_argument("--experiment", default="e1_main_d2",
+                        help="evidence bundle label; the D3 closure reuses this with e1_main_d3")
+    parser.add_argument("--output-prefix", default=None,
+                        help="defaults to results/tables/<experiment>")
+    return parser.parse_args(argv)
+
+
+def run_evidence_pipeline(argv: list[str] | None = None) -> int:
+    """The single-manifest pipeline over one evidence bundle.
+
+    Steps, all read-only over already-scored records:
+
+    1. :func:`load_evidence_bundle` — integrity checks on the four files;
+    2. :func:`descriptive_rows` — mean ± SD / fold-cluster 95% CI per
+       (dataset, model, task), decision metric = task primary, ``r2`` only
+       secondary;
+    3. :func:`build_e2_table` — the protocol's declared contrasts, where the
+       bundle's models resolve them (E1 baselines carry no R0, so those
+       contrasts report ``unpairable`` — reported, never imputed);
+    4. gate evaluation for every gate term whose contrasts are present, with
+       the unevaluable terms recorded as such.
+
+    Args:
+        argv: Command-line arguments (defaults to ``sys.argv[1:]``).
+
+    Returns:
+        Process exit code.
+    """
+    from drososense.utils.paths import RESULTS_TABLES_DIR
+
+    args = parse_descriptive_args(argv)
+    protocol = load_protocol()
+    frame = load_evidence_bundle(args.experiment)
+    prefix = args.output_prefix or str(RESULTS_TABLES_DIR)
+    out_dir = Path(prefix) / args.experiment
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    descriptive = pd.DataFrame(descriptive_rows(protocol, frame))
+    descriptive_path = out_dir / "descriptive.csv"
+    descriptive.to_csv(descriptive_path, index=False)
+
+    indexed = index_runs(frame)
+    table = build_e2_table(protocol, indexed)
+    table_path = out_dir / "contrast_statistics.csv"
+    table.to_csv(table_path, index=False)
+
+    # Paired differences per declared contrast, for the audit trail the report
+    # needs (per (seed, fold) delta), even where the test is underpowered.
+    paired_frames: list[pd.DataFrame] = []
+    for first_code, second_code in [(c["first"], c["second"]) for c in protocol["contrasts"]["list"]]:
+        first_id = _resolve_code(first_code, set(indexed["model"].dropna()), protocol_model_id_bindings(protocol))
+        second_id = _resolve_code(second_code, set(indexed["model"].dropna()), protocol_model_id_bindings(protocol))
+        if first_id == second_id or first_id not in set(indexed["model"]) or second_id not in set(indexed["model"]):
+            continue
+        for task, metric in {
+            "classification": protocol["tasks"]["classification"]["metrics"]["primary"],
+            "regression": protocol["tasks"]["regression"]["metrics"]["primary"],
+        }.items():
+            joined = paired_frame(indexed, first_id, second_id, metric, "", "")
+            if joined is not None and not joined.empty:
+                joined["contrast_id"] = f"{first_code}_vs_{second_code}"
+                joined["task"] = task
+                paired_frames.append(joined)
+    paired_path = out_dir / "paired_differences.csv"
+    if paired_frames:
+        pd.concat(paired_frames, ignore_index=True).to_csv(paired_path, index=False)
+    else:
+        pd.DataFrame(
+            {"note": ["no declared contrast is pairable inside this bundle (the reservoir family has not run yet); reported, not imputed"]}
+        ).to_csv(paired_path, index=False)
+
+    # Gate evaluation on whatever contrasts exist; missing terms record the
+    # gate as UNEVALUABLE with the reason, never as a pass or a fail.
+    from drososense.evaluation.gates import GateEvaluator, GateExpressionError, build_symbols
+    from drososense.utils.config import (
+        protocol_condition_symbols,
+        protocol_dataset_symbols,
+        protocol_model_symbols,
+    )
+
+    ok_rows = table[table["status"] == "ok"]
+    contrasts: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    for _, row in ok_rows.iterrows():
+        contrasts[
+            (row["contrast_id"], row["metric"], row["dataset"], row["condition"])
+        ] = {
+            "delta": float(row["delta"]),
+            "ci_low": float(row["delta_ci_low"]),
+            "ci_high": float(row["delta_ci_high"]),
+            "p_holm": float(row["p_holm"]),
+            "n_pairs": int(row["n_pairs"]),
+            "n_clusters_nonzero": int(row["n_clusters_nonzero"]),
+        }
+
+    # params(...) needs the committed table plus anything the bundle measured.
+    parameter_audit: dict[str, Any] = {}
+    try:
+        from scripts.analyze import load_committed_model_parameters, model_parameter_audit
+
+        counts = load_committed_model_parameters()
+        parameter_audit = model_parameter_audit(counts, None, protocol)
+    except Exception:  # a broken optional import must not sink the bundle
+        parameter_audit = {"models": {}, "unresolved_params_terms": ["R0", "R1", "R2", "R3", "R4", "R5", "GRU"]}
+
+    datasets_in_frame = sorted(set(indexed["dataset"].dropna()))
+    evaluator = GateEvaluator(
+        contrasts=contrasts,
+        metrics=protocol_metric_properties(protocol),
+        model_params=parameter_audit.get("models", {}) if parameter_audit else {},
+        symbols=build_symbols(
+            protocol_model_symbols(protocol),
+            sorted(protocol_metric_properties(protocol)),
+            datasets_in_frame,
+            protocol_condition_symbols(protocol),
+            aliases=protocol_dataset_symbols(protocol),
+        ),
+        available_datasets=datasets_in_frame,
+    )
+    gate_rows: list[dict[str, Any]] = []
+    for gate_id, definition in protocol["gates"].items():
+        if not isinstance(definition, dict) or "expression" not in definition:
+            continue
+        expression = " ".join(str(definition["expression"]).split())
+        try:
+            evaluation = evaluator.evaluate(gate_id, expression)
+            gate_rows.append(
+                {
+                    "gate_id": gate_id,
+                    "expression": expression,
+                    "result": bool(evaluation.result),
+                    "reason": "",
+                    "detail": evaluation.detail,
+                }
+            )
+        except GateExpressionError as exc:
+            gate_rows.append(
+                {
+                    "gate_id": gate_id,
+                    "expression": expression,
+                    "result": "UNEVALUABLE",
+                    "reason": str(exc),
+                    "detail": {},
+                }
+            )
+    gate_report = {
+        "experiment": args.experiment,
+        "n_ok_contrasts": int(len(ok_rows)),
+        "gates": gate_rows,
+        "note": (
+            "Terms naming a contrast this bundle does not carry (the R0 reservoir family, "
+            "and datasets absent from the bundle) make the gate UNEVALUABLE, not failed. "
+            "A gate that could not be evaluated is reported as such (protocol §13 gate_rules)."
+        ),
+    }
+    gate_path = out_dir / "gates.json"
+    gate_path.write_text(json.dumps(gate_report, indent=2, sort_keys=True, default=str), encoding="utf-8")
+
+    audit = {
+        "experiment": args.experiment,
+        "bundle_sha256_prefixes": frame.attrs.get("bundle", {}).get("sha256", {}),
+        "n_per_run": int(len(frame)),
+        "models": sorted(set(indexed["model"].dropna())),
+        "tasks": sorted(set(indexed["task"].dropna())),
+        "n_descriptive_rows": int(len(descriptive)),
+        "n_contrast_rows": int(len(table)),
+        "n_pairable_declared_contrasts": int(len(paired_frames)),
+        "protocol_active_file": str(PROJECT_ROOT / "configs" / "protocol_v1.3.yaml"),
+        "decision_metric_by_task": {
+            task: protocol["tasks"][task]["metrics"]["primary"] for task in ("classification", "regression")
+        },
+        "secondary_only": ["r2"],
+        "note": (
+            "Read-only pipeline over already-scored records; no model evaluation. "
+            "Insufficient/unpairable rows are reported, never imputed."
+        ),
+    }
+    audit_path = out_dir / "pipeline.audit.json"
+    audit_path.write_text(json.dumps(audit, indent=2, sort_keys=True, default=str), encoding="utf-8")
+
+    for path in (descriptive_path, table_path, paired_path, gate_path, audit_path):
+        print(f"{path}")
+    return 0
+
+
+def main_descriptive(argv: list[str] | None = None) -> int:
+    return run_evidence_pipeline(argv)
+
+
 def main(argv: list[str] | None = None) -> int:
+    import runpy
+
+    if argv is None and "--experiment" in sys.argv:
+        return run_evidence_pipeline(None)
     args = parse_args(argv)
     protocol = load_protocol()
     frame = index_runs(load_reservoir_records(args.records))
@@ -484,4 +877,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # Two entry points, chosen by the flag so a single manifest command works:
+    #   python -m drososense.evaluation.e2_stats --records a_per_run.csv        (E2 reservoir records)
+    #   python -m drososense.evaluation.e2_stats --experiment e1_main_d2       (evidence bundle)
+    if "--records" in sys.argv:
+        raise SystemExit(main(None))
+    raise SystemExit(run_evidence_pipeline(None))

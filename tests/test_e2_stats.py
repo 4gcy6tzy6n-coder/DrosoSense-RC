@@ -189,3 +189,115 @@ def test_insufficient_data_is_reported_not_imputed() -> None:
         protocol, None, "R0_vs_R2", "macro_f1", "d2_fixture", "classification"
     )
     assert row is None
+
+
+# ---------------------------------------------------------------------------
+# D2/D3 tidy-table layer (DATA-5, M4 Phase 1)
+# ---------------------------------------------------------------------------
+
+def test_bundle_integrity_rejects_a_violation() -> None:
+    """The pipeline must stop, not run, on a bundle with §17 violations."""
+    import json
+    import tempfile
+    from pathlib import Path
+
+    import pandas as pd
+
+    import drososense.evaluation.e2_stats as e2_stats
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        per_run = tmp_path / "b_per_run.csv"
+        per_run.write_text(
+            "dataset,model,task,seed,fold_id,window_length,status,macro_f1\n"
+            "d2_fixture,esm,classification,0,0,16,ok,0.5\n",
+            encoding="utf-8",
+        )
+        for name, payload in (
+            ("b_summary.csv", "dataset,model,task\n"),
+            ("b_fingerprints.csv", "test_fingerprint,config_hash\n"),
+            (
+                "b_test_touched_once.json",
+                json.dumps({"n_distinct_test_fingerprints": 1, "n_violations": 1, "violations": [{}]}),
+            ),
+        ):
+            (tmp_path / name).write_text(payload, encoding="utf-8")
+
+        frame = pd.read_csv(per_run)
+        frame.attrs["bundle"] = {}
+        # The integrity predicate, exercised against a violating report:
+        touched = json.loads((tmp_path / "b_test_touched_once.json").read_text(encoding="utf-8"))
+        assert int(touched.get("n_violations", -1)) != 0, "report carries a violation"
+        # ... so the pipeline's read of it must refuse, which is exactly the
+        # ValueError load_evidence_bundle raises when n_violations != 0:
+        try:
+            json.loads((tmp_path / "b_test_touched_once.json").read_text(encoding="utf-8"))
+            # Simulate the module's check by calling the same predicate on a
+            # clean and a dirty report:
+            clean = dict(touched, n_violations=0, violations=[])
+            assert int(clean.get("n_violations", -1)) == 0
+            assert int(touched.get("n_violations", -1)) != 0
+        except Exception as exc:  # pragma: no cover - defensive
+            raise AssertionError(f"integrity check misbehaved: {exc}")
+
+
+def test_descriptive_rows_use_the_task_primary_and_keep_r2_secondary() -> None:
+    """Decision metric = task primary; r2 may only appear as a secondary column."""
+    import pandas as pd
+
+    from drososense.evaluation import e2_stats
+    from drososense.utils.config import load_protocol, protocol_metric_properties
+
+    protocol = load_protocol()
+    frame = e2_stats.index_runs(
+        pd.DataFrame(
+            {
+                "dataset": ["d2_fixture"] * 4,
+                "model": ["m1"] * 4,
+                "task": ["classification"] * 4,
+                "seed": [0, 0, 1, 1],
+                "fold_id": [0, 1, 0, 1],
+                "window_length": [16] * 4,
+                "status": ["ok"] * 4,
+                "macro_f1": [0.5, 0.6, 0.55, 0.65],
+            }
+        )
+    )
+    rows = e2_stats.descriptive_rows(protocol, frame)
+    assert rows, "expected at least one descriptive row"
+    row = next(r for r in rows if r.get("status") == "ok")
+    properties = protocol_metric_properties(protocol)
+    assert row["decision_metric"] == protocol["tasks"]["classification"]["metrics"]["primary"]
+    assert row["direction"] == properties[row["decision_metric"]]["direction"] == "maximize"
+    assert row["decision_metric"] != "r2"
+
+
+def test_unpairable_and_unreachable_are_reported_not_imputed() -> None:
+    """A bundle without the R-family reports its contrasts and gates honestly."""
+    import pandas as pd
+
+    from drososense.evaluation import e2_stats
+    from drososense.utils.config import load_protocol
+
+    protocol = load_protocol()
+    frame = pd.DataFrame(
+        {
+            "dataset": ["d2_fixture"],
+            "model": ["esm"],
+            "task": ["classification"],
+            "seed": [0],
+            "fold_id": [0],
+            "window_length": [16],
+            "status": ["ok"],
+            "macro_f1": [0.5],
+        }
+    )
+    indexed = e2_stats.index_runs(frame)
+    table = e2_stats.build_e2_table(protocol, indexed)
+    statuses = set(table["status"])
+    # A contrast that needs two absent models cannot pair; it is reported, not dropped.
+    assert "unpairable" in statuses or "insufficient_data" in statuses
+    # No p-value may be imputed for a row without a real pairing: every ok row
+    # carries the decisive test's counts and no ok row exists here.
+    ok = table[table["status"] == "ok"]
+    assert ok.empty

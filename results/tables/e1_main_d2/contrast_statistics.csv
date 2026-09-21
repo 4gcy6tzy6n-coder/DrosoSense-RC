@@ -1,0 +1,13 @@
+contrast_id,metric,dataset,task,status,note
+R0_vs_R2,macro_f1,d2_beef_uncontrolled,classification,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0') and R2 (resolved to 'R2')"
+R0_vs_R2,mae,d2_beef_uncontrolled,regression,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0') and R2 (resolved to 'R2')"
+R0_vs_R4,macro_f1,d2_beef_uncontrolled,classification,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0') and R4 (resolved to 'esn')"
+R0_vs_R4,mae,d2_beef_uncontrolled,regression,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0') and R4 (resolved to 'esn')"
+R0_vs_R3,macro_f1,d2_beef_uncontrolled,classification,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0') and R3 (resolved to 'R3')"
+R0_vs_R3,mae,d2_beef_uncontrolled,regression,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0') and R3 (resolved to 'R3')"
+R0_vs_GRU,macro_f1,d2_beef_uncontrolled,classification,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0') and GRU (resolved to 'gru')"
+R0_vs_GRU,mae,d2_beef_uncontrolled,regression,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0') and GRU (resolved to 'gru')"
+R0_vs_R5,macro_f1,d2_beef_uncontrolled,classification,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0') and R5 (resolved to 'R5')"
+R0_vs_R5,mae,d2_beef_uncontrolled,regression,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0') and R5 (resolved to 'R5')"
+R0_vs_R1,macro_f1,d2_beef_uncontrolled,classification,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0') and R1 (resolved to 'R1')"
+R0_vs_R1,mae,d2_beef_uncontrolled,regression,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0') and R1 (resolved to 'R1')"
