@@ -33,11 +33,45 @@ __all__ = [
     "DATA_ROOT",
     "DATA_SOURCE",
     "RAW_DIR",
+    "adjacency_path",
     "require_data_file",
     "metadata_path",
     "raw_path",
-    "adjacency_path",
 ]
+
+
+def adjacency_path(name: str = "olfactory_v1.npz") -> Path:
+    """Return the path to a connectome adjacency NPZ.
+
+    Resolution order (first existing candidate wins):
+
+      1. ``$DROSOSENSE_DATA/connectome/adjacency/<name>`` — the layout the
+         dispatch documented (DATA-3 / DATA-4).
+      2. ``$DROSOSENSE_DATA/connectome/<name>`` — the flat layout some
+         server-side syncs have produced.
+      3. ``<repo>/connectome/adjacency/<name>`` — in-repo fallback.
+      4. ``<repo>/connectome/<name>`` — final in-repo fallback.
+
+    Args:
+        name: Filename of the adjacency artifact; defaults to the olfactory
+            v1 NPZ. The function never raises if the file is absent — that
+            is the caller's responsibility, and a missing file is the
+            actionable signal to provision the data root.
+
+    Returns:
+        The first candidate that resolves; never raises.
+    """
+    candidates: list[Path] = []
+    if DATA_ROOT is not None:
+        candidates.append(DATA_ROOT / "connectome" / "adjacency" / name)
+        candidates.append(DATA_ROOT / "connectome" / name)
+    candidates.append(REPO_ROOT / "connectome" / "adjacency" / name)
+    candidates.append(REPO_ROOT / "connectome" / name)
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    # Return the most-likely path so the caller can present a useful error.
+    return candidates[0]
 
 # <repo>/connectome/paths.py -> <repo>
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -92,18 +126,6 @@ def metadata_path(name: str) -> Path:
         if candidate.exists() or name == "olfactory_v1_edge_meta.csv":
             return candidate
     return REPO_ROOT / "connectome" / "metadata" / name
-
-
-def adjacency_path(name: str = "olfactory_v1.npz") -> Path:
-    """Path to an adjacency artifact (e.g. olfactory_v1.npz).
-
-    Large adjacency matrices live in the data root when one is provisioned.
-    """
-    if DATA_ROOT is not None:
-        candidate = DATA_ROOT / "connectome" / "adjacency" / name
-        if candidate.exists():
-            return candidate
-    return REPO_ROOT / "connectome" / "adjacency" / name
 
 
 def require_data_file(path: Path) -> Path:

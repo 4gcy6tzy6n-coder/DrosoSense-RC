@@ -13,12 +13,12 @@ nowhere in the production path at all.
 | Bucket | Count |
 | --- | ---: |
 | Declared leaves | 717 |
-| With a literal reader in the production path | 235 |
+| With a literal reader in the production path | 232 |
 | Read elsewhere, by a named exception | 2 |
 | Prose (no reader expected) | 206 |
-| Orphaned (a recorded disposition) | 274 |
-| — of which statements or mirrored declarations | 205 |
-| — of which awaiting human determination | 14 |
+| Orphaned (a recorded disposition) | 277 |
+| — of which statements or mirrored declarations | 206 |
+| — of which awaiting human determination | 16 |
 | **— of which real holes (nothing reads them and something should)** | **55** |
 
 ## Real holes
@@ -109,7 +109,9 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `pairing.pairing_key` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/baselines/base.py:168`, `drososense/data/pipeline.py:81`, `drososense/data/pipeline.py:84`, `drososense/evaluation/contact_log.py:70`, `drososense/evaluation/results.py:41`, `drososense/evaluation/results.py:44`, `drososense/evaluation/results.py:45`, `drososense/evaluation/results.py:47`, `drososense/evaluation/results.py:553`, `drososense/evaluation/results.py:556`, `drososense/evaluation/results.py:557`, `drososense/evaluation/results.py:558`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
 | `pairing.reported_alongside` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/evaluation/gates.py:393`, `drososense/evaluation/gates.py:394`, `drososense/evaluation/gates.py:406`, `drososense/evaluation/gates.py:444`, `drososense/evaluation/gates.py:65`, `drososense/evaluation/results.py:434`, `drososense/evaluation/results.py:467`, `drososense/evaluation/stats.py:281`, `drososense/evaluation/stats.py:283`, `drososense/evaluation/stats.py:284`, `scripts/analyze.py:733`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
 | `statistical_tests.effect_size.selection_key` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/baselines/base.py:167`, `drososense/evaluation/results.py:43`, `drososense/evaluation/results.py:555`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
-| `results.raw_record_schema.v1_1_additions` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/data/manifest.py:206`, `drososense/data/manifest.py:211`, `drososense/data/manifest.py:431`, `drososense/data/pipeline.py:83`, `drososense/data/pipeline.py:98`, `drososense/evaluation/contact_log.py:72`, `drososense/evaluation/contact_log.py:73`, `drososense/evaluation/metrics.py:98`, `drososense/evaluation/results.py:367`, `drososense/evaluation/results.py:368`, `drososense/evaluation/results.py:560`, `drososense/evaluation/results.py:561`, `drososense/evaluation/results.py:563`, `drososense/evaluation/results.py:572`, `drososense/evaluation/results.py:573`, `drososense/evaluation/results.py:574`, `drososense/evaluation/results.py:575`, `drososense/evaluation/results.py:607`, `drososense/evaluation/results.py:711`, `drososense/evaluation/runner.py:377`, `drososense/utils/__init__.py:27`, `scripts/preprocess.py:111`, `scripts/preprocess.py:121`, `scripts/run_reservoir.py:428`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
+| `results.raw_record_schema.v1_1_additions` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/data/manifest.py:206`, `drososense/data/manifest.py:211`, `drososense/data/manifest.py:431`, `drososense/data/pipeline.py:83`, `drososense/data/pipeline.py:98`, `drososense/evaluation/contact_log.py:72`, `drososense/evaluation/contact_log.py:73`, `drososense/evaluation/metrics.py:98`, `drososense/evaluation/results.py:367`, `drososense/evaluation/results.py:368`, `drososense/evaluation/results.py:560`, `drososense/evaluation/results.py:561`, `drososense/evaluation/results.py:563`, `drososense/evaluation/results.py:572`, `drososense/evaluation/results.py:573`, `drososense/evaluation/results.py:574`, `drososense/evaluation/results.py:575`, `drososense/evaluation/results.py:607`, `drososense/evaluation/results.py:711`, `drososense/evaluation/runner.py:377`, `drososense/utils/__init__.py:27`, `scripts/preprocess.py:111`, `scripts/preprocess.py:121`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
+| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_protocol_versions` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/__init__.py:17`, `drososense/evaluation/runner.py:57`, `drososense/utils/paths.py:79`, `drososense/utils/paths.py:80`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
+| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_strategy` | the tightened test finds no reader. The retired test matched only the declared value appears, as a literal `drososense/data/splits.py:20`, `drososense/data/splits.py:282`, `drososense/data/splits.py:290`. Decide whether that is a reader; if it is, write it into KNOWN_READERS here, and if it is not, give the field a HOLE disposition. |
 
 ## Orphaned fields (statements and mirrored declarations)
 
@@ -225,6 +227,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `data_verified.D1.source_sha256` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D1.specimens` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D1.class_counts.0` | statement — measured at freeze time; the manifests are the machine-readable copy |
+| `data_verified.D1.class_counts.1` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D1.class_counts.2` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D1.class_counts.3` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D1.tvc_range` | statement — measured at freeze time; the manifests are the machine-readable copy |
@@ -251,6 +254,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `data_verified.D2.acquisition_campaigns.TS5.end` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D2.acquisition_campaigns.TS5.campaign` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D2.class_counts.0` | statement — measured at freeze time; the manifests are the machine-readable copy |
+| `data_verified.D2.class_counts.1` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D2.class_counts.2` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D2.class_counts.3` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D2.tvc_range` | statement — measured at freeze time; the manifests are the machine-readable copy |
@@ -262,6 +266,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `data_verified.D3.specimens` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D3.split_n_splits` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D3.class_counts.0` | statement — measured at freeze time; the manifests are the machine-readable copy |
+| `data_verified.D3.class_counts.1` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D3.class_counts.2` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D3.class_counts.3` | statement — measured at freeze time; the manifests are the machine-readable copy |
 | `data_verified.D3.provider_binary_labels.Fresh` | statement — measured at freeze time; the manifests are the machine-readable copy |
@@ -310,16 +315,14 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `amendment_v1_2.unchanged` | statement — the amendment record, for a human reader |
 | `amendment_v1_2.open_decisions[0].options` | statement — the amendment record, for a human reader |
 | `amendment_v1_2.open_decisions[0].decision_owner` | statement — the amendment record, for a human reader |
-| `amendment_v1_3.decision_recorded.od1_ruling` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
-| `amendment_v1_3.decision_recorded.decided_at` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
-| `amendment_v1_3.decision_recorded.decided_by` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
-| `amendment_v1_3.changed` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
-| `amendment_v1_3.unchanged` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
-| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_protocol_versions` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
-| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_strategy` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
-| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_n_splits` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
-| `amendment_v1_3.open_decisions[0].options` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
-| `amendment_v1_3.open_decisions[0].decision_owner` | statement — the v1.3 amendment record (decision metadata, change list, integrity disclosures, open decisions), for a human reader |
+| `amendment_v1_3.decision_recorded.od1_ruling` | NOT TRIAGED — needs a disposition |
+| `amendment_v1_3.decision_recorded.decided_at` | NOT TRIAGED — needs a disposition |
+| `amendment_v1_3.decision_recorded.decided_by` | NOT TRIAGED — needs a disposition |
+| `amendment_v1_3.changed` | NOT TRIAGED — needs a disposition |
+| `amendment_v1_3.unchanged` | NOT TRIAGED — needs a disposition |
+| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_n_splits` | NOT TRIAGED — needs a disposition |
+| `amendment_v1_3.open_decisions[0].options` | NOT TRIAGED — needs a disposition |
+| `amendment_v1_3.open_decisions[0].decision_owner` | NOT TRIAGED — needs a disposition |
 
 ## Every declared field
 
@@ -400,7 +403,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `seeds.rng_hierarchy.split` | child 0 of SeedSequence(root_seed) | `drososense/evaluation/runner.py:155` |
 | `seeds.rng_hierarchy.graph` | child 1 — connectome sub-sampling and any rewiring | **NO READER** |
 | `seeds.rng_hierarchy.input_mapping` | child 2 — W_in initialisation | **NO READER** |
-| `seeds.rng_hierarchy.readout` | child 3 — readout initialisation and any stochastic solver | `drososense/reservoir/connectome_reservoir.py:1006`, `drososense/reservoir/connectome_reservoir.py:67`, `drososense/reservoir/connectome_reservoir.py:812` |
+| `seeds.rng_hierarchy.readout` | child 3 — readout initialisation and any stochastic solver | `drososense/reservoir/esn.py:354`, `drososense/reservoir/esn.py:39`, `drososense/reservoir/esn.py:71` |
 | `seeds.seed_role` | A seed controls (a) the specimen permutation used by the … | _prose — no reader expected_ |
 | `seeds.deterministic_models_note` | Deterministic models (SVM-RBF, PCA+SVM, Ridge readouts) a… | _prose — no reader expected_ |
 | `tasks.classification.label_column` | freshness_class | _awaiting determination — see above_ |
@@ -562,7 +565,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `equivalence.method` | tost | **NO READER** |
 | `equivalence.margins.macro_f1` | 0.02 | `drososense/evaluation/metrics.py:160`, `drososense/evaluation/metrics.py:87`, `drososense/evaluation/runner.py:62` |
 | `equivalence.margins.balanced_accuracy` | 0.02 | `drososense/evaluation/metrics.py:93`, `drososense/evaluation/runner.py:63` |
-| `equivalence.margins.accuracy` | 0.02 | `drososense/evaluation/metrics.py:94`, `drososense/evaluation/runner.py:64`, `scripts/run_reservoir.py:429` |
+| `equivalence.margins.accuracy` | 0.02 | `drososense/evaluation/metrics.py:94`, `drososense/evaluation/runner.py:64` |
 | `equivalence.margins.auroc` | 0.02 | `drososense/evaluation/metrics.py:122`, `drososense/evaluation/metrics.py:95`, `drososense/evaluation/runner.py:65` |
 | `equivalence.margins.mae` | 0.05 | `drososense/evaluation/metrics.py:141`, `drososense/evaluation/metrics.py:162`, `drososense/evaluation/runner.py:68` |
 | `equivalence.margins.rmse` | 0.05 | `drososense/evaluation/metrics.py:142`, `drososense/evaluation/runner.py:69` |
@@ -884,7 +887,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `data_verified.D1.split_surrogate.note` | assumed time blocks of 150 distinct minutes — a modelling… | _prose — no reader expected_ |
 | `data_verified.D1.protocol_compliant` | False | `drososense/evaluation/contact_log.py:72`, `drososense/evaluation/results.py:368`, `drososense/evaluation/results.py:561` |
 | `data_verified.D1.class_counts.0` | 2940 | **NO READER** |
-| `data_verified.D1.class_counts.1` | 2268 | `scripts/server/concurrency_sweep.py:131` |
+| `data_verified.D1.class_counts.1` | 2268 | **NO READER** |
 | `data_verified.D1.class_counts.2` | 2292 | **NO READER** |
 | `data_verified.D1.class_counts.3` | 13315 | **NO READER** |
 | `data_verified.D1.tvc_range` | [2.002, 6.314] | **NO READER** |
@@ -914,7 +917,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `data_verified.D2.acquisition_campaigns.TS5.campaign` | 2 | **NO READER** |
 | `data_verified.D2.protocol_compliant` | True | `drososense/evaluation/contact_log.py:72`, `drososense/evaluation/results.py:368`, `drososense/evaluation/results.py:561` |
 | `data_verified.D2.class_counts.0` | 1680 | **NO READER** |
-| `data_verified.D2.class_counts.1` | 2820 | `scripts/server/concurrency_sweep.py:131` |
+| `data_verified.D2.class_counts.1` | 2820 | **NO READER** |
 | `data_verified.D2.class_counts.2` | 2100 | **NO READER** |
 | `data_verified.D2.class_counts.3` | 4200 | **NO READER** |
 | `data_verified.D2.tvc_range` | [2.233, 5.098] | **NO READER** |
@@ -934,7 +937,7 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `data_verified.D3.protocol_compliant` | True | `drososense/evaluation/contact_log.py:72`, `drososense/evaluation/results.py:368`, `drososense/evaluation/results.py:561` |
 | `data_verified.D3.class_thresholds` | [4.3, 5.0, 6.5] | `drososense/data/loaders.py:538` |
 | `data_verified.D3.class_counts.0` | 3479 | **NO READER** |
-| `data_verified.D3.class_counts.1` | 3601 | `scripts/server/concurrency_sweep.py:131` |
+| `data_verified.D3.class_counts.1` | 3601 | **NO READER** |
 | `data_verified.D3.class_counts.2` | 10800 | **NO READER** |
 | `data_verified.D3.class_counts.3` | 7200 | **NO READER** |
 | `data_verified.D3.provider_binary_labels.Fresh` | 150 | **NO READER** |
@@ -1027,8 +1030,8 @@ rows count as neither readers nor holes, so the hole count above is a lower boun
 | `amendment_v1_3.integrity_disclosures.rule` | The amendment rule requires that the trigger, the change … | _prose — no reader expected_ |
 | `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.first_test_evaluation_at` | 2026-09-20T06:05:40.492008+00:00 | `drososense/evaluation/contact_log.py:102`, `drososense/evaluation/contact_log.py:141`, `drososense/utils/protocol.py:90` |
 | `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.source` | results/tables/data_contact_log.json — first counting ent… | _prose — no reader expected_ |
-| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_protocol_versions` | ['1.1.0', '1.2.0'] | **NO READER** |
-| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_strategy` | group_kfold | **NO READER** |
+| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_protocol_versions` | ['1.1.0', '1.2.0'] | _awaiting determination — see above_ |
+| `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_strategy` | group_kfold | _awaiting determination — see above_ |
 | `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.under_split_n_splits` | 5 | **NO READER** |
 | `amendment_v1_3.integrity_disclosures.d3_test_split_touched_in_v1_1_v1_2.detail` | The D3 test split has been touched under v1.1 and v1.2 — … | _prose — no reader expected_ |
 | `amendment_v1_3.integrity_disclosures.v1_1_v1_2_d3_runs_preserved_unchanged.rule` | v1.1 D3 runs stay labelled protocol_version = 1.1.0; v1.2… | _prose — no reader expected_ |

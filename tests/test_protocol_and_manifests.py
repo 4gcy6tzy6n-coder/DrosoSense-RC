@@ -62,7 +62,7 @@ EXPECTED_DOI = {
 def test_protocol_declares_it_is_frozen_with_a_timestamp(protocol):
     """The protocol states its own freeze status, version and RFC3339 timestamp."""
     assert protocol["frozen"] is True
-    assert protocol["protocol_version"].startswith("1.2")
+    assert protocol["protocol_version"].startswith("1.3")
     frozen_at = protocol["frozen_at"]
     assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", frozen_at), frozen_at
 
@@ -75,11 +75,14 @@ def test_every_superseded_protocol_is_kept_unchanged_on_disk():
     numbers produced under it stay attributable to the text that produced them.
     v1.2 additionally records the superseded digest inside itself, because a
     file that is never edited cannot be the place that remembers it moved on.
+    v1.3 follows the same rule and adds the LOSO(62) amendment on D3 only —
+    the sidecar mechanism keeps every earlier file's identity checkable.
     """
     expected = {
         "protocol_v1.yaml": "1.0.0",
         "protocol_v1.1.yaml": "1.1.0",
         "protocol_v1.2.yaml": "1.2.0",
+        "protocol_v1.3.yaml": "1.3.0",
     }
     for name, version in expected.items():
         path = CONFIGS_DIR / name
@@ -88,10 +91,16 @@ def test_every_superseded_protocol_is_kept_unchanged_on_disk():
 
 
 @pytest.mark.unit
-def test_the_active_protocol_is_v1_2_and_v1_1_still_verifies():
-    """Switching the active protocol must not disturb the frozen one."""
+def test_the_active_protocol_is_v1_3_and_v1_1_and_v1_2_still_verify():
+    """Switching the active protocol must not disturb the frozen ones.
+
+    DATA-31 switched the active protocol to v1.3. v1.1 and v1.2 must still
+    verify against their sidecars, byte for byte, because the amendment rule
+    forbids touching a frozen file: if they have drifted, a test fails before
+    any production code runs.
+    """
     report = verify_protocol_freeze(PROTOCOL_PATH, PROTOCOL_SHA256_PATH)
-    assert report["path"].endswith("protocol_v1.2.yaml")
+    assert report["path"].endswith("protocol_v1.3.yaml")
     assert report["matches"], report
 
     previous = verify_protocol_freeze(
@@ -99,17 +108,37 @@ def test_the_active_protocol_is_v1_2_and_v1_1_still_verifies():
     )
     assert previous["matches"], "v1.1 must be untouched: its sidecar still matches"
 
+    v1_2 = verify_protocol_freeze(
+        CONFIGS_DIR / "protocol_v1.2.yaml", CONFIGS_DIR / "protocol_v1.2.sha256"
+    )
+    assert v1_2["matches"], "v1.2 must verify against its own sidecar"
+
 
 @pytest.mark.unit
-def test_v1_2_records_the_digest_of_the_version_it_supersedes(protocol):
+def test_v1_2_records_the_digest_of_the_version_it_supersedes():
     """The superseded file's identity is recorded in the file that moves forward."""
-    previous = protocol["freeze_evidence"]["previous_version"]
+    v1_2 = yaml.safe_load((CONFIGS_DIR / "protocol_v1.2.yaml").read_text(encoding="utf-8"))
+    previous = v1_2["freeze_evidence"]["previous_version"]
     assert previous["protocol_version"] == "1.1.0"
     recorded = previous["sha256"]
     actual = hashlib.sha256(
         (CONFIGS_DIR / "protocol_v1.1.yaml").read_bytes()
     ).hexdigest()
     assert recorded == actual
+
+
+@pytest.mark.unit
+def test_v1_3_records_the_digest_of_the_version_it_supersedes():
+    """The amendment rule applies to v1.3 too: it must cite v1.2's identity."""
+    v1_3 = yaml.safe_load((CONFIGS_DIR / "protocol_v1.3.yaml").read_text(encoding="utf-8"))
+    previous = v1_3["freeze_evidence"]["previous_version"]
+    assert previous["protocol_version"] == "1.2.0"
+    assert previous["sha256"] == hashlib.sha256(
+        (CONFIGS_DIR / "protocol_v1.2.yaml").read_bytes()
+    ).hexdigest()
+    # And v1.2 itself still cites v1.1: nothing in v1.3 was allowed to edit v1.2.
+    v1_2 = yaml.safe_load((CONFIGS_DIR / "protocol_v1.2.yaml").read_text(encoding="utf-8"))
+    assert v1_2["freeze_evidence"]["previous_version"]["protocol_version"] == "1.1.0"
 
 
 @pytest.mark.unit
@@ -144,7 +173,7 @@ def test_protocol_declares_the_data_contact_rule(protocol):
     """Freeze evidence names the timestamp, the sidecar and the contact log."""
     evidence = protocol["freeze_evidence"]
     assert evidence["protocol_frozen_at"] == protocol["frozen_at"]
-    assert evidence["protocol_sha256_sidecar"].endswith("protocol_v1.2.sha256")
+    assert evidence["protocol_sha256_sidecar"].endswith("protocol_v1.3.sha256")
     assert PROTOCOL_SHA256_PATH.name == evidence["protocol_sha256_sidecar"].split("/")[-1]
     assert "data_contact_log" in evidence
     # H4: the frozen field is a placeholder and the check must say where the live

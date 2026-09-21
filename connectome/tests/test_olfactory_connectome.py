@@ -21,9 +21,9 @@ import scipy.sparse as sp
 
 ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(ROOT / "connectome"))
-from paths import metadata_path, adjacency_path  # noqa: E402  (data-root resolution)
+from paths import metadata_path  # noqa: E402  (data-root resolution)
 
-ADJ_PATH = adjacency_path("olfactory_v1.npz")
+ADJ_PATH = ROOT / "connectome/adjacency/olfactory_v1.npz"
 NODE_CSV = ROOT / "connectome/metadata/olfactory_v1_node_meta.csv"
 # Oversized edge CSV lives in the external data root when one is provisioned.
 EDGE_CSV = metadata_path("olfactory_v1_edge_meta.csv")
