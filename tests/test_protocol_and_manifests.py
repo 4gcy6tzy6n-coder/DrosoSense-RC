@@ -60,7 +60,12 @@ EXPECTED_DOI = {
 # ---------------------------------------------------------------------------
 @pytest.mark.unit
 def test_protocol_declares_it_is_frozen_with_a_timestamp(protocol):
-    """The protocol states its own freeze status, version and RFC3339 timestamp."""
+    """The protocol states its own freeze status, version and RFC3339 timestamp.
+
+    The version assertion follows the active protocol line (DATA-31/DATA-43):
+    on this line the active file is v1.3; the v1.4 amendment record stays on
+    disk alongside and is registered in the version table.
+    """
     assert protocol["frozen"] is True
     assert protocol["protocol_version"].startswith("1.3")
     frozen_at = protocol["frozen_at"]
@@ -91,54 +96,61 @@ def test_every_superseded_protocol_is_kept_unchanged_on_disk():
 
 
 @pytest.mark.unit
-def test_the_active_protocol_is_v1_3_and_v1_1_and_v1_2_still_verify():
-    """Switching the active protocol must not disturb the frozen ones.
+def test_the_active_protocol_is_v1_3_and_v1_4_landed_and_superseded_still_verify():
+    """Landing the v1.4 amendment record must not disturb the frozen files.
 
-    DATA-31 switched the active protocol to v1.3. v1.1 and v1.2 must still
-    verify against their sidecars, byte for byte, because the amendment rule
-    forbids touching a frozen file: if they have drifted, a test fails before
-    any production code runs.
+    DATA-43 lands v1.4 (the §17 "crashed runs do not touch" clarification)
+    on the v1.3 line: v1.4 + sidecar travel byte-identical from the reviewed
+    DATA-41 commit and verify against their sidecar, while v1.3 stays the
+    active protocol and v1.1/v1.2 stay byte-frozen, each verifiable against
+    its own sidecar — the amendment rule forbids touching a frozen file.
     """
     report = verify_protocol_freeze(PROTOCOL_PATH, PROTOCOL_SHA256_PATH)
     assert report["path"].endswith("protocol_v1.3.yaml")
     assert report["matches"], report
 
-    previous = verify_protocol_freeze(
-        CONFIGS_DIR / "protocol_v1.1.yaml", CONFIGS_DIR / "protocol_v1.1.sha256"
+    v1_4 = verify_protocol_freeze(
+        CONFIGS_DIR / "protocol_v1.4.yaml", CONFIGS_DIR / "protocol_v1.4.sha256"
     )
-    assert previous["matches"], "v1.1 must be untouched: its sidecar still matches"
+    assert v1_4["matches"], "v1.4 must verify against its own sidecar"
 
-    v1_2 = verify_protocol_freeze(
-        CONFIGS_DIR / "protocol_v1.2.yaml", CONFIGS_DIR / "protocol_v1.2.sha256"
-    )
-    assert v1_2["matches"], "v1.2 must verify against its own sidecar"
+    for name in (
+        "protocol_v1.1.yaml",
+        "protocol_v1.2.yaml",
+    ):
+        previous = verify_protocol_freeze(
+            CONFIGS_DIR / name, CONFIGS_DIR / name.replace(".yaml", ".sha256")
+        )
+        assert previous["matches"], f"{name} must be untouched: its sidecar still matches"
 
 
 @pytest.mark.unit
-def test_v1_2_records_the_digest_of_the_version_it_supersedes():
-    """The superseded file's identity is recorded in the file that moves forward."""
-    v1_2 = yaml.safe_load((CONFIGS_DIR / "protocol_v1.2.yaml").read_text(encoding="utf-8"))
-    previous = v1_2["freeze_evidence"]["previous_version"]
-    assert previous["protocol_version"] == "1.1.0"
+def test_v1_3_records_the_digest_of_the_version_it_supersedes(protocol):
+    """The superseded file's identity is recorded in the file that moves forward.
+
+    The active protocol on this line is v1.3; v1.3 records v1.2's digest and
+    v1.2 still records v1.1's. The v1.4 amendment record's chain link
+    (v1.2 → 32c57f6e…) is asserted by test_v1_4_*. The DATA-41 file is
+    frozen and was not touched by the merge.
+    """
+    previous = protocol["freeze_evidence"]["previous_version"]
+    assert previous["protocol_version"] == "1.2.0"
     recorded = previous["sha256"]
     actual = hashlib.sha256(
-        (CONFIGS_DIR / "protocol_v1.1.yaml").read_bytes()
+        (CONFIGS_DIR / "protocol_v1.2.yaml").read_bytes()
     ).hexdigest()
     assert recorded == actual
 
 
 @pytest.mark.unit
-def test_v1_3_records_the_digest_of_the_version_it_supersedes():
-    """The amendment rule applies to v1.3 too: it must cite v1.2's identity."""
-    v1_3 = yaml.safe_load((CONFIGS_DIR / "protocol_v1.3.yaml").read_text(encoding="utf-8"))
-    previous = v1_3["freeze_evidence"]["previous_version"]
+def test_v1_4_amendment_records_its_supersession_link():
+    """v1.4's move-forward record cites v1.2's identity byte-for-byte."""
+    v1_4 = yaml.safe_load((CONFIGS_DIR / "protocol_v1.4.yaml").read_text(encoding="utf-8"))
+    previous = v1_4["freeze_evidence"]["previous_version"]
     assert previous["protocol_version"] == "1.2.0"
     assert previous["sha256"] == hashlib.sha256(
         (CONFIGS_DIR / "protocol_v1.2.yaml").read_bytes()
     ).hexdigest()
-    # And v1.2 itself still cites v1.1: nothing in v1.3 was allowed to edit v1.2.
-    v1_2 = yaml.safe_load((CONFIGS_DIR / "protocol_v1.2.yaml").read_text(encoding="utf-8"))
-    assert v1_2["freeze_evidence"]["previous_version"]["protocol_version"] == "1.1.0"
 
 
 @pytest.mark.unit

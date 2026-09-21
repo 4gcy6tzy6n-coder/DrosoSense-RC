@@ -13,13 +13,11 @@ Run AFTER build_olfactory_connectome.py:
 
 import argparse
 import json
-import random
 import sys
 from collections import deque
 from pathlib import Path
 from itertools import product
 
-import networkx as nx
 import numpy as np
 import scipy.sparse as sp
 from scipy.sparse.csgraph import connected_components
@@ -91,7 +89,7 @@ def spectral_radius(adj_ud):
 
 def bfs_path_stats(adj_ud, N, rng_seed, bfs_nodes=200, max_paths=2_000_000):
     """BFS-based path length statistics (undirected, unweighted)."""
-    rng = random.Random(rng_seed)
+    rng = __import__("random").Random(rng_seed)
     bfs_roots = rng.sample(list(range(N)), k=min(bfs_nodes, N))
 
     # Build adjacency list (undirected)
@@ -200,7 +198,7 @@ def main():
     # Path length via BFS sampling
     print(f"Computing path length via BFS ({BFS_NODES} roots, cap {MAX_PATHS:,} paths) ...",
           file=sys.stderr)
-    rng = random.Random(RNG_SEED)
+    rng = __import__("random").Random(RNG_SEED)
     bfs_result = bfs_path_stats(adj_ud, N, RNG_SEED, BFS_NODES, MAX_PATHS)
     if bfs_result:
         stats["olfactory_avg_path_length"] = bfs_result["avg_path_length"]
@@ -213,67 +211,6 @@ def main():
               f"N_paths={bfs_result['avg_path_length_N']:,})", file=sys.stderr)
     else:
         stats["olfactory_avg_path_length"] = None
-
-    # Clustering coefficient (undirected, weighted) — use sampling for large graphs
-    print("Computing clustering coefficient (sampling 2000 nodes) ...", file=sys.stderr)
-    try:
-        # Sample 2000 nodes for clustering (full graph O(N) per node is too expensive)
-        rng2 = random.Random(RNG_SEED)
-        sample_nodes = rng2.sample(list(range(N)), k=min(2000, N))
-        G_ud = nx.Graph()
-        adj_coo = adj_ud.tocoo()
-        for i, j in zip(adj_coo.row, adj_coo.col):
-            if i != j:
-                G_ud.add_edge(i, j)
-        # Average clustering on sampled subgraph
-        clust_values = []
-        for node in sample_nodes:
-            if node in G_ud:
-                nb = list(G_ud.neighbors(node))
-                if len(nb) < 2:
-                    continue
-                # Local clustering
-                neighbors_set = set(nb)
-                possible = len(nb) * (len(nb) - 1)
-                if possible == 0:
-                    continue
-                actual = sum(1 for u in nb for v in nb if u < v and v in neighbors_set and G_ud.has_edge(u, v))
-                clust_values.append(actual / possible)
-        stats["olfactory_clustering"] = float(np.mean(clust_values)) if clust_values else 0.0
-        print(f"  clustering = {stats['olfactory_clustering']:.6f} (sampled {len(clust_values)} nodes)", file=sys.stderr)
-    except Exception as e:
-        stats["olfactory_clustering"] = None
-        print(f"  clustering FAILED: {e}", file=sys.stderr)
-
-    # Assortativity (undirected, degree Pearson)
-    print("Computing assortativity ...", file=sys.stderr)
-    try:
-        G_ud2 = nx.Graph()
-        adj_coo2 = adj_ud.tocoo()
-        for i, j in zip(adj_coo2.row, adj_coo2.col):
-            if i != j:
-                G_ud2.add_edge(i, j)
-        stats["olfactory_assortativity"] = float(nx.degree_assortativity_coefficient(G_ud2))
-        print(f"  assortativity = {stats['olfactory_assortativity']:.6f}", file=sys.stderr)
-    except Exception as e:
-        stats["olfactory_assortativity"] = None
-        print(f"  assortativity FAILED: {e}", file=sys.stderr)
-
-    # Modularity via Louvain (undirected, using networkx 3.6.1)
-    print("Computing modularity ...", file=sys.stderr)
-    try:
-        G_ud3 = nx.Graph()
-        adj_coo3 = adj_ud.tocoo()
-        for i, j in zip(adj_coo3.row, adj_coo3.col):
-            if i != j:
-                G_ud3.add_edge(i, j)
-        communities = nx.algorithms.community.louvain_communities(G_ud3, seed=RNG_SEED)
-        partition = {node: i for i, comm in enumerate(communities) for node in comm}
-        stats["olfactory_modularity"] = float(nx.algorithms.community.modularity(G_ud3, communities))
-        print(f"  modularity = {stats['olfactory_modularity']:.6f} ({len(communities)} communities)", file=sys.stderr)
-    except Exception as e:
-        stats["olfactory_modularity"] = None
-        print(f"  modularity FAILED: {e}", file=sys.stderr)
 
     # Update meta JSON
     if META_JSON.exists():
