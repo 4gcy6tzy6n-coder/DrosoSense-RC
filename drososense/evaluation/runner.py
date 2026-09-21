@@ -275,10 +275,14 @@ def run_benchmark(
     # test_touched_once: a (test split, model, task) triple may be evaluated once.
     # Re-scoring saved predictions for another metric is not a new touch; fitting
     # the model again on the same test split under a different configuration is.
+    # Protocol v1.4 §17: only a run that actually scored the split (status == ok)
+    # occupies the (dataset, model, task, seed, fold) quota; a crashed/errored run
+    # never produced test evidence and is not a touch. The filter mirrors
+    # `test_touched_once_report` in drososense/evaluation/results.py.
     prior_touches: dict[str, str] = {}
     if config.enforce_test_touched_once:
         for prior in load_records(raw_dir):
-            if prior.test_fingerprint:
+            if prior.test_fingerprint and prior.status == "ok":
                 prior_touches.setdefault(prior.test_fingerprint, prior.config_hash)
 
     for window_length in config.window_lengths:
@@ -328,7 +332,7 @@ def run_benchmark(
                                 f"test_touched_once violated: {config.dataset_id} "
                                 f"fold {fold.fold_id} seed {seed} was already evaluated for "
                                 f"{model_id}/{task} under config {prior}, and is now being "
-                                f"re-evaluated under {run_config_hash}. protocol v1.1 "
+                                f"re-evaluated under {run_config_hash}. protocol v1.4 "
                                 f"§17 forbids re-fitting on a test split already touched; "
                                 f"a changed protocol requires a new version file, not a re-run."
                             )

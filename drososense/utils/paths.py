@@ -39,6 +39,9 @@ PROTOCOL_V1_2_PATH: Path = CONFIGS_DIR / "protocol_v1.2.yaml"
 # could not resolve a dataset name and its decisive p-value was pseudoreplicated.
 # v1.1 stays on disk, unchanged, with its own sidecar still matching, so every
 # result produced under it remains attributable to the text that produced it.
+# DATA-43: the DATA-41 active-protocol switch moves PROTOCOL_PATH to v1.4;
+# the v1.4 file records the §17 "crash does not count as a touch" clarification.
+PROTOCOL_V1_4_PATH: Path = CONFIGS_DIR / "protocol_v1.4.yaml"
 PROTOCOL_PATH: Path = PROTOCOL_V1_2_PATH
 
 # A protocol cannot contain its own hash. The digest of the frozen YAML lives in
