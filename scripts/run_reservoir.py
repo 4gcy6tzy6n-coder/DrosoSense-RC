@@ -376,6 +376,11 @@ def main(argv: list[str] | None = None) -> int:
                     "params": params,
                     "n_train": int(X_train.shape[0]),
                     "n_test": int(X_test.shape[0]),
+                    # Single-fold record: the 75/25 split is fold 0 of this run.
+                    # e2_stats pairs on fold_id; keeping it explicit here means
+                    # a future multi-fold run file can be merged in without
+                    # changing the record schema.
+                    "fold_id": 0,
                 }
                 run_payload["config_hash"] = config_hash(run_payload)
                 started = time.time()
@@ -396,10 +401,27 @@ def main(argv: list[str] | None = None) -> int:
                     per_run.append(run_payload)
                     continue
                 elapsed = time.time() - started
+                # Score every metric the protocol declares for this task, not
+                # just accuracy: the pre-registered contrasts (R0_vs_R2, etc.)
+                # are read on the PRIMARY metric (macro_f1 for classification,
+                # mae for regression), and an analysis that only has accuracy
+                # cannot produce a single gate row. These values are computed
+                # with the same function the frozen protocol's runner uses
+                # (drososense.evaluation.metrics.classification_metrics), so
+                # they cannot silently diverge from the protocol definition.
+                from drososense.evaluation.metrics import classification_metrics
+                y_true_arr = np.asarray(y_test).reshape(-1)
+                y_pred_arr = np.asarray(preds).reshape(-1)
+                n_classes = int(y_true_arr.max() + 1)
+                class_metrics = classification_metrics(y_true_arr, y_pred_arr, n_classes=n_classes)
                 run_payload.update(
                     {
                         "status": "ok",
                         "accuracy": accuracy,
+                        "macro_f1": class_metrics["macro_f1"],
+                        "balanced_accuracy": class_metrics["balanced_accuracy"],
+                        "auroc": class_metrics["auroc"],
+                        "auroc_defined": class_metrics.get("auroc_defined", False),
                         "wallclock_seconds": float(elapsed),
                         "n_trainable_parameters": model.n_trainable_parameters(),
                         "frozen_parameters": model.n_frozen_parameters(),
@@ -417,6 +439,7 @@ def main(argv: list[str] | None = None) -> int:
                         "seed": seed,
                         "window_length": window_length,
                         "accuracy": accuracy,
+                        "macro_f1": class_metrics["macro_f1"],
                         "wallclock_seconds": elapsed,
                         "n_trainable_parameters": run_payload["n_trainable_parameters"],
                         "frozen_parameters": run_payload["frozen_parameters"],
@@ -426,7 +449,8 @@ def main(argv: list[str] | None = None) -> int:
     fieldnames = [
         "experiment", "dataset", "model", "task", "seed", "window_length",
         "reservoir_size", "substrate", "normalization", "config_hash",
-        "n_train", "n_test", "status", "accuracy", "wallclock_seconds",
+        "n_train", "n_test", "status", "accuracy", "macro_f1",
+        "balanced_accuracy", "auroc", "auroc_defined", "wallclock_seconds",
         "n_trainable_parameters", "frozen_parameters", "reservoir_sparsity",
         "topology_kind", "topology_n_nodes", "topology_n_edges",
         "topology_spectral_radius", "params",
@@ -441,7 +465,7 @@ def main(argv: list[str] | None = None) -> int:
         write_csv(
             summary_path,
             summary_rows,
-            ["model", "seed", "window_length", "accuracy",
+            ["model", "seed", "window_length", "accuracy", "macro_f1",
              "wallclock_seconds", "n_trainable_parameters", "frozen_parameters"],
         )
     if failures:

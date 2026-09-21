@@ -1,0 +1,110 @@
+{
+  "protocol_file": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-5-a44676bd168b/worktree/configs/protocol_v1.3.yaml",
+  "alpha": 0.05,
+  "bootstrap": {
+    "enabled": true,
+    "n_resamples": 10000,
+    "seed": 20260920,
+    "resample_unit": "fold",
+    "stratification": "seed",
+    "ci_type": "percentile",
+    "ci_level": 0.95,
+    "statistic": "mean_of_cluster_means",
+    "sampling_order": "cluster_after_seed_averaging",
+    "seed_invariance_required": true,
+    "note": "The bootstrap seed is fixed independently of the run seed, so the interval for a given result is reproducible without re-running the experiment. `sampling_order` is amended in v1.2: the seeds are averaged inside each cluster FIRST and the clusters are then resampled. v1.1 drew folds within each seed and averaged the per-seed means afterwards, which made the interval narrow as seeds were added \u2014 measured on ten clusters, 0.018 wide at one seed and 0.0039 at twenty. `seed_invariance_required` states the property as a checkable rule: for a fixed set of per-cluster values, the interval must not change when the same clusters are measured under more seeds.\n"
+  },
+  "primary_test": "cluster_sign_test",
+  "families": [
+    {
+      "id": "F_primary",
+      "tests": [
+        "R0_vs_R2"
+      ],
+      "conditions": []
+    },
+    {
+      "id": "F_secondary_topology",
+      "tests": [
+        "R0_vs_R3",
+        "R0_vs_R4",
+        "R0_vs_R5",
+        "R0_vs_R1"
+      ],
+      "conditions": []
+    },
+    {
+      "id": "F_secondary_baselines",
+      "tests": [
+        "R0_vs_GRU"
+      ],
+      "conditions": []
+    },
+    {
+      "id": "F_lowdata",
+      "tests": [
+        "R0_vs_R4"
+      ],
+      "conditions": [
+        "train10pct",
+        "train25pct",
+        "train50pct",
+        "train75pct"
+      ]
+    },
+    {
+      "id": "F_dropout",
+      "tests": [
+        "R0_vs_R4"
+      ],
+      "conditions": [
+        "dropout_p0.1",
+        "dropout_p0.2",
+        "dropout_p0.3",
+        "dropout_p0.4",
+        "dropout_p0.5"
+      ]
+    },
+    {
+      "id": "F_noise",
+      "tests": [
+        "R0_vs_R4"
+      ],
+      "conditions": [
+        "noise_s0.01",
+        "noise_s0.05",
+        "noise_s0.1",
+        "noise_s0.2"
+      ]
+    },
+    {
+      "id": "F_drift",
+      "tests": [
+        "R0_vs_R4"
+      ],
+      "conditions": [
+        "drift_gain",
+        "drift_offset",
+        "drift_combined"
+      ]
+    },
+    {
+      "id": "F_size",
+      "tests": [
+        "R0_vs_R4"
+      ],
+      "conditions": [
+        "size250",
+        "size500",
+        "size1000",
+        "size2000",
+        "size4000"
+      ]
+    }
+  ],
+  "source_files": [
+    "e2_fixture_demo_per_run.csv"
+  ],
+  "n_records": 21,
+  "note": "Every row is the protocol's pre-registered test, computed on already-scored records. This module never evaluates a model; rows marked 'unpairable' or 'insufficient_data' are reported as such, never imputed."
+}

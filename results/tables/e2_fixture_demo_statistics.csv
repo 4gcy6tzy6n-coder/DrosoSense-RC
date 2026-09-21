@@ -1,0 +1,7 @@
+contrast_id,metric,dataset,task,status,note,family,p_holm
+R0_vs_R2,macro_f1,synthetic_enose,classification,insufficient_data,fewer than 2 paired observations,F_primary,
+R0_vs_R4,macro_f1,synthetic_enose,classification,insufficient_data,fewer than 2 paired observations,F_secondary_topology,
+R0_vs_R3,macro_f1,synthetic_enose,classification,insufficient_data,fewer than 2 paired observations,F_secondary_topology,
+R0_vs_GRU,macro_f1,synthetic_enose,classification,unpairable,"no common scored (seed, fold, window) between R0 (resolved to 'R0_real_fly') and GRU (resolved to 'GRU')",,
+R0_vs_R5,macro_f1,synthetic_enose,classification,insufficient_data,fewer than 2 paired observations,F_secondary_topology,
+R0_vs_R1,macro_f1,synthetic_enose,classification,insufficient_data,fewer than 2 paired observations,F_secondary_topology,
