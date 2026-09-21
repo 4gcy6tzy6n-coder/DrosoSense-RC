@@ -1,0 +1,39 @@
+# DrosoSense-RC — frozen conda environment
+#
+# The project was developed and validated on macOS arm64 with CPython 3.12.
+# Exact resolved versions of the validation run are recorded in
+# results/tables/environment.json (written by scripts/summarize.py).
+#
+#   conda env create -f environment.yml
+#   conda activate drososense
+#   python -m pip install -r requirements-dev.txt
+
+name: drososense
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  - numpy>=1.26,<3
+  - pandas>=2.1,<4
+  - scipy>=1.11
+  - scikit-learn>=1.4
+  - pyyaml>=6.0
+  - requests>=2.31
+  - pytest>=8.0
+  - pytest-cov>=5.0
+  - pip
+  - pip:
+      - xgboost>=2.0
+      - torch>=2.2
+
+# ---------------------------------------------------------------------------
+# macOS note — XGBoost requires the OpenMP runtime (libomp).
+#
+#   brew install libomp
+#
+# If you cannot install system packages, `drososense.baselines.registry`
+# reports XGBoost as unavailable and the runner skips it with an explicit
+# reason rather than silently dropping it from the comparison table.
+# ---------------------------------------------------------------------------

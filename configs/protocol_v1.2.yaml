@@ -1,0 +1,1592 @@
+# =============================================================================
+# DrosoSense-RC — FROZEN EXPERIMENTAL PROTOCOL v1.2
+# =============================================================================
+# Project : DrosoSense-RC (Drosophila Sensory Connectome Reservoir Computing)
+# Version : 1.2.0
+# Frozen  : 2026-09-20T08:40:21Z
+# Owner   : DATA-16 (R0 rework, second window: response to the R0.1 review)
+# Supersedes: v1.1.0 (configs/protocol_v1.1.yaml, kept unchanged on disk)
+#
+# WHY THIS VERSION EXISTS. Protocol v1.1 froze a gate engine that could not be
+# opened. The R0.1 statistical review (DATA-18) reproduced v1.1's output bit for
+# bit — 8/8 statistic rows, deltas, intervals and pair counts — and then showed
+# that the DECISION MACHINE around those numbers was broken in two ways that no
+# amount of correct data could fix. Both are corrected here:
+#
+#   C1  The gate expressions name datasets `D1` / `D2` / `D3`, while the contrast
+#       table is keyed by the config ids `d1_beef_controlled` and so on. The
+#       symbol table was built from the dataset values that happened to appear in
+#       the results, so no gate could resolve a dataset name and all eight rules
+#       reported UNEVALUABLE — under a reason ('D2' is not a declared … dataset)
+#       that reads like a missing contrast, which the protocol reserves for a
+#       different situation. §13 and §22 now fix the namespace.
+#
+#   C2  `sig()` read a Wilcoxon p-value computed over n_folds * n_seeds paired
+#       differences. On D2 that is 50 pairs drawn from five specimens measured
+#       ten times: five independent units wearing fifty labels. The delivered
+#       table reported p = 5.45e-13 where the cluster-level exact p is 0.0625,
+#       and Gate_B could be opened by it. §10 replaces the decisive test with an
+#       exact sign test over cluster means, and §13 makes reachability a term of
+#       `sig` rather than a footnote.
+#
+# The scientific claims, contrast list, multiplicity families, margins and model
+# zoo are unchanged from v1.1. What changed is which number decides, and which
+# names the decision reads. Runs completed under v1.1 stay in results/raw
+# labelled protocol_version = 1.1.0 and are neither re-run nor re-interpreted;
+# the M4 connectome contrasts begin under this version.
+#
+# AMENDMENT RECORD: the trigger, the change, and which already-completed runs are
+# affected are stated in `amendment_v1_2` at the end of this file.
+#
+# WHAT THIS FILE INHERITS FROM v1.1. The R0 audit (DATA-11) returned Stage 1 as
+# CONDITIONAL and identified four defects that would have been unrecoverable once
+# real test evaluation started. v1.1 closed all four, and v1.2 keeps every one:
+#
+#   X1  D1 and D2 were bound to each other's DOIs. Corrected in v1.1; the binding
+#       follows the providers' own titles (see `datasets`).
+#   X2  D2 used version 1, whose single 4553-row session has no sample grouping,
+#       and concluded specimen-level splitting was impossible. v1.1 moved it to
+#       version 3, which publishes five beef cuts as five series, and LOSO(5).
+#   C2  Gates and narrative rules were unfalsifiable prose ('~=', '>',
+#       'competitive'). v1.1 made them boolean expressions over a fixed predicate
+#       vocabulary; v1.2 makes them evaluable and makes `sig` unreachable when
+#       alpha is.
+#   C1  The bootstrap resampling unit was named as 'over seeds' — the one unit
+#       that must never be resampled. v1.1 moved it to the fold; v1.2 makes the
+#       interval invariant to the seed count as well.
+#
+# FROZEN means the values in this file may NOT be changed after the first
+# test-set evaluation of a primary experiment. Amendment means a NEW file
+# (protocol_v1.3.yaml) with a written justification; runs produced under this
+# version stay labelled 1.2.0. The digest of this file is recorded in
+# configs/protocol_v1.2.sha256 and checked by `python -m drososense.utils.protocol
+# --check`, so a post-freeze edit is detectable rather than merely discouraged.
+# v1.1's own digest is recorded under `freeze_evidence.previous_version`.
+# =============================================================================
+
+protocol_version: "1.2.0"
+frozen: true
+frozen_at: "2026-09-20T08:40:21Z"
+supersedes: "1.1.0"
+
+# -----------------------------------------------------------------------------
+# 1. FREEZE EVIDENCE  (R0 audit item C3)
+# -----------------------------------------------------------------------------
+# What makes "the protocol was fixed before the data was touched" checkable
+# rather than asserted. `data_contact_log` must still read as untouched: it is
+# the executable form of the freeze rule, and a test fails if it is populated
+# before the gates are opened.
+freeze_evidence:
+  protocol_frozen_at: "2026-09-20T08:40:21Z"
+  protocol_sha256_sidecar: "configs/protocol_v1.2.sha256"
+  previous_version:
+    protocol_version: "1.1.0"
+    frozen_at: "2026-09-20T06:04:51Z"
+    sha256: "b87ed6057962b00e41c175acd7c78f314e552c50e2eecf53174e6156d8f7c0b9"
+    sidecar: "configs/protocol_v1.1.sha256"
+    note: >
+      v1.1 is kept unchanged on disk and its sidecar still matches, so the
+      numbers produced under it remain attributable to the text that produced
+      them. The digest is repeated here because the amendment rule is only
+      checkable if the superseded file's identity is recorded somewhere that
+      moves forward.
+  live_state_rule: >
+    `data_contact_log` below is this file's FREEZE-TIME state and its two fields
+    stay null/empty by design. The live record is results/tables/data_contact_log.json
+    and `python -m drososense.utils.protocol --check` prints BOTH, because a
+    freeze check that reports only the frozen placeholder prints "not started"
+    beside a log that already has entries, which reads as the opposite of the
+    truth (review item H4).
+  self_hash_rule: >
+    The digest of this file is written to the sidecar rather than embedded,
+    because a file cannot contain its own hash. Editing this file after freezing
+    changes the digest and makes `verify_protocol_freeze()` fail.
+  data_contact_log:
+    first_test_evaluation_at: null
+    datasets_touched: []
+    live_log: "results/tables/data_contact_log.json"
+    note: >
+      These two fields are the freeze-time values and stay null/empty in this
+      file; the LIVE record is written by the runner to
+      results/tables/data_contact_log.json, because recording the event inside a
+      frozen file would invalidate its digest exactly when the freeze starts to
+      matter. A run counts as test contact only when it is real observed data on
+      a split that satisfies split_unit: specimen — so fixture runs and D1's
+      time-block stand-in never count, and a benchmark run on D2 or D3 does.
+      See drososense/evaluation/contact_log.py.
+  freeze_policy:
+    immutable_fields:
+      - split_unit
+      - split_protocol
+      - seeds
+      - tasks
+      - classification_metrics.primary
+      - regression_metrics.primary
+      - contrasts
+      - primary_hypothesis
+      - secondary_hypotheses
+      - statistical_tests
+      - multiplicity
+      - equivalence
+      - gates
+      - narrative_adjustment_rules
+      - preprocessing
+      - pairing
+      - excluded_specimen_criteria
+    mutable_with_justification:
+      - window.length_candidates   # length is SELECTED on validation, not on test
+      - model_hyperparameters      # tuned per-model on validation only
+    forbidden:
+      - changing the primary metric after observing test results
+      - changing the primary hypothesis after observing test results
+      - adding or removing specimens after observing test results
+      - adding an excluded_specimen_criterion after observing test results
+      - reporting a metric that was selected on the test set
+      - reporting any contrast that is not enumerated in `contrasts`
+    amendment_rule: >
+      A protocol amendment requires a new file configs/protocol_v{N+1}.yaml that
+      keeps this file unchanged, states the trigger, the change, and which
+      already-completed runs are re-run. Runs completed under v1.1 stay in
+      results/raw and are labelled protocol_version = 1.1.0.
+
+# -----------------------------------------------------------------------------
+# 2. SCOPE BOUNDARIES (anti-overclaim guards)
+# -----------------------------------------------------------------------------
+scope_boundaries:
+  current_claims_allowed:
+    - "A reproducible, leakage-audited specimen-level food-sensing benchmark exists."
+    - "Classical and sequence baselines are compared under an identical split/scaling protocol."
+    - "Data availability, licensing and specimen provenance for D1/D2/D3 are reported transparently."
+  current_claims_forbidden:
+    - "Any claim that a connectome reservoir outperforms, or is competitive with, baselines."
+    - "Any claim about biological topology as an inductive bias."
+    - "Any claim based on synthetic fixture results presented as experimental evidence."
+    - "Any claim based on a run whose record carries protocol_compliant: false."
+  safe_claim_wording: >
+    We investigate whether a Drosophila olfactory connectome can serve as a
+    fixed sparse computational substrate for lightweight food-quality sensing.
+  upgrade_condition: >
+    The stronger claim ("The biological topology provides a useful inductive
+    bias under limited-data and sensor-degraded conditions.") may only be used
+    after Gate_B evaluates to true under the expressions below.
+
+# -----------------------------------------------------------------------------
+# 3. SPLIT PROTOCOL  (red line — no row-level splitting, ever)
+# -----------------------------------------------------------------------------
+split_unit: specimen
+split_protocol:
+  forbidden:
+    - "sklearn.model_selection.train_test_split applied to rows"
+    - "KFold / ShuffleSplit / StratifiedKFold over rows"
+    - "any split where one specimen_id appears in more than one of train/val/test"
+  required:
+    - "All timesteps of a specimen stay together in exactly one split."
+    - "Windows are constructed inside a specimen AND inside a single acquisition session."
+    - "Class balance is checked AFTER the split and reported; it is never fixed by moving specimens."
+  grouping_variable: specimen_id
+  session_variable: session_id
+  session_rule: >
+    A session is one uninterrupted acquisition block. The session boundary is a
+    second red line, because a specimen measured on seven storage days has seven
+    different TVC values; a window straddling two of them would carry channels
+    from one occasion and a label from another. Both boundaries are audited from
+    the produced windows (drososense.data.leakage.audit_windows runs on the
+    specimen key and again on the session key).
+  strategies:
+    group_kfold:
+      description: >
+        Specimen identifiers are permuted with numpy.random.default_rng(seed),
+        then partitioned into `n_splits` contiguous blocks. For block i:
+        test = block i, val = block (i+1) mod n_splits, train = the rest. The
+        permutation makes the partition seed-dependent while remaining exactly
+        reproducible; no two blocks share a specimen.
+      default_n_splits: 5
+    loso:
+      description: >
+        Leave-One-Specimen-Out. Each specimen is the test set exactly once;
+        validation is the next specimen in the seeded permutation.
+      use_when: "n_specimens <= 10, or when the reviewer asks for the exhaustive variant"
+    time_block_holdout:
+      description: >
+        Contiguous time blocks of a single continuous session, used ONLY for a
+        dataset that publishes no sample identifier. NOT protocol-compliant;
+        every run record produced with it carries protocol_compliant: false.
+      use_when: "D1 only. Never for a Gate evaluation."
+  per_dataset:
+    D1:
+      strategy: time_block_holdout
+      n_splits: 5
+      protocol_compliant: false
+      # D1 publishes no sample identifier at all, so there is nothing whose
+      # independence could be verified. The time block is a documented stand-in.
+      group_semantics_verified: false
+    D2:
+      strategy: loso
+      n_splits: 5
+      protocol_compliant: true
+      # The provider states "five beef cuts" and nothing further: not whether
+      # the cuts are from the same animal, not which primal, not whether they
+      # are independent biological samples. `specimen.source: series_file` is
+      # therefore a claim about the FILE structure, not about biology, and the
+      # flag stays false until the provider says otherwise (review item H1).
+      group_semantics_verified: false
+      group_semantics_detail: >
+        LOSO(5) removes one source file at a time, which is the strongest split
+        the published data supports. It does NOT license the phrase
+        "specimen-level" as a biological claim.
+    D3:
+      strategy: group_kfold
+      n_splits: 5
+      protocol_compliant: true
+      # 62 fillets identified by a published filename token, each measured on
+      # 1-7 storage days. The grouping is verifiable from the filenames.
+      group_semantics_verified: true
+      label_stratum: day
+      label_stratum_detail: >
+        D3's endpoint is not a continuous measurement: TVC takes exactly seven
+        values, one per storage day, so every one of the 25,080 rows carries one
+        of seven ground-truth observations and the four-level label is a
+        deterministic function of which day the row came from. `day` is a
+        session and leakage boundary AND the endpoint stratum; any n, df,
+        confidence interval or bootstrap resampling unit reported on D3 must
+        state how it relates to those seven levels (review item H2). The seven
+        levels cap the endpoint degrees of freedom at 7.
+  cluster_count_rule: >
+    The decisive test is taken over clusters, and a cluster is the held-out
+    block whose data actually enters the difference: one LOSO fold (one
+    specimen) or one GroupKFold block. Its size is `n_splits` in this table and
+    it never grows with the seed count, because seeds re-partition the same
+    specimens. `minimum_achievable_p_over_clusters` is therefore a DESIGN
+    property of a dataset, not a property of a result.
+  power_note: >
+    D2 has five specimens, so its five LOSO folds are five independent clusters
+    and the exact two-sided minimum p over five clusters is 2/2^5 = 0.0625 —
+    above alpha. A significant specimen-level result is therefore NOT reachable
+    on D2 alone, and D2 is reported as underpowered rather than as evidence of no
+    effect. This is recorded here, before any result exists, precisely so it
+    cannot later be presented as a finding.
+  reachability_note: >
+    v1.1 stated that arithmetic in this section and then contradicted it in §13,
+    where Gate_B and Gate_C both depend on `sig(...)` terms on D2 and D3. The
+    same arithmetic applies to D3 at n_splits = 5: its floor is also 0.0625, so
+    every `sig` term those gates rest on is unreachable as the experiment is
+    currently configured. v1.2 does NOT silently retune the split to rescue the
+    gates — that would be choosing the test after seeing what it can reach.
+    Instead the reachability is made explicit (see `gate_reachability` in §13)
+    and the decision it forces is left to the project owner, with the numbers:
+    a dataset needs at least `clusters_needed_for_alpha(0.05) = 6` clusters
+    before a significant cluster-level result is arithmetically reachable at
+    all, and a dataset with exactly n clusters can only ever report p >= 2/2^n.
+  reachability_examples:
+    - {n_clusters: 5, minimum_p: 0.0625, alpha_reachable: false}
+    - {n_clusters: 6, minimum_p: 0.03125, alpha_reachable: true}
+    - {n_clusters: 10, minimum_p: 0.001953125, alpha_reachable: true}
+
+# -----------------------------------------------------------------------------
+# 4. SEEDS, REPETITION AND RNG HIERARCHY  (R0 audit item M6)
+# -----------------------------------------------------------------------------
+seeds:
+  root_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  primary_seed_count: 10
+  extension_to: 20
+  extension_rule: >
+    Seeds 10..19 may be added only as a whole block and only if compute permits;
+    results computed over 10 and over 20 seeds are reported separately and never
+    pooled.
+  derive_fn: >
+    numpy.random.SeedSequence(root_seed).spawn(4) — one child per stage, in the
+    fixed order [split, graph, input_mapping, readout]. A stage's seed is
+    therefore a pure function of the root seed, so re-running one stage does not
+    perturb another.
+  rng_hierarchy:
+    split: "child 0 of SeedSequence(root_seed)"
+    graph: "child 1 — connectome sub-sampling and any rewiring"
+    input_mapping: "child 2 — W_in initialisation"
+    readout: "child 3 — readout initialisation and any stochastic solver"
+  seed_role: >
+    A seed controls (a) the specimen permutation used by the split and (b) every
+    stochastic component of the model. Splits therefore differ across seeds,
+    which is the intended source of variance. Because seeds share specimens, a
+    seed is NOT an independent replicate of specimen sampling and is never
+    resampled (see `pairing`).
+  deterministic_models_note: >
+    Deterministic models (SVM-RBF, PCA+SVM, Ridge readouts) are still evaluated
+    on all 10 seeds, because the seed changes the SPLIT, not just the weights.
+
+# -----------------------------------------------------------------------------
+# 5. TASKS AND METRICS  (primary metric is frozen)
+# -----------------------------------------------------------------------------
+tasks:
+  classification:
+    label_column: freshness_class
+    label_names: [Excellent, Good, Acceptable, Spoiled]
+    n_classes: 4
+    label_provenance: >
+      The four-level label is a TVC-threshold discretisation on every dataset.
+      On D2 the names are the provider's own words; on D1 the provider ships
+      integers 1..4 with no names and the names are the project's; on D3 the
+      provider ships only Fresh/Spoiled and the four levels are derived at
+      trout-specific thresholds. Per-dataset provenance is in the dataset configs
+      and is repeated in every table that reports a class-level number.
+    metrics:
+      primary: macro_f1
+      secondary: [balanced_accuracy, auroc, accuracy]
+      direction: maximize
+      auroc:
+        scheme: macro_ovr
+        averaging: "unweighted mean of the one-vs-rest AUROC over all four classes"
+        empty_class_policy: require_all_classes
+        empty_class_policy_detail: >
+          AUROC is defined ONLY when all four classes are present in the test
+          split. Otherwise the fold's AUROC is null and `auroc_n_classes_scored`
+          is 0. A partial average over two or three classes is a different
+          quantity under the same name and is never reported; the number of
+          folds with an undefined AUROC is reported alongside the mean so the
+          loss of coverage is visible. (R0 audit item X5: v1 declared four
+          classes and the implementation averaged over two or three.)
+      macro_f1_empty_class_policy: >
+        macro-F1 is always scored over the fixed label set 0..3 with
+        zero_division=0, so a class absent from a fold contributes F1 = 0 rather
+        than removing itself from the average. The value is therefore always
+        defined and always four-class.
+    primary_metric_direction: maximize
+  regression:
+    label_column: tvc
+    definition: "Total Viable Count, log10 CFU/g (see dataset manifests for the exact unit)."
+    metrics:
+      primary: mae
+      secondary: [rmse, r2]
+    primary_metric_direction: minimize
+    direction: minimize
+
+co_primary_policy:
+  policy: both_required_no_alpha_split
+  detail: >
+    macro-F1 and MAE are co-primary and are declared together. A dataset's
+    headline result requires the declared effect to be in the pre-registered
+    direction on BOTH, each evaluated inside its own multiplicity family at
+    alpha = 0.05 with no alpha split. If only one holds, the result is reported
+    as partial and the claim is restricted to that task; the other is reported as
+    not supported rather than as a trend.
+  independence_caveat: >
+    The class label is a threshold of TVC on every dataset, so the two co-primary
+    metrics are two views of one variable and are never counted as two
+    independent pieces of evidence.
+
+reporting:
+  format: "mean +/- SD across seeds"
+  include: [n_seeds, n_specimens, n_sessions, n_windows, n_clusters, per_seed_values]
+  confidence_interval: >
+    95% CI from the paired bootstrap declared in `statistical_tests.bootstrap`.
+    The resampling unit is the fold, never the seed.
+
+# -----------------------------------------------------------------------------
+# 6. PREPROCESSING (fitted on TRAIN ONLY — enforced by unit tests)
+# -----------------------------------------------------------------------------
+preprocessing:
+  normalization:
+    formula: "x' = (x - mu_train) / (sigma_train + eps)"
+    eps: 1.0e-8
+    fit_scope: train_split_only
+    per: feature_channel
+    save_artifact: "scaler.pkl (joblib) alongside the split, per fold and per seed"
+    forbidden:
+      - "fitting the scaler on train+val"
+      - "fitting the scaler on train+test"
+      - "refitting the scaler per batch, per window, or per specimen"
+  windowing:
+    enabled: true
+    length_candidates: [8, 16, 32, 64]
+    stride: 1
+    selection: "validation macro_f1 (classification) / validation MAE (regression), per model family"
+    boundary_rule: >
+      A window is discarded, not padded, if it does not fit inside one specimen
+      or inside one session.
+    forbidden:
+      - "a window containing timesteps from two different specimens"
+      - "a window containing timesteps from two different acquisition sessions"
+      - "selecting the window length on the test set"
+  missing_values:
+    policy: reject
+    note: "Rows with missing sensor channels are dropped at load time and the count is recorded in the manifest check report."
+
+# -----------------------------------------------------------------------------
+# 7. CONTRASTS  (every comparison the project may report; R0 audit item H1)
+# -----------------------------------------------------------------------------
+# A contrast id is a first-class object. Multiplicity families, gates and the
+# narrative rules all reference these ids, so a comparison cannot be introduced
+# after the results are seen without editing this list — which changes the file
+# digest and breaks the freeze check.
+contrasts:
+  primary: R0_vs_R2
+  list:
+    - id: R0_vs_R2
+      first: R0
+      second: R2
+      role: primary
+      note: "Real olfactory connectome vs degree-preserving rewired control."
+    - id: R0_vs_R4
+      first: R0
+      second: R4
+      role: secondary
+      note: "Real connectome vs matched echo-state network."
+    - id: R0_vs_R3
+      first: R0
+      second: R3
+      role: secondary
+      note: "Real connectome vs random sparse reservoir."
+    - id: R0_vs_GRU
+      first: R0
+      second: GRU
+      role: secondary
+      note: "Real connectome vs tuned GRU."
+    - id: R0_vs_R5
+      first: R0
+      second: R5
+      role: secondary
+      note: "Real connectome vs small-world control."
+    - id: R0_vs_R1
+      first: R0
+      second: R1
+      role: secondary
+      note: "Real connectome vs weight-shuffled control."
+
+# -----------------------------------------------------------------------------
+# 8. PAIRING AND RESAMPLING  (R0 audit item C1)
+# -----------------------------------------------------------------------------
+pairing:
+  unit: "(seed, fold)"
+  detail: >
+    One observation is a paired difference on one (seed, fold) evaluation: both
+    models see the identical tensor, the identical train-only scaler and the
+    identical split, so the difference isolates the model.
+  pairing_key: [dataset, window_length, seed, fold_id]
+  resample_unit: fold
+  resample_unit_detail: >
+    The bootstrap resamples FOLD IDENTIFIERS — the specimen-disjoint test blocks
+    whose metrics actually enter the difference. It never resamples seeds: ten
+    seeds on one specimen partition are ten model initialisations, not ten draws
+    of specimens, and bootstrapping them produces an interval that is too narrow
+    to support any claim about new food samples. For LOSO a fold is a single
+    specimen, so the fold bootstrap IS a specimen bootstrap.
+  stratification: seed
+  stratification_detail: >
+    Seeds are averaged INSIDE each cluster before the clusters are resampled, and
+    only the clusters are drawn. v1.1 resampled folds within each seed and
+    averaged the per-seed means afterwards; because each seed's resample was
+    drawn independently, every extra seed divided the interval's variance, so the
+    interval narrowed from 0.018 to 0.0039 across one to twenty seeds on ten
+    clusters — precision bought from a unit that carries no new specimens. With
+    the seeds averaged first, the interval is driven by cluster-to-cluster
+    variation alone and is invariant to the seed count. This is the interval-side
+    counterpart of §10's move to a cluster-level decisive test; leaving the
+    interval on the old estimator would have kept Gate_A — which is decided
+    entirely by `ci_contains_zero` and `noninferior` — openable by adding seeds.
+  n_pairs_formula: "n_folds * n_seeds"
+  n_clusters_formula: "n_folds"
+  reported_alongside: [n_pairs, n_clusters, n_seeds, n_nonzero]
+  minimum_reported_clusters: 5
+  matching_requirements:
+    - "same split_id (identical fold fingerprint)"
+    - "same W_in initialisation seed (input_mapping child seed)"
+    - "same readout hyperparameters"
+    - "same spectral scaling rule — identical across R0..R6; a differing rule destroys the causal reading of the primary contrast"
+    - "same preprocessing artefacts (the same scaler.pkl)"
+
+# -----------------------------------------------------------------------------
+# 9. HYPOTHESES  (pre-registered, each bound to a contrast id)
+# -----------------------------------------------------------------------------
+primary_hypothesis:
+  id: H1
+  contrast: R0_vs_R2
+  metric: macro_f1
+  datasets: [D2, D3]
+  statement: >
+    On the datasets whose published grouping satisfies split_unit: specimen, the
+    frozen real olfactory connectome reservoir (R0) achieves a higher macro-F1
+    than the degree-preserving rewired control (R2) under identical nodes,
+    matched edge count, matched spectral scaling, identical input mapping,
+    identical readout and identical splits.
+  direction: two_sided
+  alpha: 0.05
+
+secondary_hypotheses:
+  - id: H2
+    contrast: R0_vs_R4
+    metric: macro_f1
+    statement: "R0 achieves higher macro-F1 than an echo-state network (R4) with matched size and edge density."
+  - id: H3
+    contrast: R0_vs_R3
+    metric: macro_f1
+    statement: "R0 achieves higher macro-F1 than a random sparse reservoir (R3) with matched node and edge count."
+  - id: H4
+    contrast: R0_vs_GRU
+    metric: macro_f1
+    statement: "R0 achieves higher macro-F1 than a tuned GRU baseline."
+  - id: H5
+    contrast: R0_vs_R4
+    metric: retention_ratio_10pct
+    statement: >
+      R0 retains a larger fraction of its full-data macro-F1 than R4 at 10% and
+      25% training specimens (low-data robustness).
+  - id: H6
+    contrast: R0_vs_R4
+    metric: macro_f1
+    condition: sensor_dropout
+    statement: "R0 degrades less than R4 under sensor-channel dropout at p_drop in {0.1..0.5}."
+
+exploratory_note: >
+  Any comparison not listed in `contrasts` is exploratory, must be labelled as
+  such in every table and figure caption, and may not be used to support a
+  headline claim.
+
+# -----------------------------------------------------------------------------
+# 10. STATISTICAL TESTS  (R0 audit items C1, H2)
+# -----------------------------------------------------------------------------
+statistical_tests:
+  alpha: 0.05
+  # ---------------------------------------------------------------------------
+  # THE DECISIVE TEST (amended in v1.2; review item C2)
+  # ---------------------------------------------------------------------------
+  # v1.1 made the Wilcoxon over `n_folds * n_seeds` paired differences decisive.
+  # That number is pseudoreplicated: on D2 the 50 pairs are 5 specimens measured
+  # under 10 seeds, so the same five independent units are counted ten times and
+  # the p-value describes a sample that does not exist. On the delivered table it
+  # read p = 5.45e-13 where the cluster-level exact p is 0.0625.
+  #
+  # The decisive test is now taken at the level the claim is about: one mean
+  # paired difference per held-out block, then an exact two-sided sign test over
+  # those means. `minimum_achievable_p_over_clusters` is the floor of THAT test,
+  # which is what makes it a decision input rather than a footnote.
+  primary_test:
+    name: cluster_sign_test
+    applied_to: "one mean paired difference per held-out cluster (fold), seeds averaged within the cluster"
+    statistic: "number of clusters whose mean difference favours the first model"
+    null_hypothesis: "the cluster means are symmetric about zero"
+    alternative: two-sided
+    exact: true
+    zero_handling: >
+      A cluster whose mean difference is exactly zero carries no sign and is
+      dropped; the effective n is `n_clusters_nonzero` and is reported on every
+      line. The zero count is never used to pad n.
+    minimum_p_formula: "2 / 2**n_clusters_nonzero"
+    reachability_rule: >
+      A p-value below alpha is only attainable when
+      `minimum_achievable_p_over_clusters <= alpha`, i.e. when there are at least
+      six non-zero clusters. With five clusters the floor is 0.0625, so a
+      "significant" cluster-level result on such a dataset is arithmetically
+      impossible and any line that reports one is reporting a defect, not a
+      finding.
+    why_not_the_more_powerful_cluster_test: >
+      A cluster-level Wilcoxon or permutation test was considered. The sign test
+      is used because its exact null distribution is a binomial, so the floor can
+      be stated in closed form and checked by `clusters_needed_for_alpha`, and
+      because at five clusters the extra power of a rank-based cluster test is
+      not enough to change any decision: the exact two-sided floor of a sign test
+      over five clusters already exceeds alpha.
+  paired_descriptive_test:
+    name: wilcoxon_signed_rank
+    applied_to: "paired differences, one per (seed, fold) — DESCRIPTIVE ONLY"
+    decisive: false
+    alternative: two-sided
+    zero_method: wilcox
+    correction: false
+    mode: auto
+    note: >
+      Reported beside the decisive test so a reader can see both, and marked
+      descriptive in the column name (`p_paired_wilcoxon`) and in §22. NO gate,
+      narrative rule, multiplicity family or equivalence decision may read it. It
+      is pseudoreplicated by construction: `n_pairs = n_folds * n_seeds`.
+    tie_handling: >
+      zero_method 'wilcox' drops pairs whose difference is exactly zero, so the
+      effective n is n_nonzero and is reported on every line. The zero count is
+      never used to pad n.
+  bootstrap:
+    enabled: true
+    n_resamples: 10000
+    seed: 20260920
+    resample_unit: fold
+    stratification: seed
+    ci_type: percentile
+    ci_level: 0.95
+    statistic: mean_of_cluster_means
+    sampling_order: cluster_after_seed_averaging
+    seed_invariance_required: true
+    note: >
+      The bootstrap seed is fixed independently of the run seed, so the interval
+      for a given result is reproducible without re-running the experiment.
+      `sampling_order` is amended in v1.2: the seeds are averaged inside each
+      cluster FIRST and the clusters are then resampled. v1.1 drew folds within
+      each seed and averaged the per-seed means afterwards, which made the
+      interval narrow as seeds were added — measured on ten clusters, 0.018 wide
+      at one seed and 0.0039 at twenty. `seed_invariance_required` states the
+      property as a checkable rule: for a fixed set of per-cluster values, the
+      interval must not change when the same clusters are measured under more
+      seeds.
+  effect_size:
+    classification: rank_biserial
+    regression: hodges_lehmann
+    report_ci: true
+    selection_key: task
+    note: >
+      A p-value alone is never reported; every line carries delta, its CI, the
+      effect size and the name of the effect size. The choice is keyed on the
+      TASK, never on the metric's spelling: `r2` is a regression metric and takes
+      Hodges-Lehmann even though its name is neither `mae` nor `rmse`. v1.1's
+      implementation tested `metric in ("mae", "rmse")`, which silently sent
+      every `r2` line to the rank-biserial effect size (review item M3). The
+      implementation now reads this field, so the two cannot drift.
+  equivalence:
+    method: tost
+    detail: >
+      Equivalence is decided by interval inclusion: the 95% interval must lie
+      strictly inside the margin. 'No significant difference' is NEVER reported
+      as equivalence — that would be accepting a null, which is the error the R0
+      audit flagged.
+    decision_basis: interval_inclusion
+    reported_p_value:
+      column: tost_proxy_p
+      is_a_tost_p_value: false
+      note: >
+        The number published beside the equivalence verdict is a conservative
+        PROXY, not the maximum of two one-sided p-values: it is 0.0 whenever the
+        interval fits inside the margin and an alpha-scaled miss otherwise.
+        v1.1 called it `equivalence_p`, which invited a reader to treat it as a
+        significance level; the verdict, not the proxy, is what decides (review
+        item M4).
+    cluster_count_disclosure: >
+      The interval is the fold-cluster percentile bootstrap, so the number of
+      clusters behind an equivalence decision is `n_clusters`, and it is reported
+      on the same line as the verdict. This is a disclosure and NOT a threshold:
+      v1.2 does not add a minimum cluster count for accepting equivalence,
+      because `pairing.minimum_reported_clusters` is a reporting rule and
+      reusing it as a decision rule would change what it means. The weakness is
+      stated instead of enforced — a percentile interval over five clusters is a
+      thin basis for an equivalence claim, and a reader must be able to see that
+      the claim rests on five units.
+  assumption_failure: >
+    If fewer than 6 non-zero pairs remain, the pair-level sign test is
+    substituted for the pair-level Wilcoxon, the substitution is recorded in the
+    result row, and the affected comparison is marked underpowered. This affects
+    the DESCRIPTIVE column only: the decisive cluster-level sign test is not
+    substituted, because it is already a sign test.
+
+# -----------------------------------------------------------------------------
+# 11. EQUIVALENCE MARGINS  (numeric, in each metric's own units; R0 item C2)
+# -----------------------------------------------------------------------------
+equivalence:
+  enabled: true
+  method: tost
+  margins:
+    macro_f1: 0.02
+    balanced_accuracy: 0.02
+    accuracy: 0.02
+    auroc: 0.02
+    mae: 0.05
+    rmse: 0.05
+    r2: 0.05
+  rationale: >
+    The classification margins are 2 absolute macro-F1 points and the regression
+    margins 0.05 log10 CFU/g. Both are the smallest differences this project is
+    willing to call meaningful, fixed before any result existed. They are used in
+    two places only: the TOST equivalence decision, and Gate_A's non-inferiority
+    term.
+
+# -----------------------------------------------------------------------------
+# 12. MULTIPLICITY FAMILIES  (enumerated; R0 audit item H1)
+# -----------------------------------------------------------------------------
+multiplicity:
+  method: holm
+  alpha: 0.05
+  families:
+    - id: F_primary
+      alpha: 0.05
+      tests: [R0_vs_R2]
+      note: "A single pre-registered primary comparison; no correction applies, and none is claimed."
+    - id: F_secondary_topology
+      alpha: 0.05
+      tests: [R0_vs_R3, R0_vs_R4, R0_vs_R5, R0_vs_R1]
+      note: "Topology controls within one dataset and condition."
+    - id: F_secondary_baselines
+      alpha: 0.05
+      tests: [R0_vs_GRU]
+    - id: F_lowdata
+      alpha: 0.05
+      tests: [R0_vs_R4]
+      conditions: [train10pct, train25pct, train50pct, train75pct]
+      note: "E3. One family across the four fractions, not one family per fraction."
+    - id: F_dropout
+      alpha: 0.05
+      tests: [R0_vs_R4]
+      conditions: [dropout_p0.1, dropout_p0.2, dropout_p0.3, dropout_p0.4, dropout_p0.5]
+    - id: F_noise
+      alpha: 0.05
+      tests: [R0_vs_R4]
+      conditions: [noise_s0.01, noise_s0.05, noise_s0.1, noise_s0.2]
+    - id: F_drift
+      alpha: 0.05
+      tests: [R0_vs_R4]
+      conditions: [drift_gain, drift_offset, drift_combined]
+    - id: F_size
+      alpha: 0.05
+      tests: [R0_vs_R4]
+      conditions: [size250, size500, size1000, size2000, size4000]
+  family_rule: >
+    The unit of correction is a (contrast, condition) pair, not a bare contrast:
+    R0_vs_R4 at p_drop = 0.3 and R0_vs_R4 at full data are different tests and
+    are corrected in different families. Every declared (contrast, condition)
+    pair belongs to exactly ONE family. A pair that appears in no family is
+    reported without correction AND labelled exploratory; a pair appearing in two
+    families is a protocol error and the analysis stops.
+
+# -----------------------------------------------------------------------------
+# 13. GATES  (evaluable boolean expressions; R0 audit item C2)
+# -----------------------------------------------------------------------------
+# Every expression below can be evaluated by drososense/evaluation/gates.py
+# against the contrast table. Bare names resolve to declared models, metrics,
+# datasets or conditions. Nothing in an expression may be read as "failed to
+# reject".
+#
+#   compete(R0,R4,macro_f1,d) := ci_contains_zero(...) or noninferior(...)
+# Gate_A asks for TWO datasets on which R0 is at least not meaningfully worse
+# than the matched ESN, plus the efficiency claim. It deliberately does NOT
+# accept a third dataset: D1 is excluded because its split is not compliant.
+gates:
+  Gate_A:
+    name: "Project is viable"
+    evaluated_on: [D2, D3]
+    terms:
+      - id: A1
+        rule: "R0 is not meaningfully worse than R4 on D2 and on D3"
+      - id: A2
+        rule: "R0 has strictly fewer trainable parameters than a tuned GRU"
+    expression: >
+      sum([
+        ci_contains_zero(R0, R4, macro_f1, D2) or noninferior(R0, R4, macro_f1, D2),
+        ci_contains_zero(R0, R4, macro_f1, D3) or noninferior(R0, R4, macro_f1, D3)
+      ]) == 2
+      and params(R0) < params(GRU)
+    if_failed: "Do not proceed to claim a connectome contribution; report the negative result."
+  Gate_B:
+    name: "Sufficient for a TAFE submission"
+    evaluated_on: [D2, D3]
+    expression: >
+      sig(R0, R2, macro_f1, D2) or sig(R0, R2, macro_f1, D3)
+      or sig_any(R0, R4, macro_f1, [D2, D3],
+                 ["dropout_p0.3", "noise_s0.1", "train10pct", "train25pct"])
+    if_failed: "Use the narrative adjustment rules below."
+  Gate_C:
+    name: "Strong paper"
+    expression: >
+      sig(R0, R2, macro_f1, D3) and sig(R0, R3, macro_f1, D3)
+      and sig_any(R0, R4, macro_f1, [D2, D3],
+                  ["dropout_p0.3", "noise_s0.1", "train10pct", "train25pct"])
+    evaluated_on: [D3, E3, E4, E5]
+    note: >
+      D2 is not required for the chain: with five specimens its exact minimum
+      two-sided p over five clusters is 0.0625, so a significant R0 > R2 on D2
+      alone is not reachable and requiring it would make Gate_C unreachable by
+      construction.
+    if_failed: "The paper is written at the Gate_B level; the chain is not claimed."
+  symbol_namespace:
+    rule: >
+      A bare name in an expression resolves against what THIS FILE declares: the
+      model zoo and the contrast list (models), the tasks (metrics), the
+      `datasets` block (datasets) and the multiplicity families (conditions). It
+      is never resolved against whatever values happen to appear in a result
+      table. Each dataset is registered under its short name AND its config id,
+      so `D2` and `d2_beef_uncontrolled` are the same symbol.
+    why: >
+      v1.1's implementation derived the dataset namespace from the dataset column
+      of the contrast table. Every gate therefore failed to resolve `D2` and was
+      reported UNEVALUABLE with a reason that read like a missing contrast, on a
+      result set where the tables were correct and the decision machine simply
+      could not see them (review item C1).
+    distinct_failures:
+      unknown_name: >
+        The name is not declared here at all. This is a namespace defect in the
+        protocol or the analysis code, and it is reported as such, listing the
+        declared names. It is never reported as a missing contrast.
+      missing_contrast: >
+        The name IS declared and resolves, but this experiment produced no result
+        for the (contrast, metric, dataset, condition) it forms. That is a
+        genuine gap in the evidence and is reported as UNEVALUABLE. The two
+        messages must not be confused; a reader acting on the first should fix
+        the code, and a reader acting on the second should run the experiment.
+  significance_reachability:
+    rule: >
+      `sig(A, B, metric, dataset[, condition])` is true only when all three hold:
+      the Holm-adjusted p of the DECISIVE cluster-level test is below alpha; the
+      interval excludes zero on the side that favours A; and
+      `minimum_achievable_p_over_clusters <= alpha` for that contrast. The third
+      clause is a term of the predicate, not a caveat beside it.
+    why: >
+      Without it, a gate can be opened by a p-value that no test over the actual
+      independent units could have produced — which is exactly how the delivered
+      v1.1 table put Gate_B within reach of a pseudoreplicated p.
+  gate_reachability:
+    rule: >
+      A `sig` term on a dataset with fewer than six clusters is UNREACHABLE: it
+      can never be true, whatever the data says. A gate containing an unreachable
+      term is not thereby false — it is not yet decidable by this design, and it
+      is the design (the split's cluster count) that has to change.
+    per_gate:
+      Gate_A: >
+        REACHABLE as configured. Gate_A uses `ci_contains_zero`, `noninferior`
+        and `params`, none of which depend on alpha being attainable. Its
+        interval is the fold-cluster bootstrap, so its evidence is already at the
+        cluster level.
+      Gate_B: >
+        NOT REACHABLE as configured. Its D2 and D3 `sig` terms sit on datasets
+        with five clusters each (floor 0.0625 > alpha), and its `sig_any` clause
+        scans conditions on the same two datasets, which do not add clusters.
+      Gate_C: >
+        NOT REACHABLE as configured, for the same reason: `sig(R0, R2, ..., D3)`
+        and `sig(R0, R3, ..., D3)` are both on five clusters. The v1.1 note under
+        Gate_C already argued that a five-cluster `sig` term makes a gate
+        unreachable; it applied the argument only to D2 and left the D3 terms in
+        place.
+    effect_on_the_project: >
+      Stated plainly because it is a finding, not a technicality: with the
+      split_protocol as currently configured, the two gates that carry the
+      project's headline claim cannot be opened, and no result can change that.
+      The remedy is a design decision — give D3 at least six specimen-disjoint
+      clusters (it has 62 specimens, so raising n_splits or using a larger LOSO
+      costs nothing in data and invalidates no completed run, because no R0..R5
+      contrast has been produced yet) — and it is deliberately NOT taken here,
+      because changing a split to make a gate reachable is choosing the design
+      after knowing which way the gate leans. It is raised for the project owner
+      in `amendment_v1_2.open_decisions`.
+  gate_rules:
+    - "A gate whose expression cannot be evaluated (missing contrast) is reported as UNEVALUABLE, never as false and never as passed."
+    - "Every gate evaluation is recorded with the per-term values that produced it, including n_clusters and minimum_achievable_p_over_clusters for every `sig` term."
+    - "Gates are evaluated on protocol-compliant runs only; a run with protocol_compliant: false is excluded from every gate and is marked as excluded in the table."
+    - "Dataset availability is read from the dataset manifest and its files, never from whether this experiment produced a contrast for it. A dataset that was acquired but excluded for another reason is available, and N5 must not fire on it."
+
+# -----------------------------------------------------------------------------
+# 14. NARRATIVE ADJUSTMENT RULES  (evaluable triggers, decided in advance)
+# -----------------------------------------------------------------------------
+narrative_adjustment_rules:
+  list:
+  - id: N1
+    trigger_expression: >
+      equiv(R0, R2, macro_f1, D3) and sig(R0, R3, macro_f1, D3)
+    action: >
+      Conclude that degree / statistical structure matters, not the specific
+      Drosophila wiring. Rewrite the title and abstract accordingly. It is
+      forbidden to state that the biological wiring is important.
+  - id: N2
+    trigger_expression: >
+      equiv(R0, R4, macro_f1, D3)
+      and sig_any(R0, R4, macro_f1, [D2, D3], ["dropout_p0.3", "noise_s0.1"])
+    action: >
+      Reframe the paper as a robust sparse biological reservoir contribution
+      rather than a performance contribution. Performance claims are dropped
+      from the title and abstract.
+  - id: N3
+    trigger_expression: "sig(R4, R0, macro_f1, D3)"
+    action: >
+      Report the negative result honestly. Reframe as an investigation of why
+      biological connectomes do not transfer directly to artificial sensory
+      streams; state explicitly that this may be a computational-neuroscience
+      result rather than a TAFE result.
+  - id: N4
+    trigger_expression: >
+      (sig(R0, R2, macro_f1, D2) and sig(R2, R0, macro_f1, D3))
+      or (sig(R2, R0, macro_f1, D2) and sig(R0, R2, macro_f1, D3))
+    action: >
+      Report both. Cross-food generalization is claimed only if the ordering is
+      consistent across both foods; otherwise the inconsistency is reported as a
+      limitation and no cross-food claim is made.
+  - id: N5
+    trigger_expression: "unavailable(D1) or unavailable(D2) or unavailable(D3)"
+    action: >
+      Report the blocker with the exact manual acquisition steps. Do not run,
+      plot or tabulate a substitute. The affected dataset is marked UNAVAILABLE
+      in every table.
+  evaluation_note: >
+    Exactly one branch of N1–N5 is expected to fire; if more than one fires the
+    analysis stops and the conflict is reported rather than resolved by choice.
+
+# -----------------------------------------------------------------------------
+# 15. DATASETS  (binding corrected by the R0 audit; R0 items X1, X2)
+# -----------------------------------------------------------------------------
+datasets:
+  D1:
+    id: d1_beef_controlled
+    name: Beef-Controlled
+    doi: "10.17632/n8mc3nspfn.1"
+    provider_title: "e nose based Beef Quality Classification Dataset(4classes)"
+    role: "primary food task"
+    config: configs/datasets/d1_beef_controlled.yaml
+    tasks: [classification, regression]
+    split_strategy: time_block_holdout
+    protocol_compliant: false
+    label_provenance: "provider integers 1..4; the four names are the project's TVC-threshold names"
+    notes: >
+      The provider publishes no sample identifier, so split_unit: specimen cannot
+      be satisfied and every D1 run is flagged protocol_compliant: false. D1 is
+      reported as a non-compliant secondary benchmark and is excluded from every
+      gate. Removing the blocker requires an acquisition log from the authors.
+  D2:
+    id: d2_beef_uncontrolled
+    name: Beef-Uncontrolled
+    doi: "10.17632/mwmhh766fc.3"
+    provider_title: "Electronic nose dataset for beef quality monitoring under an uncontrolled environment"
+    role: "environmental robustness"
+    config: configs/datasets/d2_beef_uncontrolled.yaml
+    tasks: [classification, regression]
+    split_strategy: loso
+    protocol_compliant: true
+    group_semantics_verified: false
+    label_provenance: "provider-stated names excellent / good / acceptable / spoiled"
+    campaign_confound:
+      verified_on: "2026-09-20"
+      source: "the provider's v3 record, restated in DATA-17"
+      acquisition_dates:
+        TS1: "2016-05-12 .. 2016-05-13"
+        TS2: "2018-10-08 .. 2018-10-09"
+        TS3: "2018-10-11 .. 2018-10-12"
+        TS4: "2018-10-13 .. 2018-10-14"
+        TS5: "2018-10-15 .. 2018-10-16"
+      separation: "TS1 is about 2.5 years earlier than TS2..TS5; TS2..TS5 are one campaign nine days long"
+      consequence: >
+        LOSO(5) changes the cut AND the acquisition campaign in the same fold. A
+        between-fold difference is therefore a cut difference PLUS a campaign
+        difference, and the two are not separable from the five published series.
+        No result on D2 may describe a fold difference as an individual or
+        anatomical difference, and no result may describe D2's spread as
+        biological variability alone.
+      mandatory_decomposition: >
+        E1 MUST report leave-TS1-out and leave-{TS2..TS5}-out separately, in
+        addition to the LOSO(5) aggregate. The two are reported as different
+        quantities, never pooled into one "cross-cut" number. If leave-TS1-out
+        and the campaign-homogeneous leave-one-out folds disagree in sign, the
+        disagreement is reported as the campaign confound becoming visible, and
+        the cross-cut claim is withdrawn.
+      status: "MANDATORY REPORTING ITEM, NOT OPTIONAL — review item H1"
+    notes: >
+      Version 3 publishes five beef cuts as five series, so LOSO(5) is the
+      strongest group split the published data supports. It is NOT evidence that
+      the five cuts are independent biological samples: the provider says "five
+      beef cuts" and nothing further about their origin. `group_semantics_verified`
+      is therefore false, and fold-to-fold differences are reported with the
+      campaign confound above attached. Five groups is nonetheless few; see
+      split_protocol.power_note.
+  D3:
+    id: d3_rainbow_trout
+    name: Rainbow Trout
+    doi: "10.5281/zenodo.20649184"
+    provider_title: "A multimodal dataset of images, gas sensor responses, and microbiological measurements for assessing the freshness of rainbow trout fillets"
+    role: "cross-food validation"
+    config: configs/datasets/d3_rainbow_trout.yaml
+    tasks: [classification, regression]
+    split_strategy: group_kfold
+    protocol_compliant: true
+    group_semantics_verified: true
+    label_provenance: "provider ships binary Fresh/Spoiled; the four levels are derived at frozen trout thresholds 4.3 / 5.0 / 6.5"
+    endpoint_degrees_of_freedom:
+      endpoint_levels: 7
+      unit: "storage day (TVC pair values: 4.16, 4.46, 5.48, 5.56, 6.08, 7.75, 7.86)"
+      df_cap: 7
+      label_stratum: day
+      rule: >
+        D3's ground truth is day-level, not row-level. TVC is constant within a
+        file and takes exactly seven values, and the four-level label is a
+        deterministic function of which of the seven values a row carries. The
+        25,080 rows are therefore highly repeated in the supervised sense: the
+        number of distinct endpoint observations is 7, and the endpoint degrees
+        of freedom cannot exceed 7 whatever the row count says.
+      obligation: >
+        Any n, df, confidence interval or bootstrap resampling unit reported on
+        D3 MUST state how it relates to those seven levels. Specifically: an n
+        counted over rows, windows or sessions is not an endpoint sample size,
+        and reporting one as such is a protocol error. `label_stratum: day` is
+        declared alongside `split_unit: specimen` so that the two nested
+        structures — 62 fillets crossed with 7 storage days — are both visible.
+      current_state: >
+        NOT YET VIOLATED, BUT NOT YET GUARDED. The delivered summary tables
+        report n_seeds and n_runs, never a row-count n, so no incorrect df has
+        been published. Nothing in v1.1 would have stopped M4 from introducing
+        one, which is why the obligation is stated here before M4 runs (review
+        item H2).
+    notes: >
+      210 sensor CSVs, 62 fillets, 210 sessions, 25,080 rows, acquired by HTTP
+      range request from a 21.1 GB archive. Phase 1 uses the gas, temperature,
+      humidity and TVC channels only; images are out of scope. The fillet count
+      is 62, which is what the 210 raw filename tokens reduce to under this
+      config's own two `raw.specimen_aliases`; the raw token count is 63 (see
+      configs/datasets/d3_rainbow_trout.yaml).
+  acquisition_policy:
+    - "Every dataset has a machine-readable manifest under data/manifests/."
+    - "Manifests record: official source URL, version, license, checksum, schema, specimen identifier rule, and manual steps when automated download is not permitted."
+    - "Missing or unverifiable data is reported as a blocker; it is NEVER substituted with synthetic data in a results table."
+  channel_intersection:
+    # CORRECTED in v1.2. v1.1 declared {MQ2, MQ3, MQ4, MQ5, MQ135, temperature,
+    # humidity}, which is not an intersection: D3's measured header is
+    # MQ3, MQ5, MQ9, MQ135, MQ137, Temperature(°C), Humidity(%), so D3 has no MQ2
+    # and no MQ4 at all (and D2's MQ136 is absent from D3 too). A "channel-matched"
+    # cross-food comparison built on the wrong list is a false claim about which
+    # channels were matched — and it is the kind of error that survives review
+    # because the list looks plausible.
+    common_to_D1_D2_D3: [MQ3, MQ5, MQ135, temperature, humidity]
+    channel_count: 5
+    measured_on: "2026-09-20, from the acquired files' own headers"
+    per_dataset_channels:
+      D1: [MQ2, MQ3, MQ4, MQ5, MQ135, MQ136, MQ137, MQ138, temperature, humidity]
+      D2: [MQ2, MQ3, MQ4, MQ5, MQ6, MQ8, MQ9, MQ135, MQ136, temperature, humidity]
+      D3: [MQ3, MQ5, MQ9, MQ135, MQ137, temperature, humidity]
+    note: >
+      A cross-food comparison is described on the matched channel subset when one
+      is claimed; a comparison on each dataset's full channel set is reported
+      separately and is not presented as channel-matched. The matched subset is
+      the 5 channels above, and nothing else may be called channel-matched.
+
+# -----------------------------------------------------------------------------
+# 16. MODEL ZOO  (M1 baselines — connectome-independent)
+# -----------------------------------------------------------------------------
+model_zoo:
+  classical:
+    - id: svm_rbf
+      family: classical
+      tasks: [classification, regression]
+    - id: random_forest
+      family: classical
+      tasks: [classification, regression]
+    - id: xgboost
+      family: classical
+      tasks: [classification, regression]
+    - id: pca_svm
+      family: classical
+      tasks: [classification, regression]
+  sequence:
+    - id: gru
+      family: sequence
+      tasks: [classification, regression]
+      protocol_id: GRU
+      id_binding: >
+        The protocol writes `GRU`; the registry registers `gru`. M4 must record
+        the GRU baseline under the protocol id so that `params(GRU)` in Gate_A
+        and `R0_vs_GRU` in the contrast list resolve. A model whose record id is
+        not the name a gate uses is the same defect as a dataset whose record id
+        is not the name a gate uses.
+    - id: lstm
+      family: sequence
+      tasks: [classification, regression]
+    - id: cnn1d
+      family: sequence
+      tasks: [classification, regression]
+    - id: tcn
+      family: sequence
+      tasks: [classification, regression]
+  reservoir:
+    - id: esn
+      family: reservoir
+      tasks: [classification, regression]
+      protocol_id: R4
+      note: >
+        Standard leaky echo-state network with a fixed random sparse reservoir
+        and a trained linear/ridge readout. This is the R4 control of M4; it is
+        NOT a connectome reservoir and carries no biological claim in M1.
+      id_binding: >
+        `protocol_id: R4` is the name this file's contrasts and gates use for
+        this model. M1 records it under the registry id `esn`, so its runs are
+        comparable with the other baselines; M4 MUST record it as `R4`, because
+        `R0_vs_R4` is the contrast every gate and narrative rule names. Recording
+        it as `esn` in M4 would reproduce item C1 exactly — a frozen expression
+        naming a model that no result carries — and the runner fails rather than
+        writing such a record.
+  interface_contract:
+    fit: "fit(X_train, y_train) -> self, where X has shape (n_windows, window_len, n_channels)"
+    predict: "predict(X) -> array of shape (n_windows,)"
+    predict_proba: "classification models only; shape (n_windows, n_classes)"
+    flattening: "classical models flatten (n, L, C) -> (n, L*C) internally"
+    shared_training_conditions: >
+      Every model receives the same split, the same standardizer and the same
+      window tensors for a given (dataset, seed, fold, window length).
+  parameter_reporting: >
+    `params(model)` in the gates refers to TRAINABLE parameters — the count of
+    parameters updated by the fitting procedure, not the reservoir's node count.
+    Frozen reservoir weights are reported separately and are never folded into
+    the trainable count.
+
+# -----------------------------------------------------------------------------
+# 17. HYPERPARAMETER SELECTION AND TEST ISOLATION  (R0 audit item H3)
+# -----------------------------------------------------------------------------
+hyperparameter_selection:
+  grid:
+    window_length: [8, 16, 32, 64]
+    readout_regularisation: [1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1, 1.0]
+    reservoir_leak_alpha: [0.1, 0.3, 0.5, 0.7, 0.9]
+    reservoir_gain_g: [0.5, 1.0, 1.5, 2.0]
+    input_scale_gamma: [0.1, 0.5, 1.0, 2.0]
+    spectral_scaling: [0.9, 1.0, 1.1]
+  selection_metric: {classification: validation_macro_f1, regression: validation_mae}
+  selection_split: validation
+  scope: per_fold
+  detail: >
+    Selection happens once per (dataset, seed, fold, model family) on that fold's
+    validation specimens. The test split takes no part in it.
+  spectral_scaling_rule: >
+    The spectral scaling applied to a reservoir graph is chosen once per
+    (dataset, seed, fold) and applied identically to R0..R6. A reservoir that
+    received a different scaling from its control would make the primary
+    contrast uninterpretable; the runner records the chosen value on every run so
+    this is checkable after the fact.
+  test_touched_once:
+    enabled: true
+    definition: >
+      For each (dataset, seed, fold) the test split is evaluated exactly once per
+      (model, task). A test evaluation is the act of scoring a model on that
+      split. Re-scoring the saved predictions for a different metric is not a new
+      touch; re-running the model with different hyperparameters is, and is
+      forbidden.
+    enforcement: >
+      The runner records a test fingerprint per (dataset, seed, fold, model,
+      task); a second record with the same fingerprint and a different
+      configuration hash is a protocol violation and fails the run.
+
+# -----------------------------------------------------------------------------
+# 18. ROBUSTNESS PROTOCOL  (R0 audit item H6)
+# -----------------------------------------------------------------------------
+robustness_protocol:
+  injection_stage: eval_only
+  retrain_readout: false
+  drift_applied_after_standardization: true
+  detail: >
+    Sensor dropout, noise and drift are applied to the TEST data only, after the
+    frozen train-only standardizer has been applied, and the readout is NOT
+    retrained on the degraded data. This measures deployment robustness — a
+    domain shift between clean training and degraded operation — and it is a
+    different experiment from robustness training. The choice is fixed now so
+    that a favourable reading cannot be selected later.
+  channel_dropout:
+    levels: [0.1, 0.2, 0.3, 0.4, 0.5]
+    mechanism: "random sensor channels masked to their training mean, per window"
+    seed: "child-seed of the run seed; the SAME mask is applied to every model in a paired comparison"
+  noise:
+    levels: [0.01, 0.05, 0.1, 0.2]
+    units: "standard deviations of the standardised inputs"
+    seed: "child-seed of the run seed; identical noise realisation for every model in a paired comparison"
+  drift:
+    model: "x'_t = a_t * x_t + b_t, applied after standardisation"
+    conditions: [drift_gain, drift_offset, drift_combined]
+    a_t: "linear ramp over the window from 1.0 to (1 + delta), delta in {0.05, 0.10, 0.20}"
+    b_t: "linear ramp over the window from 0.0 to delta, delta in {0.05, 0.10, 0.20}"
+    note: "Applied identically to every model in a paired comparison."
+  single_channel_ablation:
+    method: "each input channel switched off in turn; Delta macro-F1 reported per channel"
+    family: "exploratory unless the channel list is enumerated in a multiplicity family"
+
+# -----------------------------------------------------------------------------
+# 19. SIZE STUDY  (R0 audit item M5)
+# -----------------------------------------------------------------------------
+size_study:
+  sizes: [250, 500, 1000, 2000, 4000]
+  sampling: nested
+  detail: >
+    The N=250 subgraph is a subgraph of the N=500 subgraph, and so on, so the
+    Performance(N) curve is not contaminated by independent resampling noise.
+    Subgraph selection is degree-preserving-by-stratum where the biological
+    constraint allows, and the exact selection rule is recorded per size.
+  seed_policy: "the graph child-seed of the run seed; identical across every model compared at that N"
+  matching_rules:
+    - "every control reservoir at size N has the same node count and matched edge count"
+    - "every control reservoir at size N has the same spectral scaling rule applied"
+    - "the same input mapping and readout are used at every N"
+
+# -----------------------------------------------------------------------------
+# 20. STOPPING RULES, FAILURES, EXCLUSIONS AND COMPUTE DEGRADATION  (R0 item H5)
+# -----------------------------------------------------------------------------
+stopping_rules:
+  sequential_testing: forbidden
+  optional_stopping: forbidden
+  interim_looks: none
+  detail: >
+    Every declared contrast is computed once, on the full pre-registered set of
+    seeds, folds and conditions, and its p-value is corrected inside its
+    pre-declared family. No result may be inspected and then used to decide
+    whether to collect more seeds, drop a condition, or change a family.
+
+failure_handling:
+  nan_policy: >
+    A run whose metric is NaN is kept in the raw records with status 'failed' and
+    a failure_reason, is counted in the table as failed, and is NOT silently
+    dropped. If a contrast loses observations to failures, the reduced n_pairs is
+    reported.
+  nonconvergence_policy: "recorded as status 'failed' with the exception text; never imputed and never re-run with different hyperparameters"
+  missing_class_policy: >
+    Macro-F1 is scored over the fixed label set with zero_division=0 and is
+    therefore always defined. AUROC follows `auroc.empty_class_policy`.
+  oom_or_timeout_policy: "status 'oom' or 'timeout'; the run is reported as missing rather than retried with other parameters"
+  record_schema: "run_id, status, failure_reason, plus the full configuration hash of the failed run"
+  rule: "A table never reports a mean over a subset of runs without stating how many were excluded and why."
+
+excluded_specimen_criteria:
+  criteria:
+    - id: E1
+      rule: "A specimen with fewer rows than the window length cannot contribute a window and is excluded before the split is built."
+      recorded_as: "usable_specimens(dataset, window_length)"
+    - id: E2
+      rule: "A row with a non-finite value in any declared feature channel is dropped at load time."
+      recorded_as: "provenance.dropped_non_finite_rows"
+  frozen: true
+  note: >
+    These two and no others. They are fixed before any test evaluation; adding a
+    criterion afterwards is a forbidden amendment.
+
+compute_degradation:
+  order: [E12, E11, E9, E7, E10, E6, E5, E4, E3, E2, E1]
+  seed_reduction_allowed: false
+  minimum_seeds: 10
+  detail: >
+    If compute is short, experiments are dropped from the tail of this list —
+    analysis and mechanism studies first, then robustness variants, then
+    topology, and the main experiment last. Seeds are never reduced below 10: the
+    exact minimum achievable p depends on n, so a smaller seed count silently
+    changes what the pre-registered test can detect.
+
+# -----------------------------------------------------------------------------
+# 21. EXPERIMENT REGISTRY (declared now, executed later)
+# -----------------------------------------------------------------------------
+experiments:
+  E1_main:       { status: planned, requires: [D2, D3], needs_connectome: false }
+  E2_topology:   { status: planned, requires: [D2, D3], needs_connectome: true }
+  E3_lowdata:    { status: planned, requires: [D2, D3], needs_connectome: true, fractions: [0.10, 0.25, 0.50, 0.75, 1.00], test_set_fixed_across_fractions: true, sampling: nested }
+  E4_robustness: { status: planned, requires: [D2, D3], needs_connectome: true, p_drop: [0.1, 0.2, 0.3, 0.4, 0.5] }
+  E5_noise:      { status: planned, requires: [D2, D3], needs_connectome: true, sigma: [0.01, 0.05, 0.1, 0.2] }
+  E6_drift:      { status: planned, requires: [D2, D3], needs_connectome: true }
+  E7_efficiency: { status: planned, requires: [D2, D3], needs_connectome: true }
+  E8_crossfood:  { status: planned, requires: [D2, D3], needs_connectome: true }
+  E9_size:       { status: planned, requires: [D2, D3], needs_connectome: true }
+  E10_dynamics:  { status: planned, requires: [D2, D3], needs_connectome: true }
+  E11_mechanism: { status: planned, requires: [D2, D3], needs_connectome: true }
+  E12_graph:     { status: planned, requires: [D2, D3], needs_connectome: true }
+  M1_benchmark:  { status: delivered, requires: [D1, D2, D3], needs_connectome: false }
+  environment_reporting:
+    required_fields: [instrument, os, cpu_threads, warmup_s, measurement_window]
+    note: >
+      Efficiency numbers without a declared instrument and measurement window are
+      not reproducible and are reported as exploratory.
+
+# -----------------------------------------------------------------------------
+# 22. RESULTS LAYOUT AND SCHEMA
+# -----------------------------------------------------------------------------
+results:
+  raw_dir: results/raw          # one JSON per (experiment, dataset, model, seed, fold)
+  tables_dir: results/tables    # aggregated summaries, committed
+  figures_dir: results/figures
+  separation_rule: "Raw per-run records and aggregated summaries are never mixed in one file."
+  raw_record_schema:
+    required:
+      - run_id
+      - experiment
+      - dataset
+      - model
+      - task
+      - seed
+      - fold_id
+      - protocol_version
+      - window_length
+      - metrics
+      - n_train_windows
+      - n_test_windows
+      - train_specimens
+      - test_specimens
+      - duration_s
+      - environment
+      - timestamp_utc
+    v1_1_additions:
+      - session_count_train
+      - session_count_test
+      - fold_fingerprint
+      - class_coverage
+      - config_hash
+      - evidence_class
+      - protocol_compliant
+      - test_fingerprint
+      - empty_class_policy
+      - status
+      - failure_reason
+  summary_schema:
+    required:
+      - contrast_id
+      - metric
+      - dataset
+      - condition
+      - n_pairs
+      - n_clusters
+      - n_clusters_nonzero
+      - n_nonzero
+      - delta
+      - delta_ci_low
+      - delta_ci_high
+      - effect_size
+      - effect_size_name
+      - p_value
+      - p_value_reported
+      - p_holm
+      - paired_statistic
+      - p_paired_wilcoxon
+      - p_paired_wilcoxon_reported
+      - minimum_achievable_p_over_clusters
+      - tost_proxy_p
+      - equivalent
+      - test
+      - paired_test
+    column_semantics:
+      p_value: "DECISIVE. Exact two-sided sign test over cluster means (§10)."
+      p_holm: "DECISIVE. Holm step-down over p_value within the protocol family. This is the value `sig` reads."
+      paired_statistic: "DESCRIPTIVE. Statistic of the pair-level test."
+      p_paired_wilcoxon: "DESCRIPTIVE. Pair-level p over n_pairs = n_folds * n_seeds. Pseudoreplicated by construction. No gate, family or equivalence verdict may read it."
+      minimum_achievable_p_over_clusters: "DECISIVE INPUT. The floor of the decisive test at n_clusters_nonzero; `sig` refuses to be true when it exceeds alpha."
+      tost_proxy_p: "NOT a TOST p-value. Conservative proxy reported for completeness; the verdict is `equivalent`."
+    rule: "p_value and p_holm are reported side by side; a reader must be able to see both the raw and the corrected value. A column whose name could be misread as a quantity it does not hold is renamed here rather than annotated: `equivalence_p` became `tost_proxy_p` for exactly that reason, and a new p-value column always carries the name of the test that produced it."
+  summary_aggregate_schema:
+    required:
+      - n_seeds
+      - n_runs
+      - n_specimen_evaluations
+      - n_distinct_specimens
+    column_semantics:
+      n_specimen_evaluations: "Count of test evaluations. Grows with the seed count: D2 reports 50 (5 specimens x 10 seeds)."
+      n_distinct_specimens: "Count of DISTINCT specimens behind those evaluations: D2 reports 5, D3 reports 62. This is the column a dataset description may quote; the other one is not."
+    rule: >
+      The two are never presented as one number. `n_specimens_tested` used to
+      hold the first under a name that asserted the second, which is a factor of
+      ten on D2 and was the obvious source of a dataset-level "Specimens" column
+      (review item M1).
+  small_p_rule: >
+    A p-value below 1e-12 is published as the string "<1e-12" in the `*_reported`
+    columns. Beyond that point a float64 `1 - cdf` has cancelled every
+    significant digit and the surviving number is an artefact of the arithmetic
+    rather than of the data; the delivered tables carried p = 8.88e-15 and
+    p = 1.78e-15 from that effect.
+
+# -----------------------------------------------------------------------------
+# 23. DATA VERIFIED AT FREEZE TIME  (R0 audit item L4)
+# -----------------------------------------------------------------------------
+# Numbers here were measured on the acquired files, not estimated. They are the
+# inputs to the power note in `split_protocol` and to the dataset table.
+data_verified:
+  verified_on: "2026-09-20"
+  D1:
+    source_sha256: "866367252b8498eddff2f488629e3e38341b2014a2e0a941d88e71a7499e7026"
+    rows: 20815
+    columns: 14
+    # CORRECTED in v1.2. v1.1 recorded `specimens: 12`, which no longer describes
+    # anything: the provider publishes no sample identifier, and `12` was the
+    # block count of an earlier stand-in. Naming it `specimens` asserted a
+    # dataset property the dataset does not have. D1 has no specimens at all;
+    # what it has is a time-block stand-in, and that is what is recorded now
+    # (review item M5).
+    specimens: null
+    specimen_basis: "NONE — the provider publishes no sample identifier and `split_unit: specimen` cannot be satisfied"
+    split_surrogate:
+      strategy: time_block_holdout
+      block_by: time
+      block_size: 150
+      n_blocks: 12
+      note: "assumed time blocks of 150 distinct minutes — a modelling stand-in, NOT a published grouping"
+    protocol_compliant: false
+    class_counts: {0: 2940, 1: 2268, 2: 2292, 3: 13315}
+    tvc_range: [2.002, 6.314]
+    sensor_channels: 8
+  D2:
+    source_sha256: "772bc2c75f2ac4b785538ea38311bdefaee65059b3391b080b4da5ea619963e3"
+    archive_members: 5
+    rows: 10800
+    rows_per_series: 2160
+    specimens: 5
+    specimen_basis: "one published series per beef cut (TS1..TS5)"
+    group_semantics_verified: false
+    group_semantics_basis: >
+      The provider's description says "five beef cuts" and nothing about their
+      origin, so the grouping is verifiable as a FILE grouping and unverified as
+      a biological one (review item H1).
+    acquisition_campaigns:
+      TS1: {start: "2016-05-12", end: "2016-05-13", campaign: 1}
+      TS2: {start: "2018-10-08", end: "2018-10-09", campaign: 2}
+      TS3: {start: "2018-10-11", end: "2018-10-12", campaign: 2}
+      TS4: {start: "2018-10-13", end: "2018-10-14", campaign: 2}
+      TS5: {start: "2018-10-15", end: "2018-10-16", campaign: 2}
+    protocol_compliant: true
+    class_counts: {0: 1680, 1: 2820, 2: 2100, 3: 4200}
+    tvc_range: [2.233, 5.098]
+    sensor_channels: 9
+    column_order_caveat: >
+      TS1 ends (..., Humidity, Temperature) while TS2..TS5 end
+      (..., Temperature, Humidity). All columns are read by name.
+  D3:
+    archive_md5_published: "32749a6232515bd3c3b50e2e848f1b15"
+    archive_bytes: 21134576519
+    members_extracted: 210
+    extracted_bytes: 1092874
+    rows: 25080
+    specimens: 62
+    sessions: 210
+    specimen_basis: "the fillet token in each filename (F<group>F<index>), measured across 1-7 storage days"
+    protocol_compliant: true
+    class_thresholds: [4.3, 5.0, 6.5]
+    class_counts: {0: 3479, 1: 3601, 2: 10800, 3: 7200}
+    provider_binary_labels: {Fresh: 150, Spoiled: 60}
+    tvc_values: [4.16, 4.46, 5.48, 5.56, 6.08, 7.75, 7.86]
+    endpoint_levels: 7
+    endpoint_basis: "TVC is constant within a file and takes one of seven values, one per storage day; the four-level label is a deterministic function of that day"
+    sensor_channels: 5
+    filename_aliases_applied: 2
+    raw_filename_tokens: 63
+    raw_token_reduction: "63 raw tokens -> 62 specimens under the config's own two `raw.specimen_aliases`"
+  caveats:
+    - "D3's archive-level md5 is NOT verified: the archive is never downloaded whole. Integrity is anchored per member by the archive's own CRC-32 and by a recorded SHA-256 for every extracted CSV."
+    - "D1's nine channel names differ from D2's by spelling only; both are mapped to canonical names in the dataset configs."
+    - "The four-level label is a TVC discretisation on all three datasets, so classification and regression are not independent evidence."
+
+# -----------------------------------------------------------------------------
+# 24. R0 REWORK LOG  (what changed from v1, and why)
+# -----------------------------------------------------------------------------
+rework_log:
+  - item: X1
+    change: "D1 -> 10.17632/n8mc3nspfn.1 and D2 -> 10.17632/mwmhh766fc.3, following the providers' own titles."
+  - item: X2
+    change: "D2 moved from version 1 to version 3 (five cuts); split changed to LOSO(5) and now satisfies split_unit: specimen."
+  - item: X4
+    change: "D3 schema replaced with the measured header; 210 CSVs acquired by HTTP range request; four-level label derived at frozen trout thresholds and declared as derived."
+  - item: X5
+    change: "AUROC empty-class policy declared and implemented; auroc_n_classes_scored is either 4 or 0."
+  - item: X6
+    change: "Run counts restated as 18 per dataset and 36 in total; the earlier '36 runs each' overstated the coverage by a factor of two."
+  - item: C1
+    change: "Bootstrap resampling unit fixed to the fold; seeds declared a stratification and never resampled."
+  - item: C2
+    change: "Gates and narrative rules rewritten as evaluable boolean expressions with numeric equivalence margins."
+  - item: C3
+    change: "Freeze evidence added: RFC3339 timestamp, sidecar digest, and a data_contact_log that must remain empty."
+  - item: H1
+    change: "Multiplicity families enumerated; every test id belongs to exactly one family."
+  - item: H2
+    change: "Wilcoxon alternative/zero_method/correction/mode, bootstrap B/seed/ci_type and effect sizes all fixed."
+  - item: H3
+    change: "Hyperparameter grid, per-fold selection scope and test_touched_once declared."
+  - item: H4
+    change: "E3 test set fixed across fractions and sampling declared nested."
+  - item: H5
+    change: "Stopping rules, failure handling, frozen exclusion criteria and compute degradation order added."
+  - item: H6
+    change: "Robustness injection stage, retraining policy and drift placement declared."
+  - item: M5
+    change: "Size study sampling declared nested with a fixed seed policy."
+  - item: M6
+    change: "RNG hierarchy declared; matching requirements for a paired contrast enumerated."
+  - item: R0.1-C1
+    change: >
+      Gate symbol namespace fixed: datasets resolve from the `datasets` block
+      (short name and id both), not from the values a result table happens to
+      contain. Unknown name and missing contrast are now separate, distinguishable
+      failures.
+  - item: R0.1-C2
+    change: >
+      The decisive test is now the exact two-sided sign test over cluster means
+      (one mean per held-out block), and `sig` additionally requires
+      `minimum_achievable_p_over_clusters <= alpha`. The pair-level Wilcoxon is
+      retained as a descriptive column that no gate reads. Added while fixing
+      this, and reported as an addition rather than as part of the review's
+      finding: the bootstrap interval had the same defect and was moved to the
+      same level — seeds are now averaged inside each cluster before the clusters
+      are resampled, so the interval no longer narrows as seeds are added.
+      Without that, Gate_A (decided entirely by `ci_contains_zero` and
+      `noninferior`) would have remained openable by adding seeds.
+  - item: R0.1-H1
+    change: >
+      D2's acquisition-campaign confound recorded; `group_semantics_verified: false`
+      on D2; leave-TS1-out / leave-{TS2..TS5}-out decomposition made a mandatory
+      E1 reporting item.
+  - item: R0.1-H2
+    change: >
+      D3's seven endpoint levels, the df cap of 7 and the `label_stratum: day`
+      declaration added, with the obligation to relate any D3 n/df/CI/resampling
+      unit to those seven levels.
+  - item: R0.1-H4
+    change: >
+      The freeze check reports the LIVE contact log beside the frozen placeholder
+      field, and warns when the two disagree.
+  - item: R0.1-M1
+    change: >
+      `n_specimens_tested` renamed to `n_specimen_evaluations`; a separate
+      `n_distinct_specimens` reports the dataset property (D2 = 5, D3 = 62).
+  - item: R0.1-M2
+    change: >
+      D3's specimen count stated consistently as 62, with the 63 raw filename
+      tokens and the two aliases that reduce them recorded beside it.
+  - item: R0.1-M3
+    change: >
+      Effect size keyed on TASK, not on the metric's spelling, so `r2` takes
+      Hodges-Lehmann.
+  - item: R0.1-M4
+    change: >
+      `equivalence_p` renamed `tost_proxy_p` and labelled a proxy; the cluster
+      count behind an equivalence verdict is disclosed on the same line.
+  - item: R0.1-M5
+    change: >
+      D1's `data_verified.specimens: 12` replaced with `specimens: null` plus the
+      time-block surrogate actually in use.
+  - item: R0.1-AUX
+    change: >
+      Channel intersection corrected to the measured 5 channels
+      {MQ3, MQ5, MQ135, temperature, humidity}; per-dataset channel lists recorded.
+  - item: R0.1-LOW
+    change: >
+      p-values below 1e-12 are published as "<1e-12" rather than as a float64
+      cancellation artefact.
+
+# -----------------------------------------------------------------------------
+# 25. AMENDMENT RECORD — v1.1 -> v1.2  (what triggered it, what it changes)
+# -----------------------------------------------------------------------------
+amendment_v1_2:
+  trigger: >
+    The R0.1 statistical review of DATA-16 (recorded on DATA-18) reproduced the
+    delivered v1.1 output exactly — 8/8 statistic rows, deltas, intervals and
+    pair counts — and returned Gate B = FAIL with Gate A and Gate C CONDITIONAL,
+    on the ground that the DECISION MACHINE could not be opened rather than that
+    the numbers were wrong. Two CRITICAL defects were confirmed in the gate
+    engine: the dataset symbol namespace never matched production, and `sig()`
+    read a pseudoreplicated p-value.
+  changed:
+    - "§3: cluster-count rule, reachability note and per-dataset group/label semantics."
+    - "§8: the bootstrap averages seeds inside each cluster before resampling clusters, so the interval is invariant to the seed count."
+    - "§10: decisive test is the cluster-level exact sign test; the pair-level Wilcoxon is descriptive; effect size keyed on task; equivalence proxy named."
+    - "§13: symbol namespace rule, significance-reachability term in `sig`, per-gate reachability declaration, availability rule for N5, and the model-id binding so `params(R0) < params(GRU)` is resolvable."
+    - "§15: D2 campaign confound and group_semantics_verified; D3 endpoint df cap and label_stratum; channel intersection corrected."
+    - "§16: `protocol_id: R4` recorded on the ESN so M4's records resolve the frozen expressions."
+    - "§22: summary and aggregate schemas renamed and documented; small-p reporting rule."
+    - "§23: D1 has no specimens; D3 endpoint levels and token reduction recorded."
+  unchanged:
+    - "Every scientific claim, the contrast list, the hypotheses, the equivalence margins, the multiplicity families, the model zoo, the preprocessing rules, the robustness protocol and the size study."
+    - "The seed set, the split_unit, the `forbidden` list and the anti-tuning rules."
+  runs_affected: >
+    NONE ARE RE-RUN. No R0..R5 contrast exists yet, so no gate term has ever been
+    evaluated against real evidence and nothing computed under v1.1 becomes
+    invalid: the v1.1 rows in results/tables are the baseline comparisons, they
+    remain labelled protocol_version = 1.1.0, and the re-analysis published with
+    this amendment recomputes them under v1.2's decisive test so that both views
+    are on the record. M4 begins under v1.2.
+  open_decisions:
+    - id: OD1
+      question: >
+        D2's five-cluster floor (0.0625) makes every `sig` term on D2 permanently
+        unreachable. Raise D3's cluster count so the D3 terms are reachable
+        (D3 has 62 specimens and n_splits = 5 today), or accept that Gate_B and
+        Gate_C cannot be opened on this design and write the paper from the
+        narrative-adjustment branches?
+      arithmetic: >
+        A cluster-level sign test needs at least 6 clusters for alpha = 0.05 to be
+        attainable at all: 2/2^5 = 0.0625 > 0.05, 2/2^6 = 0.03125 <= 0.05.
+      options:
+        - "D3 n_splits 5 -> 10 (or LOSO(62)): no data cost, no completed run invalidated (no R0..R5 contrast exists), D3's sig terms become reachable."
+        - "Leave the split as configured and accept Gate_B/Gate_C as unreachable; the narrative rules N1-N5 select the branch."
+      decision_owner: "project owner (Mika) / Thinker at the R0.1 gate"
+      not_taken_here: >
+        Deliberately not decided in this amendment. Changing a split until a gate
+        becomes reachable is choosing the design after knowing which way the gate
+        leans, which is the failure mode this whole protocol exists to prevent.
+      owner_note: "RAISED IN THE DATA-16 REPLY, NOT RESOLVED HERE"
