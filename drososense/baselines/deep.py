@@ -340,8 +340,15 @@ class TorchSequenceModel(BaseModel):
 
         torch.set_num_threads(int(self.params["torch_num_threads"]))
         seed_everything(self.seed)
-
-        device = torch.device("cpu")
+        if torch.cuda.is_available():
+            # cuDNN's algorithm choice is non-deterministic by default for
+            # convolutions; the deterministic flag keeps the per-seed number
+            # reproducible across re-runs, at the cost of slightly slower
+            # convolution kernels. Sequence-model training is the rate
+            # bottleneck on E1's 62-fold D3 split; the GPU path pays off
+            # there even with the deterministic flag.
+            torch.backends.cudnn.deterministic = True
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         network = self._network.to(device)
         network.train()
 
@@ -352,17 +359,20 @@ class TorchSequenceModel(BaseModel):
         )
         if self.task == "classification":
             criterion: Any = nn.CrossEntropyLoss()
-            targets = torch.as_tensor(y, dtype=torch.long)
+            targets = torch.as_tensor(y, dtype=torch.long, device=device)
         else:
             criterion = nn.MSELoss()
-            targets = torch.as_tensor(y, dtype=torch.float32).unsqueeze(1)
+            targets = torch.as_tensor(y, dtype=torch.float32, device=device).unsqueeze(1)
 
-        inputs = torch.as_tensor(tensor, dtype=torch.float32)
+        inputs = torch.as_tensor(tensor, dtype=torch.float32, device=device)
         batch_size = int(self.params["batch_size"])
-        generator = torch.Generator().manual_seed(self.seed)
+        generator = torch.Generator(device=device).manual_seed(self.seed)
 
         for _ in range(int(self.params["epochs"])):
-            order = torch.randperm(inputs.shape[0], generator=generator)
+            # randperm defaults to CPU; a device-matched generator alone is not
+            # enough (torch raises "Expected a 'cpu' device type for generator
+            # but found 'cuda'"), so the target device has to be stated too.
+            order = torch.randperm(inputs.shape[0], generator=generator, device=device)
             for start in range(0, inputs.shape[0], batch_size):
                 index = order[start : start + batch_size]
                 optimizer.zero_grad()
@@ -407,15 +417,16 @@ class TorchSequenceModel(BaseModel):
             Predictions of shape ``(n_samples,)``.
         """
         window_length, n_channels = self._infer_windows(x)
+        device = next(self._network.parameters()).device
         tensor = torch.as_tensor(
-            x.reshape(x.shape[0], window_length, n_channels), dtype=torch.float32
+            x.reshape(x.shape[0], window_length, n_channels), dtype=torch.float32, device=device
         )
         self._network.eval()
         with torch.no_grad():
             output = self._network(tensor)
         if self.task == "classification":
-            return output.argmax(dim=1).numpy()
-        return output.squeeze(1).numpy()
+            return output.argmax(dim=1).cpu().numpy()
+        return output.squeeze(1).cpu().numpy()
 
     def predict_proba(self, x: np.ndarray) -> np.ndarray | None:
         """Return softmax class probabilities.
@@ -430,13 +441,14 @@ class TorchSequenceModel(BaseModel):
             return None
         flat = self.flatten(x)
         window_length, n_channels = self._infer_windows(flat)
+        device = next(self._network.parameters()).device
         tensor = torch.as_tensor(
-            flat.reshape(flat.shape[0], window_length, n_channels), dtype=torch.float32
+            flat.reshape(flat.shape[0], window_length, n_channels), dtype=torch.float32, device=device
         )
         self._network.eval()
         with torch.no_grad():
             logits = self._network(tensor)
-            return torch.softmax(logits, dim=1).numpy()
+            return torch.softmax(logits, dim=1).cpu().numpy()
 
     def n_trainable_parameters(self) -> int | None:
         """Count parameters with ``requires_grad``.
