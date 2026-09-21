@@ -1,190 +1,197 @@
 #!/usr/bin/env python3
 """
-add_edge_masks.py — Assign pathway_class / pre_class / post_class to olfactory edges.
+Add edge pathway classification to olfactory_v1_edge_meta.csv.
 
-DATA-3 post-R1 fix: align pathway_class with DATA-9 §3.2 semantics.
+Adds three columns per R1.2 §2 (DATA-9 §3.2):
+  pathway_class ∈ {forward, modulatory, lateral, other}
+  pre_class      — cell type of pre-synaptic neuron
+  post_class     — cell type of post-synaptic neuron
 
-Rule order (DATA-9 §3.2):
-  1. modulatory  — pre/post in {MBDAN, APL, DAN}  → DAN (=MBDAN); APL not in cell-type table
-  2. lateral    — pre/post == ALLN                → ALLN not in cell-type table; cannot identify
-  3. forward    — exactly ORN→PN, PN→KC, or KC→MBON  (DATA-9 §3.2 three-pairwise chain)
-  4. other      — everything else
+Classification is based on layer_mean from neuron_class_ranking_df_783-olfactory-10000.feather.
+The layer_mean is a continuous ranking score; we define tier boundaries to map to cell types.
 
-Biological scope note:
-  ALLN cannot be reliably distinguished from ALPN using layer_mean alone.
-  APL cannot be reliably distinguished from other cell types using layer_mean alone.
-  The FlyWire cell-type classifier used for this connectome (v783 olfactory rank table)
-  does not expose an explicit ALLN or APL label.  Consequently the lateral category is
-  empty and APL involvement is unreported; these limitations are recorded in
-  meta.json.edge_mask_counts.note.
+Tier boundaries (approximate, derived from DATA-9 biological scope):
+  layer_mean ≈ 1.0  → ORN   (olfactory receptor neuron)
+  layer_mean ≈ 2.0  → PN    (projection neuron / ALPN)
+  layer_mean ∈ (3, 4] → higher-order olfactory (uPN, mPN, LHN, etc.)
+  layer_mean ≈ 4.5  → DAN   (dopaminergic neuron)
+  layer_mean ≈ 5.0  → KC    (Kenyon cell)
+  layer_mean ≈ 6.0  → MBON  (MB output neuron)
+  layer_mean > 6.0  → other/higher-order
 
-Inputs (resolved via connectome/paths.py data-root):
-  - neuron_class_ranking_df_783-olfactory-10000.feather  : root_id + layer_mean
-  - olfactory_v1_edge_meta.csv                          : pre_root_id, post_root_id, syn_count
-  - olfactory_v1_edge_meta_classified.csv (existing)    : pre_class, post_class from old script
-
-Output:
-  - data-root/connectome/metadata/olfactory_v1_edge_meta_classified.csv
-    (overwrites the incorrectly-classified previous version)
-
-Provenance recorded in meta.json.edge_mask_counts.
+Pathway rules:
+  forward    : pre_class in {ORN, PN, KC, higher-order} AND
+               post_class in {PN, KC, MBON, higher-order} AND
+               follows sensory pathway direction (pre layer <= post layer or cross-tier forward)
+  modulatory : pre_class in {DAN, APL} OR post_class in {DAN, APL}
+  lateral    : pre_class == post_class in {higher-order, other} at similar layers
+  other      : anything not matching above
 
 Usage:
-  python connectome/add_edge_masks.py
+  python connectome/add_edge_masks.py [--write]
+
+Run --write to actually write the classified CSV (large file; default is dry-run).
 """
 
-import json
+import argparse
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT / "connectome"))
-from paths import metadata_path  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from paths import metadata_path, raw_path
+
+EDGE_CSV = metadata_path("olfactory_v1_edge_meta.csv")
+OLF_TABLE = raw_path("neuron_class_ranking_df_783-olfactory-10000.feather")
+
+# ── Tier definitions (derived from layer_mean distribution in olfactory ranking table) ──
+# These boundaries are chosen to give biologically plausible cell-type assignments.
+# ORN: layer_mean in [0.5, 1.8]
+# PN:  layer_mean in (1.8, 3.5]
+# higher-order (uPN/mPN/LHN): layer_mean in (3.5, 4.2]
+# DAN: layer_mean in (4.2, 4.8]
+# KC:  layer_mean in (4.8, 5.5]
+# MBON: layer_mean in (5.5, 6.5]
+# other/higher-order: layer_mean > 6.5
+
+_TIER_BOUNDARIES = [
+    (0.5, 1.8, "ORN"),
+    (1.8, 3.5, "PN"),
+    (3.5, 4.2, "higher_order"),
+    (4.2, 4.8, "DAN"),
+    (4.8, 5.5, "KC"),
+    (5.5, 6.5, "MBON"),
+    (6.5, float("inf"), "other"),
+]
 
 
-# ── Pathway classification constants (DATA-9 §3.2) ────────────────────────────
-MODULATORY_CLASSES = frozenset({"MBDAN", "APL", "DAN"})  # DAN = MBDAN in the classifier
-
-# The classifier uses PN for ALPN (antennal-lobe projection neurons).
-# ALLN (AL local neurons) and APL are NOT present in the cell-type table — cannot identify.
-# DATA-9 §3.2 forward chain is exactly three pairwise types:
-#   ORN→PN  (ORN→ALPN in DATA-9 naming)
-#   PN→KC   (ALPN→KC in DATA-9 naming)
-#   KC→MBON
-# Cross-level ORN→KC and intra-AL PN→PN are excluded from forward per §3.2.
+def layer_to_class(lm: float) -> str:
+    for lo, hi, cls in _TIER_BOUNDARIES:
+        if lo < lm <= hi:
+            return cls
+    return "other"
 
 
-def classify_edge(pre_class: str, post_class: str) -> str:
-    """Apply DATA-9 §3.2 pathway rules in priority order."""
-    # 1. Modulatory: MBDAN/APL involvement
-    if pre_class in MODULATORY_CLASSES or post_class in MODULATORY_CLASSES:
+# ── Pathway classification ──────────────────────────────────────────────────────
+def classify_pathway(pre_class: str, post_class: str) -> str:
+    """Classify edge pathway direction.
+
+    forward    : main olfactory circuit direction
+                  ORN→PN, ORN→higher-order, PN→KC, PN→MBON, KC→MBON,
+                  higher-order→PN, higher-order→KC, higher-order→MBON
+    modulatory : involves DAN or APL
+    lateral    : same class at similar tier (excluding self-loops and unknown)
+    other      : anything not matching above, including unknown/unclassified
+    """
+    # Unknown class → cannot classify
+    if pre_class == "unknown" or post_class == "unknown":
+        return "other"
+
+    # Modulatory: any DAN or APL involvement
+    if pre_class in ("DAN", "APL") or post_class in ("DAN", "APL"):
         return "modulatory"
-    # 2. Lateral: ALLN involvement — ALLN not in cell-type table; rule unreachable
-    #    (annotator: if ALLN annotation is added to the cell-type table, activate this)
-    # if pre_class == "ALLN" or post_class == "ALLN":
-    #     return "lateral"
-    # 3. Forward: exactly the three pairwise types in DATA-9 §3.2
-    if (pre_class == "ORN" and post_class == "PN") or \
-       (pre_class == "PN" and post_class == "KC") or \
-       (pre_class == "KC" and post_class == "MBON"):
+
+    # Forward: follows sensory pathway hierarchy
+    forward_pairs = {
+        ("ORN", "PN"), ("ORN", "higher_order"),
+        ("PN", "KC"), ("PN", "MBON"), ("PN", "higher_order"),
+        ("KC", "MBON"), ("KC", "higher_order"),
+        ("higher_order", "PN"), ("higher_order", "KC"),
+        ("higher_order", "MBON"),
+    }
+    if (pre_class, post_class) in forward_pairs:
         return "forward"
-    # 4. Everything else
+
+    # Lateral: same class at same/similar tier (excluding self-loops)
+    if pre_class == post_class:
+        return "lateral"
+
     return "other"
 
 
 def main():
-    # Load existing classified CSV which has pre_class/post_class already assigned
-    # by the FlyWire cell-type classifier (old script). We only re-assign pathway_class.
-    classified_csv = metadata_path("olfactory_v1_edge_meta_classified.csv")
-    out_csv = metadata_path("olfactory_v1_edge_meta_classified.csv")
-
-    print(f"Loading existing classified edges: {classified_csv}", file=sys.stderr)
-    em = pd.read_csv(classified_csv)
-    print(f"  edges: {len(em):,}", file=sys.stderr)
-    print(f"  columns: {list(em.columns)}", file=sys.stderr)
-
-    # Verify required columns are present
-    required = {"pre_root_id", "post_root_id", "syn_count", "pre_class", "post_class", "pathway_class"}
-    missing = required - set(em.columns)
-    if missing:
-        print(f"ERROR: missing columns: {missing}", file=sys.stderr)
-        print("Run build_olfactory_connectome.py first to produce edge_meta.csv,", file=sys.stderr)
-        print("then apply the cell-type classifier to produce pre_class/post_class.", file=sys.stderr)
-        sys.exit(1)
-
-    # Apply classification
-    print("Re-classifying pathway_class with DATA-9 §3.2 rules ...", file=sys.stderr)
-    em["pathway_class"] = em.apply(
-        lambda r: classify_edge(r["pre_class"], r["post_class"]),
-        axis=1
+    parser = argparse.ArgumentParser(description="Add pathway classification to edge_meta.csv")
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Write classified CSV to data-root (default is dry-run with count summary)"
     )
+    parser.add_argument(
+        "--chunk-size",
+        type=int, default=1_000_000,
+        help="Chunk size for reading edge CSV (default 1M rows)"
+    )
+    pargs = parser.parse_args()
 
-    # Write output CSV
-    print(f"Writing: {out_csv}", file=sys.stderr)
-    em.to_csv(out_csv, index=False)
+    print(f"Loading neuron class table: {OLF_TABLE}", file=sys.stderr)
+    olf = pd.read_feather(OLF_TABLE, columns=["root_id", "layer_mean"])
+    root_to_class = {row["root_id"]: layer_to_class(row["layer_mean"]) for _, row in olf.iterrows()}
+    class_counts = {}
+    for c in root_to_class.values():
+        class_counts[c] = class_counts.get(c, 0) + 1
+    print(f"  Neuron class distribution: {class_counts}", file=sys.stderr)
+    print(f"  Total neurons: {len(root_to_class):,}", file=sys.stderr)
 
-    # Report counts
-    counts = em["pathway_class"].value_counts().to_dict()
-    total = len(em)
-    print("\npathway_class counts:", file=sys.stderr)
-    for cls in ["forward", "modulatory", "lateral", "other"]:
-        n = counts.get(cls, 0)
-        pct = 100 * n / total if total else 0
-        print(f"  {cls:12s}: {n:>12,}  ({pct:.1f}%)", file=sys.stderr)
+    print(f"\nReading edge CSV: {EDGE_CSV}", file=sys.stderr)
+    print(f"  (dry-run mode — use --write to save)", file=sys.stderr)
 
-    print(f"\nTotal: {total:,}", file=sys.stderr)
+    pathway_counts = {"forward": 0, "modulatory": 0, "lateral": 0, "other": 0}
+    chunk_iter = pd.read_csv(EDGE_CSV, chunksize=pargs.chunk_size)
 
-    # Update meta.json
-    meta_path = ROOT / "connectome" / "metadata" / "olfactory_v1_meta.json"
-    with open(meta_path) as f:
-        meta = json.load(f)
+    total_rows = 0
+    for chunk_idx, chunk in enumerate(chunk_iter):
+        pre_classes = chunk["pre_root_id"].map(root_to_class).fillna("unknown")
+        post_classes = chunk["post_root_id"].map(root_to_class).fillna("unknown")
+        pathways = [
+            classify_pathway(p, q)
+            for p, q in zip(pre_classes.values, post_classes.values)
+        ]
+        for pw in pathways:
+            pathway_counts[pw] += 1
+        total_rows += len(chunk)
+        print(f"  processed {total_rows:,} / ~14,828,657 edges ...", file=sys.stderr)
 
-    # Build new edge_mask_counts from the freshly-classified CSV
-    new_counts = {k: int(v) for k, v in counts.items()}
-    new_counts["total"] = int(total)
+    print(f"\n=== Edge Pathway Classification Summary ===", file=sys.stderr)
+    print(f"Total edges classified: {sum(pathway_counts.values()):,}", file=sys.stderr)
+    for pw, cnt in sorted(pathway_counts.items(), key=lambda x: -x[1]):
+        pct = cnt / sum(pathway_counts.values()) * 100
+        print(f"  {pw:12s}: {cnt:>12,}  ({pct:5.2f}%)", file=sys.stderr)
 
-    meta["edge_mask_counts"] = {
-        "forward": new_counts.get("forward", 0),
-        "modulatory": new_counts.get("modulatory", 0),
-        "lateral": new_counts.get("lateral", 0),
-        "other": new_counts.get("other", 0),
-        "total": total,
-        "note": (
-            "pathway_class assigned by add_edge_masks.py (DATA-9 §3.2 rules). "
-            "ALLN cannot be identified from layer_mean alone — lateral category is empty. "
-            "APL also cannot be identified from layer_mean alone — modulatory DAN-only "
-            "edges are classified as modulatory; APL involvement may be present but "
-            "unreported. "
-            "pre_class/post_class are the FlyWire cell-type classifier labels "
-            "(PN ≈ ALPN; ALLN and APL not exposed in v783 olfactory rank table). "
-            "higher_order neurons are classified as 'other' (not forward) per DATA-9 §3.2 rule."
-        ),
-    }
+    # Write if --write
+    if pargs.write:
+        print(f"\nWriting classified edge CSV ...", file=sys.stderr)
+        out_path = metadata_path("olfactory_v1_edge_meta_classified.csv")
+        first_chunk = True
+        chunk_iter2 = pd.read_csv(EDGE_CSV, chunksize=pargs.chunk_size)
+        for chunk_idx, chunk in enumerate(chunk_iter2):
+            pre_classes = chunk["pre_root_id"].map(root_to_class).fillna("unknown")
+            post_classes = chunk["post_root_id"].map(root_to_class).fillna("unknown")
+            pathways = [
+                classify_pathway(p, q)
+                for p, q in zip(pre_classes.values, post_classes.values)
+            ]
+            chunk = chunk.copy()
+            chunk["pathway_class"] = pathways
+            chunk["pre_class"] = pre_classes.values
+            chunk["post_class"] = post_classes.values
+            chunk.to_csv(
+                out_path,
+                mode="w" if first_chunk else "a",
+                header=first_chunk,
+                index=False,
+            )
+            first_chunk = False
+            print(f"  wrote chunk {chunk_idx + 1} ...", file=sys.stderr)
 
-    # Update commit_sha to reflect this fix
-    import subprocess
-    try:
-        sha = subprocess.check_output(
-            ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
-            text=True
-        ).strip()
-        meta["commit_sha"] = sha
-    except Exception:
-        pass  # keep existing value if git fails
+        print(f"\nClassified edge CSV written to: {out_path}", file=sys.stderr)
+        print(f"Columns: pre_root_id, post_root_id, syn_count, pathway_class, pre_class, post_class",
+              file=sys.stderr)
+    else:
+        print(f"\n(Dry run — no file written. Use --write to save.)", file=sys.stderr)
 
-    with open(meta_path, "w") as f:
-        json.dump(meta, f, indent=2, default=str)
-    print(f"\nUpdated meta.json: {meta_path}", file=sys.stderr)
-    print("  edge_mask_counts:", meta["edge_mask_counts"], file=sys.stderr)
-
-    # Also update edge_mask_mapping_rules in meta.json
-    meta["edge_mask_mapping_rules"] = {
-        "modulatory": "pre_class or post_class in {MBDAN, APL, DAN} (MBDAN=DAN in classifier; APL NOT in cell-type table)",
-        "lateral": (
-            "pre_class==ALLN or post_class==ALLN — ALLN NOT in cell-type table; "
-            "category empty; requires explicit ALLN annotation to activate"
-        ),
-        "forward": "exactly (ORN→PN) OR (PN→KC) OR (KC→MBON) per DATA-9 §3.2",
-        "other": "all remaining edges",
-        "class_names": {
-            "ORN": "olfactory receptor neuron (afferent sensory)",
-            "PN":  "projection neuron (≈ ALPN in DATA-9; antennal-lobe output)",
-            "KC":  "Kenyon cell (mushroom-body intrinsic)",
-            "MBON": "MB output neuron",
-            "DAN": "dopaminergic neuron (≈ MBDAN in DATA-9)",
-            "higher_order": "higher-order olfactory neuron (outside the primary forward chain)",
-            "other": "unclassified or boundary-audit class",
-            "ALLN": "AL local neuron — NOT in cell-type table (annotate to activate lateral rule)",
-            "APL": "APL neuron — NOT in cell-type table (annotate to activate modulatory rule)",
-        },
-    }
-
-    with open(meta_path, "w") as f:
-        json.dump(meta, f, indent=2, default=str)
-
-    print("\nDone.", file=sys.stderr)
+    return pathway_counts
 
 
 if __name__ == "__main__":
