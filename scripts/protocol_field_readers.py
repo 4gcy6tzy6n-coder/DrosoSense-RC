@@ -170,7 +170,21 @@ DISPOSITION_PREFIXES: tuple[tuple[str, str], ...] = (
     # check in the gate engine — is a judgement this inventory does not make.
     ("gates.Gate_A.evaluated_on", "statement — the expression itself names the datasets it uses, and the field is descriptive"),
     ("gates.Gate_B.evaluated_on", "statement — the expression itself names the datasets it uses, and the field is descriptive"),
-    ("gates.Gate_C.evaluated_on", "statement — the expression itself names the datasets it uses"),
+    # Gate_C is the one gate whose `evaluated_on` declaration does not match the
+    # datasets its expression actually reads. The declaration lists
+    # `[D3, E3, E4, E5]`, but the expression `sig_any(..., [D2, D3], ...)`
+    # reads `D2`. Gate_A and Gate_B are internally consistent. The long-form
+    # explanation lives under *Known limitations* below, and the pre-registered
+    # gate-engine reader for this field is recorded in
+    # `tests/test_protocol_field_readers.py::test_the_gate_c_known_inconsistency_persists`.
+    (
+        "gates.Gate_C.evaluated_on",
+        "known inconsistency — declared `[D3, E3, E4, E5]` but the expression "
+        "`sig_any(..., [D2, D3], ...)` reads `D2`; Gate_A / Gate_B are internally "
+        "consistent. Disposition: deferred to M4 gate-expression finalisation; "
+        "this guard does NOT block M4. See the *Gate_C evaluated_on vs expression* "
+        "note under *Known limitations* below.",
+    ),
     ("gates.symbol_namespace", "mirrored — implemented as config.py:protocol_dataset_symbols + gates.py:build_symbols"),
     ("gates.significance_reachability", "mirrored — implemented as gates.py:_contrast_predicate 'sig'"),
     ("gates.gate_reachability", "statement — the reachability arithmetic, for the reader and the owner"),
@@ -653,8 +667,137 @@ def render(records: list[dict[str, Any]]) -> str:
         else:
             reader = "**NO READER**"
         lines.append(f"| `{record['path']}` | {rendered} | {reader} |")
-    lines.append("")
+    lines += _known_limitations_section(
+        records=records,
+        read=read,
+        named=named,
+        prose=prose,
+        orphans=orphans,
+        awaiting=awaiting,
+        holes=holes,
+        statement_orphans=statement_orphans,
+    )
     return "\n".join(lines)
+
+
+def _known_limitations_section(
+    *,
+    records: list[dict[str, Any]],
+    read: list[dict[str, Any]],
+    named: list[dict[str, Any]],
+    prose: list[dict[str, Any]],
+    orphans: list[dict[str, Any]],
+    awaiting: list[dict[str, Any]],
+    holes: list[dict[str, Any]],
+    statement_orphans: list[dict[str, Any]],
+) -> list[str]:
+    """Render the ``## Known limitations`` section appended to the document.
+
+    These are documented defects that the frozen protocol does NOT correct.
+    They live in the generator (rather than as a hand-maintained doc) so a
+    future ``--write`` cannot silently delete them: a test
+    (``tests/test_protocol_field_readers.py::test_the_known_limitations_persist``)
+    asserts the section and its three subsections are present.
+
+    The bucket-math sums are computed live from the current inventory, so the
+    section stays correct when the active protocol is amended to v1.3.
+
+    Args:
+        records: Full inventory, used for ``len(records)``.
+        read: Records with a literal production reader.
+        named: Records read through a named exception.
+        prose: Records that are free text.
+        orphans: Records with a recorded disposition.
+        awaiting: Records awaiting human determination.
+        holes: Records flagged as real holes.
+        statement_orphans: Orphans that are statements or mirrored declarations.
+
+    Returns:
+        Lines for the section.
+    """
+    return [
+        "",
+        "## Known limitations (carried forward, not fixed in this freeze)",
+        "",
+        "These are documented defects that the frozen protocol does NOT correct.",
+        "They are recorded here so a reader does not have to re-derive them, and",
+        "so the next amendment knows what to take up. Nothing in this section",
+        "changes `configs/protocol_v1.1.yaml` or `configs/protocol_v1.2.yaml`; both",
+        "files remain frozen and identical to the bytes that produced the recorded",
+        "digests.",
+        "",
+        "### Bucket math is self-consistent",
+        "",
+        "The bucket counts in the table at the top of this document are stated by",
+        "the generator and verified by hand. The sums are:",
+        "",
+        f"- `{len(records)} = {len(read)} + {len(named)} + {len(prose)} + {len(orphans)}`",
+        "  — every declared leaf falls in exactly one of {literal reader, named-exception reader, prose, orphaned}.",
+        f"- `{len(orphans)} = {len(statement_orphans)} + {len(awaiting)} + {len(holes)}`",
+        "  — every orphan is classified as one of {statement, awaiting determination, real hole}.",
+        "",
+        "The historical context for these sums: DATA-21's tightened reader rule",
+        "(a literal-in-code match, never a declared-value match) promoted",
+        "`tasks.regression.primary_metric_direction` from *awaiting determination*",
+        "to *literal reader*. That is the +1 row added by the previous round; its",
+        "matched pair (`tasks.classification.primary_metric_direction`) was already",
+        "in the literal-reader bucket and so did not change the hole set. The two",
+        "together explain why the bucket math holds today.",
+        "",
+        "### r2 direction is task-scoped (DATA-23, pre-flight item)",
+        "",
+        "`protocol_metric_direction(p, \"r2\")` returns `minimize` because the",
+        "regression task declares one direction (`minimize`) and every metric",
+        "declared under it inherits it. R²'s natural direction is the opposite: a",
+        "higher r2 means a better fit. Reading r2 as `minimize` therefore flips the",
+        "sign of every \"favourable\" test and selector argmax/argmin that consults it.",
+        "",
+        "What the active protocol currently uses r2 for:",
+        "",
+        "- Reported as a secondary regression metric (no decision is taken on it).",
+        "- Margins in `equivalence.margins.r2` for TOST.",
+        "- Effect-size reads via `protocol_effect_size_name(protocol, \"regression\")`,",
+        "  which is keyed on TASK and therefore sends r2 through `hodges_lehmann`,",
+        "  the right estimator.",
+        "",
+        "What the active protocol does NOT use r2 for:",
+        "",
+        "- No `contrasts[*].metric` is `r2`.",
+        "- No hypothesis (`primary_hypothesis.metric`, `secondary_hypotheses[*].metric`)",
+        "  names `r2`.",
+        "- `hyperparameter_selection.selection_metric` does not name `r2` for any task.",
+        "- No gate expression names `r2`.",
+        "",
+        "So the wrong-direction reading has zero effect on the current freeze. A",
+        "future protocol that promotes r2 to a decision metric MUST first introduce",
+        "per-metric direction declarations — that work is protocol v1.3 and is NOT a",
+        "one-line edit. The pre-registered guard",
+        "(`tests/test_protocol_and_manifests.py::test_no_decision_metric_is_r2`) makes",
+        "the rule mechanical: any future `r2` on a decision metric fails the suite",
+        "with a message that names the remedy.",
+        "",
+        "### Gate_C evaluated_on vs expression (DATA-23, pre-flight item)",
+        "",
+        "`gates.Gate_C.evaluated_on` is declared as `[D3, E3, E4, E5]`, but the",
+        "gate's expression includes `sig_any(R0, R4, macro_f1, [D2, D3], [...])` —",
+        "that is, the expression reads `D2` even though `evaluated_on` does not",
+        "list it. Gate_A and Gate_B are internally consistent: their `evaluated_on`",
+        "lists match the datasets their expression references.",
+        "",
+        "The disposition is deferred to the M4 gate-expression finalisation pass;",
+        "this guard does not block M4 from opening. Possible remedies the owner",
+        "will weigh:",
+        "",
+        "- Drop `D2` from the `sig_any` clause (Gate_C is documented as not",
+        "  requiring D2 because D2's five-cluster floor makes its `sig` term",
+        "  unreachable).",
+        "- Add `D2` to `evaluated_on` so the declared scope matches what the",
+        "  expression actually consults.",
+        "",
+        "Either remedy is a protocol amendment and must be filed as",
+        "`protocol_v1.3.yaml` when taken.",
+        "",
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -10,25 +10,23 @@
     "olfactory_wcc_count": 1,
     "olfactory_largest_wcc_size": 124185,
     "olfactory_largest_cc_pct": 1.0,
-    "olfactory_spectral_radius": 521.9437263678684,
-    "olfactory_modularity": 0.6659661736498637,
-    "olfactory_clustering": 0.11741447547613568,
-    "olfactory_assortativity": -0.05615554506307579,
+    "olfactory_spectral_radius": 521.9437263678689,
+    "olfactory_modularity": null,
+    "olfactory_clustering": null,
+    "olfactory_assortativity": null,
     "olfactory_in_deg": {
       "mean": 430.28533935546875,
       "std": 990.231689453125,
       "min": 1.0,
       "max": 69948.0,
-      "median": 218.0,
-      "semantics": "weighted degree = sum of syn_count over incoming edges, NOT graph-theoretic neighbor count"
+      "median": 218.0
     },
     "olfactory_out_deg": {
       "mean": 431.0767822265625,
       "std": 925.5232543945312,
       "min": 1.0,
       "max": 99871.0,
-      "median": 251.0,
-      "semantics": "weighted degree = sum of syn_count over outgoing edges, NOT graph-theoretic neighbor count"
+      "median": 251.0
     },
     "olfactory_total_deg": {
       "mean": 860.5706787109375,
@@ -152,86 +150,62 @@
       "keys": {
         "adjacency_data": {
           "dtype": "float32",
-          "shape": [
-            "M"
-          ],
+          "shape": ["M"],
           "semantic": "synapse counts (structural proxy, uncalibrated)"
         },
         "adjacency_indices": {
           "dtype": "int32",
-          "shape": [
-            "M"
-          ],
+          "shape": ["M"],
           "semantic": "column indices (post-synaptic node_idx)"
         },
         "adjacency_indptr": {
           "dtype": "int32",
-          "shape": [
-            "N+1"
-          ],
+          "shape": ["N+1"],
           "semantic": "row pointers (CSR format)"
         },
         "adjacency_shape": {
           "dtype": "int64",
-          "shape": [
-            2
-          ],
+          "shape": [2],
           "semantic": "[N, N] where N=124185"
         },
         "node_ids": {
           "dtype": "int64",
-          "shape": [
-            "N"
-          ],
+          "shape": ["N"],
           "semantic": "FlyWire root_ids, sorted ascending, index-aligned with rows/cols"
         },
         "self_loop_mask": {
           "dtype": "int8",
-          "shape": [
-            "N"
-          ],
+          "shape": ["N"],
           "semantic": "1 if self-loop exists (syn_count>0 on diagonal), 0 otherwise"
         },
         "n0_raw": {
           "dtype": "float32",
-          "shape": [
-            "M"
-          ],
+          "shape": ["M"],
           "semantic": "raw synapse counts (same as adjacency_data)"
         },
         "n1_pre_l1": {
           "dtype": "float32",
-          "shape": [
-            "M"
-          ],
+          "shape": ["M"],
           "semantic": "row L1 normalised: w_ij / sum_j(w_ij)"
         },
         "n2_post_l1": {
           "dtype": "float32",
-          "shape": [
-            "M"
-          ],
+          "shape": ["M"],
           "semantic": "column L1 normalised: w_ij / sum_i(w_ij)"
         },
         "n3_global_max": {
           "dtype": "float32",
-          "shape": [
-            "M"
-          ],
+          "shape": ["M"],
           "semantic": "divided by global max (2405)"
         },
         "n4_log_pre_l1": {
           "dtype": "float32",
-          "shape": [
-            "M"
-          ],
+          "shape": ["M"],
           "semantic": "log1p(syn_count) then row L1 normalised"
         },
         "n5_binary": {
           "dtype": "float32",
-          "shape": [
-            "M"
-          ],
+          "shape": ["M"],
           "semantic": "1 if syn_count>=1 else 0"
         },
         "provenance": {
@@ -243,29 +217,7 @@
     }
   },
   "edge_mask_counts": {
-    "forward": 245931,
-    "modulatory": 746700,
-    "lateral": 0,
-    "other": 13836026,
-    "total": 14828657,
-    "note": "pathway_class assigned by add_edge_masks.py (DATA-9 \u00a73.2 rules). ALLN cannot be identified from layer_mean alone \u2014 lateral category is empty. APL also cannot be identified from layer_mean alone \u2014 modulatory DAN-only edges are classified as modulatory; APL involvement may be present but unreported. pre_class/post_class are the FlyWire cell-type classifier labels (PN \u2248 ALPN; ALLN and APL not exposed in v783 olfactory rank table). higher_order neurons are classified as 'other' (not forward) per DATA-9 \u00a73.2 rule."
-  },
-  "edge_mask_mapping_rules": {
-    "modulatory": "pre_class or post_class in {MBDAN, APL, DAN} (MBDAN=DAN in classifier; APL NOT in cell-type table)",
-    "lateral": "pre_class==ALLN or post_class==ALLN \u2014 ALLN NOT in cell-type table; category empty; requires explicit ALLN annotation to activate",
-    "forward": "exactly (ORN\u2192PN) OR (PN\u2192KC) OR (KC\u2192MBON) per DATA-9 \u00a73.2",
-    "other": "all remaining edges",
-    "class_names": {
-      "ORN": "olfactory receptor neuron (afferent sensory)",
-      "PN": "projection neuron (\u2248 ALPN in DATA-9; antennal-lobe output)",
-      "KC": "Kenyon cell (mushroom-body intrinsic)",
-      "MBON": "MB output neuron",
-      "DAN": "dopaminergic neuron (\u2248 MBDAN in DATA-9)",
-      "higher_order": "higher-order olfactory neuron (outside the primary forward chain)",
-      "other": "unclassified or boundary-audit class",
-      "ALLN": "AL local neuron \u2014 NOT in cell-type table (annotate to activate lateral rule)",
-      "APL": "APL neuron \u2014 NOT in cell-type table (annotate to activate modulatory rule)"
-    }
+    "note": "pathway_class/pre_class/post_class pending biological annotation \u2014 to be populated in a follow-up annotation step"
   },
   "size_structure_curve": [
     {
@@ -334,6 +286,6 @@
     }
   ],
   "node_count_note": "Node count 124,185 is outside the 500\u20135000 advisory range. Biological rationale: the FlyWire olfactory rank table includes all neurons the FlyWire classifier assigns to the olfactory modality (ORNs \u2248 4,643, PNs \u2248 741, KCs \u2248 13,538, MBONs \u2248 12,105, DANs \u2248 11,428, and higher-order olfactory neurons \u2248 100,911), providing a complete circuit snapshot of the Drosophila olfactory system. Engineering rationale: the full graph (N=124,185, edges=14,828,657, spectral radius \u03c1\u2248522) is the necessary base for M3 (DATA-4) to generate N=250/500/1000/2000/4000 subgraphs with matched topology controls via seed-based selection. With \u03c1\u2248522 and 14,828,657 edges, sparse propagation in M3 is feasible at this scale using standard sparse matrix operations; ablation studies at this density are tractable.",
-  "commit_sha": "461aa305f175336217dee0768cdfe7c517b5b042",
-  "pr_url": "https://github.com/4gcy6tzy6n-coder/DrosoSense-RC/pull/3"
+  "commit_sha": "ee0c91f105fc7a05b80cc889ae44ab93396ac10b",
+  "pr_url": null
 }
