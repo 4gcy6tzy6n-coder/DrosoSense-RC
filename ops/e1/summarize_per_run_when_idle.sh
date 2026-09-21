@@ -40,4 +40,38 @@ echo "[$(date -u +%H:%M:%SZ)] e1_main_d3 summarize exit=$rc" >> "$LOG"
     fi
   done
 } >> "$LOG"
+# --- closure evidence: coverage / complete-fold stats (read-only, no re-run) ---
+{
+  echo "[$(date -u +%H:%M:%SZ)] closure evidence (class coverage + complete-fold stats):"
+  "$PY" - <<'PYEOF'
+import json, glob, statistics, collections
+base = "/root/autodl-tmp/drososense/repo/results/raw/e1_main_d3/d3_rainbow_trout"
+for model in ("pca_svm","random_forest","svm_rbf","xgboost","esn","gru","lstm","cnn1d","tcn"):
+    for task in ("classification","regression"):
+        recs = []
+        for f in glob.glob(f"{base}/{model}/{task}_seed*.json"):
+            r = json.load(open(f))
+            if r.get("status") == "ok":
+                recs.append(r)
+        if not recs:
+            continue
+        hashes = sorted({r.get("config_hash") for r in recs})
+        line = f"  {model}/{task}: n_ok={len(recs)} config_hashes={hashes}"
+        if task == "classification":
+            complete = [r for r in recs if not (r.get("class_coverage") or {}).get("missing_in_test")]
+            vals = [r["metrics"]["macro_f1"] for r in complete if r["metrics"].get("macro_f1") is not None]
+            n_auroc = sum(1 for r in recs if r["metrics"].get("auroc_defined"))
+            extra = f" n_complete={len(complete)}"
+            if vals:
+                extra += f" macro_f1_complete_mean={statistics.mean(vals):.4f} macro_f1_complete_median={statistics.median(vals):.4f}"
+            extra += f" n_auroc_defined={n_auroc}"
+            line += extra
+        else:
+            v = [r["metrics"].get("r2") for r in recs if r["metrics"].get("r2") is not None]
+            if v:
+                line += f" r2_mean={statistics.mean(v):.4f} r2_median={statistics.median(v):.4f}"
+        print(line)
+PYEOF
+} >> "$LOG"
+
 echo "[$(date -u +%H:%M:%SZ)] per-run watcher done" >> "$LOG"
