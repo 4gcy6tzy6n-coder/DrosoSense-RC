@@ -414,6 +414,11 @@ def run_benchmark(
                                 selection=selection,
                             )
                         )
+                        # Write incrementally so a long-running parallel sweep is
+                        # observable from disk and a worker crash does not lose the
+                        # records already produced. Each record's path is unique in
+                        # (model, task, seed, fold) so concurrent workers don't race.
+                        write_record(records[-1], raw_dir)
 
     for record in records:
         write_record(record, raw_dir)
