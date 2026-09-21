@@ -815,3 +815,58 @@ def test_n0_raw_distinct_from_other_normalizations(tmp_path: Path) -> None:
     assert not np.array_equal(n0.matrix.data, n1.matrix.data), (
         "n0_raw and n1_pre_l1 produced identical matrices — loader aliases"
     )
+
+# ---------------------------------------------------------------------------
+# Regression guard (DATA-52, item 2): fcac719's silent-merge regression is
+# exactly this class of bug — the ALLOWED_NORMALIZATIONS tuple stayed intact
+# while the loader's NPZ-key mapping lost n0_raw, so only a test that
+# actually *loads* every allowed normalization would have caught it. This
+# tripwire must fail on any future merge that drops a routing key.
+# ---------------------------------------------------------------------------
+def test_all_allowed_normalizations_load_from_repo_npz() -> None:
+    """Every ALLOWED_NORMALIZATIONS entry resolves a real key prefix in the NPZ.
+
+    The synthetic NPZ fixture (:func:`_write_synthetic_olfactory_npz`) is
+    written with the *exact* key layout the DATA-3 build script emits into
+    the shipped ``olfactory_v1.npz``: raw CSR under ``adj_*`` (the
+    ``n0_raw`` semantic per meta.json's "n0_raw ... same as
+    adjacency_data"), the other five under ``norm_<name>_*``. Loading each
+    allowed normalization against that layout must succeed; a ValueError
+    means the loader's key routing disagrees with the build layout for that
+    normalization — the silent-merge failure mode.
+    """
+    import tempfile
+    from pathlib import Path as _Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        npz_path = _Path(tmp) / "synthetic_olfactory.npz"
+        _write_synthetic_olfactory_npz(npz_path)
+        missing = []
+        for name in ALLOWED_NORMALIZATIONS:
+            try:
+                topo = load_reservoir_topology_from_npz(
+                    str(npz_path),
+                    normalization=name,
+                    target_spectral_radius=0.9,
+                    seed=0,
+                )
+            except ValueError as exc:
+                missing.append(f"{name}: {exc}")
+            else:
+                assert topo.normalization == name
+        assert not missing, (
+            "Some ALLOWED_NORMALIZATIONS entries do not load from the shipped "
+            f"NPZ layout — loader key routing out of sync with the build: "
+            f"{missing}"
+        )
+
+    # Structural companion: the routing dict's domain must cover exactly the
+    # allowed set, so a future regression cannot drop or add a routing key
+    # without this line failing on the set comparison.
+    from drososense.reservoir import connectome_reservoir as _cr
+
+    assert set(_cr._NORMALIZATION_NPZ_PREFIX) == set(ALLOWED_NORMALIZATIONS), (
+        "_NORMALIZATION_NPZ_PREFIX must route every ALLOWED_NORMALIZATIONS "
+        "entry (and nothing else); a drop or add here is the silent-merge "
+        "regression this guard exists to catch"
+    )
