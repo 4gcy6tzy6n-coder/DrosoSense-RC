@@ -504,11 +504,12 @@ def test_v1_3_d3_endpoint_stratum_is_unchanged():
 def test_v1_3_field_readers_inventory_doc_is_committed_and_current():
     """The new v1.3 fields (amendment_v1_3, integrity_disclosures, ...) must appear.
 
-    DATA-31 switched the active protocol to v1.3, so docs/protocol_field_readers.md
-    walks v1.3 directly. The v1.3 amendment added ~35 declarative leaves; they
-    are inventoried in docs/protocol_field_readers_v1.3.md so the failure mode
-    the script exists to prevent cannot reappear on v1.3 silently. This test
-    pins that the doc is present and the new paths are listed.
+    Since DATA-31 the active protocol is v1.3. docs/protocol_field_readers.md
+    walks v1.3 and the existing tests stay valid. The v1.3 amendment added
+    ~35 declarative leaves; they are inventoried in
+    docs/protocol_field_readers_v1.3.md so the failure mode the script exists
+    to prevent cannot reappear on v1.3 silently. This test pins that the doc
+    is present and the new paths are listed.
     """
     from scripts.protocol_field_readers import inventory  # local import: tests/ import path
 
