@@ -29,6 +29,9 @@ NODE_CSV = ROOT / "connectome/metadata/olfactory_v1_node_meta.csv"
 EDGE_CSV = metadata_path("olfactory_v1_edge_meta.csv")
 META_JSON = ROOT / "connectome/metadata/olfactory_v1_meta.json"
 
+# Modulatory cell types per DATA-9 §3.2
+MODULATORY_CLASSES = frozenset({"MBDAN", "APL", "DAN"})
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -511,3 +514,124 @@ class TestNormalizationAssertions:
         """Log-normalised values should all be non-negative (log1p >= 0)."""
         n4 = load_sparse(npz, "norm_n4_log_pre_l1")
         assert (n4.data >= 0).all()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TestEdgeMaskCounts — DATA-3 post-R1 (DATA-36)
+# ─────────────────────────────────────────────────────────────────────────────
+
+CLASSIFIED_CSV = metadata_path("olfactory_v1_edge_meta_classified.csv")
+
+
+class TestEdgeMaskCounts:
+    """R1.2 §2(d): edge_mask_counts in meta.json must match the classified CSV."""
+
+    @pytest.fixture
+    def classified(self):
+        return pd.read_csv(CLASSIFIED_CSV)
+
+    @pytest.fixture
+    def meta(self):
+        return load_meta()
+
+    def test_classified_csv_exists(self):
+        """Classified CSV must exist at the expected data-root path."""
+        assert Path(CLASSIFIED_CSV).exists(), (
+            f"Classified CSV not found at {CLASSIFIED_CSV}; "
+            "run connectome/add_edge_masks.py first"
+        )
+
+    def test_classified_csv_has_required_columns(self, classified):
+        required = {"pre_root_id", "post_root_id", "syn_count",
+                    "pathway_class", "pre_class", "post_class"}
+        missing = required - set(classified.columns)
+        assert not missing, f"Classified CSV missing columns: {missing}"
+
+    def test_edge_mask_counts_match_csv(self, classified, meta):
+        """meta.json.edge_mask_counts must exactly match CSV pathway_class分组 counts."""
+        counts = classified["pathway_class"].value_counts()
+        emc = meta.get("edge_mask_counts", {})
+
+        # Skip the 'note' and 'total' keys — they are not pathway classes
+        pathway_keys = {"forward", "modulatory", "lateral", "other"}
+
+        for key in pathway_keys:
+            csv_count = int(counts.get(key, 0))
+            json_count = int(emc.get(key, 0))
+            assert csv_count == json_count, (
+                f"meta.json edge_mask_counts[{key}] = {json_count:,} "
+                f"but classified CSV has {csv_count:,} — mismatch (run add_edge_masks.py)"
+            )
+
+        # Total must also match
+        total_csv = len(classified)
+        total_json = int(emc.get("total", 0))
+        assert total_csv == total_json, (
+            f"meta.json edge_mask_counts[total] = {total_json:,} "
+            f"but CSV has {total_csv:,} edges"
+        )
+
+    def test_lateral_is_allnn_only(self, classified):
+        """lateral must not contain non-ALLN same-class edges.
+
+        DATA-9 §3.2 defines lateral = ALLN-related edges only.
+        Since ALLN is not in the cell-type table, lateral must be empty
+        (or contain only edges that can be proven ALLN-related).
+        The old bug used pre_class == post_class as a proxy for lateral,
+        misclassifying KC→KC, PN→PN, MBON→MBON, higher_order→higher_order,
+        other→other as lateral — this test prevents that regression.
+        """
+        lateral = classified[classified["pathway_class"] == "lateral"]
+        if len(lateral) == 0:
+            return  # empty lateral is acceptable (ALLN not identifiable)
+
+        # If lateral is non-empty, it must be demonstrably ALLN-related.
+        # Since ALLN is not in the table, any non-empty lateral is a regression.
+        # This assertion will fail if someone re-introduces the wrong rule.
+        assert len(lateral) == 0, (
+            f"lateral has {len(lateral):,} edges — ALLN cannot be identified "
+            "from layer_mean alone; lateral should be empty. "
+            "If you have added ALLN annotation, update the lateral rule accordingly."
+        )
+
+    def test_forward_excludes_higher_order(self, classified):
+        """Forward edges must not involve higher_order neurons.
+
+        DATA-9 §3.2 forward chain: ORN→ALPN→KC→MBON.
+        higher_order neurons are outside the primary forward pathway.
+        """
+        forward = classified[classified["pathway_class"] == "forward"]
+        bad = forward[
+            (forward["pre_class"] == "higher_order") |
+            (forward["post_class"] == "higher_order")
+        ]
+        assert len(bad) == 0, (
+            f"Forward contains {len(bad):,} higher_order edges — "
+            "higher_order is not in the forward chain per DATA-9 §3.2"
+        )
+
+    def test_modulatory_is_dan_apl_only(self, classified):
+        """Modulatory edges must involve DAN (MBDAN) or APL neurons only."""
+        mod = classified[classified["pathway_class"] == "modulatory"]
+        bad = mod[
+            ~mod["pre_class"].isin(MODULATORY_CLASSES) &
+            ~mod["post_class"].isin(MODULATORY_CLASSES)
+        ]
+        assert len(bad) == 0, (
+            f"Modulatory contains {len(bad):,} edges without DAN/APL involvement"
+        )
+
+    def test_no_pathway_class_is_unk(self, classified):
+        """No edge should have an unknown pathway_class."""
+        valid = {"forward", "modulatory", "lateral", "other"}
+        unknown = classified[~classified["pathway_class"].isin(valid)]
+        assert len(unknown) == 0, f"{len(unknown):,} edges have unknown pathway_class"
+
+    def test_edge_mask_note_present_in_meta(self, meta):
+        """meta.json.edge_mask_counts.note must document the ALLN limitation."""
+        emc = meta.get("edge_mask_counts", {})
+        note = emc.get("note", "")
+        assert len(note) > 20, "edge_mask_counts.note must be substantive"
+        assert "ALLN" in note or "alln" in note.lower(), (
+            "note must mention the ALLN (lateral) limitation"
+        )
