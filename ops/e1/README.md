@@ -73,6 +73,7 @@ when it produced these results:
 | `results/tables/e1_main_d2_summary.csv` | `c8369331a00c1cdb` | 19 |
 | `results/tables/e1_main_d2_fingerprints.csv` | `933f3850ca507e96` | 901 |
 | `results/tables/e1_main_d2_test_touched_once.json` | `345f7fcaa74faca8` | 10 (`awk 'END{print NR}'`; `wc -l` reports 9 — no trailing newline) |
+| `results/tables/e1_main_d2_per_run.csv` | `1e796ccb85a5bb86` | 901 (header + 900 tidy per-run rows; the frame M4's paired tests read) |
 
 A summary is derived data: regenerate it from the raw records with
 `python scripts/summarize.py --experiment <label> --fingerprints`. Because the four fan-out
