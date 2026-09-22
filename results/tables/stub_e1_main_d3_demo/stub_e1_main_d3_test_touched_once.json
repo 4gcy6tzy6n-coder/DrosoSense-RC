@@ -1,0 +1,8 @@
+{
+  "n_distinct_test_fingerprints": 60,
+  "n_records": 60,
+  "n_violations": 0,
+  "violations": [],
+  "STUB": true,
+  "note": "stub bundle for the D3 plug-in demonstration; no D3 evaluation occurred"
+}

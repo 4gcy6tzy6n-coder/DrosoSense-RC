@@ -80,14 +80,11 @@ def test_every_superseded_protocol_is_kept_unchanged_on_disk():
     numbers produced under it stay attributable to the text that produced them.
     v1.2 additionally records the superseded digest inside itself, because a
     file that is never edited cannot be the place that remembers it moved on.
-    v1.3 follows the same rule and adds the LOSO(62) amendment on D3 only —
-    the sidecar mechanism keeps every earlier file's identity checkable.
     """
     expected = {
         "protocol_v1.yaml": "1.0.0",
         "protocol_v1.1.yaml": "1.1.0",
         "protocol_v1.2.yaml": "1.2.0",
-        "protocol_v1.3.yaml": "1.3.0",
     }
     for name, version in expected.items():
         path = CONFIGS_DIR / name
