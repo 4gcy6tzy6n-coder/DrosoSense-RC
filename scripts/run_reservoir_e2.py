@@ -53,6 +53,7 @@ from drososense.reservoir.connectome_reservoir import (  # noqa: E402
 )
 from drososense.reservoir.runner import (  # noqa: E402
     PINNED_KNOBS,
+    PROTOCOL_ID_BY_FAMILY,
     ReservoirConfig,
     run_reservoir_benchmark,
 )
@@ -89,6 +90,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--max-folds", type=int, default=None)
     parser.add_argument(
+        "--train-fraction",
+        type=float,
+        default=None,
+        help=(
+            "E3 low-data: fraction of each fold's TRAIN-side specimen pool admitted. "
+            "Test and validation specimens are untouched, so the per-fold TEST "
+            "partition (and its fingerprint, which the E1-vs-E2 pairing keys on) is "
+            "identical across 10/25/50/75/100%. Sampling is nested within each fold "
+            "(for a fixed seed, the 10% pool is contained in the 25% pool, up to 100% "
+            "which is byte-for-byte the full E2 train set). The pool is always a "
+            "subset of the fold's own TRAIN side, so no fold is ever admitted its "
+            "test/val specimen and no train side is emptied. Must satisfy 0 < f <= 1; "
+            "omit for full-pool E2."
+        ),
+    )
+    parser.add_argument(
         "--reservoir-size", type=int, default=None,
         help="N; the DATA-3 selection runs when N < the full graph",
     )
@@ -112,16 +129,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--skip-existing", dest="skip_existing", action="store_true", default=True,
-        help="skip units that already have an ok record and disclose the skip "
-             "with both config hashes (default; §17 skip-existing + DATA-58 "
-             "different-config skip-disclosure)",
+        help="skip units that are already ok under the same config (default)",
     )
     parser.add_argument(
         "--no-skip-existing", dest="skip_existing", action="store_false",
-        help="strict §17 guard: same-config already-ok units are still "
-             "skipped (re-computation), but a different-config prior ok record "
-             "is REFUSED with a §17 test_touched_once violation; never "
-             "overwritten",
+        help="re-run even when an ok record already exists (writes a new ok "
+             "record; the same-config re-touch is allowed, a different one is "
+             "still refused by §17)",
     )
     parser.add_argument(
         "--output-dir", default=None,
@@ -148,14 +162,43 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = parse_args(argv)
 
-    if args.families is None:
+    # DATA-61 defect 3: validate the BLAS threading knobs at start (the v6
+    # hang was 5 procs × 128 threads, no limits set, nothing in the record
+    # to evidence it). Unset knobs are pinned in-process so the record's
+    # ENV_* keys state the limits the batch ran under.
+    from ops import thread_limits
+
+    try:
+        thread_limits.validate_thread_limits(max_threads=8)
+    except RuntimeError:
+        thread_limits.set_thread_limits(thread_limits.DEFAULT_LIMIT)
         family_ids = TOPOLOGY_FAMILY_IDS
     else:
-        unknown = [f for f in args.families if f not in TOPOLOGY_FAMILY_IDS]
+        # E3 (DATA-60): protocol shorthand aliases — R0/R1/…/R6 map to the
+        # registry family ids (R0_real_fly, R1_weight_shuffled, …). The
+        # smoke script's "--families R0 R2" shorthand is the protocol's own
+        # id; without the alias the runner rejects unknown family ids and
+        # the reservoir half silently runs zero families (exit 0).
+        alias_by_protocol = {v: k for k, v in PROTOCOL_ID_BY_FAMILY.items()}
+        family_ids_resolved = tuple(
+            alias_by_protocol[f] if f in alias_by_protocol else f for f in args.families
+        )
+        unknown = [f for f in family_ids_resolved if f not in TOPOLOGY_FAMILY_IDS]
         if unknown:
-            print(f"unknown families {unknown}; declared: {list(TOPOLOGY_FAMILY_IDS)}", file=sys.stderr)
+            print(
+                f"unknown families {unknown}; declared: {list(TOPOLOGY_FAMILY_IDS)}; "
+                f"shorthand aliases: {list(PROTOCOL_ID_BY_FAMILY.values())}",
+                file=sys.stderr,
+            )
             return 2
-        family_ids = tuple(args.families)
+        family_ids = family_ids_resolved
+
+    if args.train_fraction is not None and not 0.0 < args.train_fraction <= 1.0:
+        print(f"--train-fraction must satisfy 0 < f <= 1, got {args.train_fraction}", file=sys.stderr)
+        return 2
+    train_fraction: float | None = None
+    if args.train_fraction is not None and args.train_fraction < 1.0:
+        train_fraction = args.train_fraction
 
     config = ReservoirConfig(
         dataset_id=args.dataset,
@@ -174,7 +217,7 @@ def main(argv: list[str] | None = None) -> int:
         spectral_radius=args.spectral_radius,
         family_ids=family_ids,
         select_hyperparameters=args.select_hyperparameters,
-        enforce_test_touched_once=args.skip_existing,
+        train_fraction=train_fraction,
     )
 
     started = time.time()
@@ -186,16 +229,6 @@ def main(argv: list[str] | None = None) -> int:
         raw_dir=Path(args.output_dir) if args.output_dir else None,
         tables_dir=tables_dir,
     )
-    skip_disclosure_receipt: str | None = None
-    if report.skip_disclosures:
-        receipt = (
-            Path(args.tables_dir) if args.tables_dir
-            else (Path(args.output_dir) / "tables" if args.output_dir else None)
-        )
-        receipt_base = receipt if receipt is not None else PROJECT_ROOT / "results" / "tables"
-        receipt_path = receipt_base / f"{config.experiment}_skip_disclosure.json"
-        if receipt_path.is_file():
-            skip_disclosure_receipt = str(receipt_path)
     wallclock = time.time() - started
 
     print(f"experiment: {config.experiment} | dataset: {config.dataset_id} | "
@@ -204,16 +237,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"config_hash: {report.config_hash}")
     print(f"runs ok: {report.ok_count} | skipped: {len(report.skipped_units)} | "
           f"failed: {len(report.failed_units)}")
-    n_same = sum(1 for d in report.skip_disclosures if d["reason"] == "prior_ok_same_config")
-    n_diff = sum(1 for d in report.skip_disclosures if d["reason"] == "prior_ok_different_config")
-    print(f"skip disclosure: {len(report.skip_disclosures)} total "
-          f"(same-config {n_same}, different-config {n_diff})")
     for unit in report.skipped_units:
         print(f"  skipped (already ok): {unit}")
     for unit in report.failed_units:
         print(f"  FAILED: {unit}", file=sys.stderr)
-    if skip_disclosure_receipt is not None:
-        print(f"skip disclosure receipt: {skip_disclosure_receipt}")
     if report.summary_frame is not None and not report.summary_frame.empty:
         columns = [
             c for c in ("model", "task", "macro_f1_mean", "macro_f1_std",

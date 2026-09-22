@@ -107,6 +107,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--max-folds", type=int, default=None, help="cap folds per seed")
     parser.add_argument(
+        "--train-fraction",
+        type=float,
+        default=None,
+        help=(
+            "E3 low-data: fraction of each fold's TRAIN-side specimen pool admitted. "
+            "Test and validation specimens are untouched, so the test set is "
+            "identical across 10/25/50/75/100%. Sampling is nested within each fold "
+            "(for a fixed seed, the 10% pool is contained in the 25% pool, contained in "
+            "the 50% pool, up to 100% which is byte-for-byte the E1/E2 train set). "
+            "The pool is always a subset of the fold's own TRAIN side, so no fold is "
+            "ever admitted its test/val specimen and no train side is emptied. "
+            "Epochs / hyperparameters are NOT scaled with the fraction. "
+            "Must satisfy 0 < f <= 1; omit for the full E1/E2 behaviour."
+        ),
+    )
+    parser.add_argument(
         "--smoke", action="store_true",
         help="use deliberately tiny hyperparameters (pipeline check, not tuning)",
     )
@@ -126,6 +142,19 @@ def main(argv: list[str] | None = None) -> int:
         Process exit code.
     """
     args = parse_args(argv)
+
+    # DATA-61 defect 3: E3 batches fan out (5 parallel subprocesses); without
+    # pinned BLAS limits the v6 hang returns — 128 threads × 5 procs on an
+    # 80-core box, with nothing in the record to evidence it. Validate the
+    # threading knobs at start (before any worker could initialise BLAS);
+    # when they are unset, pin them in-process so the record's ENV_* keys
+    # evidence the limits the batch actually ran under.
+    from ops import thread_limits
+
+    try:
+        thread_limits.validate_thread_limits(max_threads=8)
+    except RuntimeError:
+        thread_limits.set_thread_limits(thread_limits.DEFAULT_LIMIT)
 
     if args.list_models:
         print(json.dumps(describe_models(), indent=2))
@@ -160,6 +189,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    # E3 low-data: the declared fractions are the protocol's; reject anything
+    # else so a batch cannot silently run on an undeclared split. 1.0 is
+    # accepted as a no-op alias for "no subsampling" (byte-identical E1).
+    if args.train_fraction is not None and not 0.0 < args.train_fraction <= 1.0:
+        print(f"--train-fraction must satisfy 0 < f <= 1, got {args.train_fraction}", file=sys.stderr)
+        return 2
+    if args.train_fraction == 1.0:
+        args.train_fraction = None
+
     config = BenchmarkConfig(
         dataset_id=args.dataset,
         experiment=args.experiment,
@@ -173,6 +211,7 @@ def main(argv: list[str] | None = None) -> int:
         label_rule=args.label_rule,
         model_params=SMOKE_PARAMS if args.smoke else {},
         max_folds=args.max_folds,
+        train_fraction=args.train_fraction,
     )
 
     summary = run_benchmark(config)

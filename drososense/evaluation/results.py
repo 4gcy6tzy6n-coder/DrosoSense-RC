@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import platform
 import sys
 from dataclasses import asdict, dataclass, field
@@ -97,11 +98,6 @@ class RunRecord:
         selection: The hyperparameters chosen for this run, the split and metric
             they were chosen on, and the grid point they came from. Empty when
             the run supplied its own parameters instead of selecting.
-        cpu_seconds: User+system CPU time for the fitted portion (``resource.
-            getrusage`` delta, RUSAGE_SELF). Appended in the DATA-52 runner
-            schema, default 0.0, so pre-DATA-52 records without the key still
-            load; makes duration_s (wall) and CPU time separately auditable
-            instead of back-solving one from the other via a CPU% sample.
     """
 
     run_id: str
@@ -135,7 +131,24 @@ class RunRecord:
     failure_reason: str = ""
     notes: str = ""
     selection: dict[str, Any] = field(default_factory=dict)
-    cpu_seconds: float = 0.0
+    # DATA-61 defect 5: the admitted TRAIN-side fraction this record was
+    # built under, readable off the record (the acceptance check "记录里
+    # 能读出 train_fraction"). ``None`` = full pool (E1/E2 byte-identical
+    # anchor); a value in ``(0, 1)`` = a true E3 low-data subsample. The
+    # value that enters ``config_hash`` is the RAW config value (the
+    # no-op alias 1.0 stays out of the fingerprint, matching the
+    # invariant pinned in ``as_dict``); the record states the semantics,
+    # not the hash.
+    train_fraction: float | None = None
+    # DATA-61 defect 5: E3 full-pool (f100) anchor references — for a
+    # full-pool E3 record this lists the prior ok record(s) that own the
+    # same test fingerprint in the SAME dataset (the E1/E2 full-batch
+    # record this design audits against), resolved at analysis time; a
+    # true low-data (0 < f < 1.0) or non-E3 record carries []. Empty also
+    # means "no prior ok record owns this fingerprint yet" (a fresh
+    # dataset), which is when scoring the full-pool unit fresh is
+    # legitimate.
+    e3_anchor: list[dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.evidence_class not in ("real", "synthetic_fixture"):
@@ -174,6 +187,14 @@ class RunRecord:
 def capture_environment() -> dict[str, Any]:
     """Capture interpreter and library versions for reproducibility.
 
+    BLAS/OpenMP threading knobs (``OMP_NUM_THREADS``,
+    ``OPENBLAS_NUM_THREADS``, ``MKL_NUM_THREADS``, ``NUMEXPR_NUM_THREADS``)
+    are captured as ``ENV_<NAME>`` keys so a record states the thread
+    limits the batch ran under (DATA-61, defect 3: the v6 hang was a
+    BLAS thread-oversubscription — 5 processes × 128 threads on an
+    80-core box — with no env var set to evidence it). Unset vars are
+    recorded as ``None`` so "unlimited threads" is explicit, not implied.
+
     Returns:
         Mapping with the Python version, platform and key package versions.
     """
@@ -188,6 +209,13 @@ def capture_environment() -> dict[str, Any]:
             environment[module_name] = getattr(module, "__version__", "unknown")
         except Exception:
             environment[module_name] = None
+    for threading_var in (
+        "OMP_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "NUMEXPR_NUM_THREADS",
+    ):
+        environment[f"ENV_{threading_var}"] = os.environ.get(threading_var)
     return environment
 
 
@@ -304,7 +332,6 @@ def records_to_frame(records: list[RunRecord]) -> pd.DataFrame:
             "n_train_sessions": record.n_train_sessions,
             "n_test_sessions": record.n_test_sessions,
             "duration_s": record.duration_s,
-            "cpu_seconds": record.cpu_seconds,
         }
         for name in metric_names:
             row[name] = record.metrics.get(name)
@@ -453,9 +480,6 @@ def aggregate_records(
         )
     )
     summary["mean_duration_s"] = grouped["duration_s"].mean()
-    # DATA-52 runner schema: mean CPU time over the group so per-unit-CPU-
-    # second throughput and split-parallel speedup are directly checkable.
-    summary["mean_cpu_seconds"] = grouped["cpu_seconds"].mean()
     # AUROC is defined only on folds where every class is present, so the number
     # of runs that contributed to `auroc_mean` is reported next to it rather than
     # left for a reader to assume equals n_runs.
@@ -480,12 +504,9 @@ def aggregate_records(
         "n_distinct_specimens",
         "n_auroc_defined",
         "mean_duration_s",
-        "mean_cpu_seconds",
     ]
     summary = summary.reindex(columns=ordered)
     for column in expected:
-        summary[column] = summary[column].astype(float)
-    for column in ("mean_duration_s", "mean_cpu_seconds"):
         summary[column] = summary[column].astype(float)
     return summary
 

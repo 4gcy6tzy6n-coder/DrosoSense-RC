@@ -36,8 +36,6 @@ values declared in :data:`PINNED_KNOBS`. Neither path reads the test split.
 
 from __future__ import annotations
 
-import json
-import resource
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -49,7 +47,7 @@ from drososense.connectome_selection import NodeSelection, select_nodes
 from drososense.data.loaders import dataset_config_path, load_dataset
 from drososense.data.manifest import load_manifest, manifest_path
 from drososense.data.pipeline import build_fold_tensors, usable_specimens
-from drososense.data.splits import make_folds
+from drososense.data.splits import fold_train_pool, make_folds
 from drososense.evaluation.contact_log import record_contact
 from drososense.evaluation.metrics import (
     EMPTY_CLASS_POLICY,
@@ -199,6 +197,7 @@ class ReservoirConfig:
     enforce_seed_policy: bool = True
     enforce_declared_design: bool = True
     base_model_params: dict[str, dict[str, Any]] = field(default_factory=dict)
+    train_fraction: float | None = None
 
     def __post_init__(self) -> None:
         if self.normalization not in ALLOWED_NORMALIZATIONS:
@@ -241,6 +240,13 @@ class ReservoirConfig:
             "family_ids": list(self.family_ids),
             "select_hyperparameters": self.select_hyperparameters,
             "base_model_params": self.base_model_params,
+            # E3 low-data (DATA-60): same fingerprint semantics as the E1
+            # runner — None or 1.0 stays out of the config fingerprint so
+            # e3_lowdata_d2_f100 records are byte-identical to the full E2
+            # batches; a true subsample (0 < f < 1.0) requires a distinct
+            # experiment label per fraction, because the record path
+            # (results/raw/<experiment>/...) carries no fraction.
+            "train_fraction": self.train_fraction if 0.0 < (self.train_fraction or 0.0) < 1.0 else None,
         }
 
 
@@ -303,149 +309,6 @@ def _family_builder(family: dict[str, Any]):
     return _builder
 
 
-def _skip_disclosure_entry(
-    dataset: str,
-    model: str,
-    task: str,
-    seed: int,
-    fold_id: int,
-    window_length: int,
-    test_fingerprint: str,
-    prior_config_hash: str,
-    run_config_hash: str,
-    reason: str,
-    prior_run_id: str,
-    prior_status: str,
-) -> dict[str, Any]:
-    """Build the disclosure entry for one skipped unit (DATA-58).
-
-    A skip is an explicit, auditable event: the reader must be able to see
-    which unit was skipped, why (same-config re-computation vs a
-    different-config prior ok record), which config hash the prior record
-    was produced under, and which config hash this batch ran under. Mirrors
-    the DATA-51 evaluation-runner disclosure entry field for field.
-
-    Args:
-        dataset: Dataset identifier.
-        model: Model identifier (the protocol reservoir id, e.g. ``R0``).
-        task: Task name.
-        seed: Seed.
-        fold_id: Fold index.
-        window_length: Window length used.
-        test_fingerprint: The (partition, window, model, task) fingerprint.
-        prior_config_hash: The config_hash of the prior ok record.
-        run_config_hash: The config_hash of the current batch.
-        reason: ``prior_ok_same_config`` or ``prior_ok_different_config``.
-        prior_run_id: The run_id of the prior ok record.
-        prior_status: Status of the prior record (always ``"ok"``).
-
-    Returns:
-        A JSON-serialisable mapping with the full skip disclosure.
-    """
-    return {
-        "dataset": dataset,
-        "model": model,
-        "task": task,
-        "seed": seed,
-        "fold_id": fold_id,
-        "window_length": window_length,
-        "test_fingerprint": test_fingerprint,
-        "reason": reason,
-        "prior_config_hash": prior_config_hash,
-        "run_config_hash": run_config_hash,
-        "prior_run_id": prior_run_id,
-        "prior_status": prior_status,
-        # DATA-58 is an implementation clarification of §17 on the
-        # reservoir runner (a skip is not a re-fit, so §17's intent is
-        # preserved), the same class of change as DATA-51 on the
-        # evaluation runner. The protocol version label is carried so the
-        # disclosure is auditable against the active protocol without a
-        # live session.
-        "protocol_version": PROTOCOL_VERSION,
-    }
-
-
-def _write_skip_disclosure(
-    experiment: str,
-    run_config_hash: str,
-    skip_disclosures: list[dict[str, Any]],
-    tables_dir: Path | None,
-) -> Path | None:
-    """Persist the skip disclosure receipt on disk (DATA-58).
-
-    The receipt lives in ``results/tables/<experiment>_skip_disclosure.json``
-    so the audit trail survives the live session. Concurrent re-shard
-    processes may each add their own skipped units; the receipt is UPDATED
-    (merged) rather than clobbered so no process discards the disclosures
-    recorded by any other process.
-
-    Args:
-        experiment: The experiment label.
-        run_config_hash: This batch's config hash.
-        skip_disclosures: The entries this batch produced.
-        tables_dir: Override for the tables directory.
-
-    Returns:
-        The receipt path, or ``None`` when there was nothing to write.
-    """
-    if not skip_disclosures:
-        return None
-    receipt_path = (
-        Path(tables_dir) if tables_dir is not None else RESULTS_TABLES_DIR
-    ) / f"{experiment}_skip_disclosure.json"
-    ensure_dir(receipt_path.parent)
-    merged_by_key: dict[tuple[Any, ...], dict[str, Any]] = {}
-    if receipt_path.is_file():
-        try:
-            with receipt_path.open("r", encoding="utf-8") as handle:
-                payload = json.load(handle)
-            for entry in payload.get("disclosures", []):
-                merged_by_key[
-                    (
-                        entry.get("test_fingerprint"),
-                        entry.get("prior_config_hash"),
-                        entry.get("run_config_hash"),
-                    )
-                ] = entry
-        except (json.JSONDecodeError, OSError):
-            # A torn write from a crashed process: this batch's entries
-            # become the receipt rather than an unreadable merge base.
-            merged_by_key = {}
-    same = 0
-    different = 0
-    for entry in skip_disclosures:
-        merged_by_key[
-            (
-                entry["test_fingerprint"],
-                entry["prior_config_hash"],
-                entry["run_config_hash"],
-            )
-        ] = entry
-        if entry["reason"] == "prior_ok_same_config":
-            same += 1
-        else:
-            different += 1
-    merged = list(merged_by_key.values())
-    n_same = sum(1 for e in merged if e["reason"] == "prior_ok_same_config")
-    n_different = sum(1 for e in merged if e["reason"] == "prior_ok_different_config")
-    receipt = {
-        "n_skipped_units": len(merged),
-        "n_skipped_same_config": n_same,
-        "n_skipped_different_config": n_different,
-        "this_batch": {
-            "run_config_hash": run_config_hash,
-            "n_skipped_units": len(skip_disclosures),
-            "n_skipped_same_config": same,
-            "n_skipped_different_config": different,
-        },
-        "protocol_version": PROTOCOL_VERSION,
-        "disclosures": merged,
-    }
-    with receipt_path.open("w", encoding="utf-8") as handle:
-        json.dump(receipt, handle, indent=2, sort_keys=True)
-    return receipt_path
-
-
 def _record_exists_for(
     config: ReservoirConfig, model_id: str, task: str, seed: int, fold_id: int, raw_dir: Path | None
 ) -> bool:
@@ -489,7 +352,7 @@ def _write_skipped_record(
     fold_tensors: Any,
     family: dict[str, Any],
     npz_fingerprint: dict[str, Any],
-    selection: NodeSelection,
+    selection: NodeSelection | dict[str, Any],
     environment: dict[str, Any],
     evidence_class: str,
     protocol_compliant: bool,
@@ -498,7 +361,8 @@ def _write_skipped_record(
     test_fingerprint: str,
     raw_dir: Path | None,
     split_strategy: str,
-    skip_reason: str | None = None,
+    e3_anchor: list[dict[str, Any]] | None = None,
+    train_fraction: float | None = None,
 ) -> None:
     """Persist the skip so the (unit, config) ledger stays complete."""
     model = family[fid]
@@ -526,13 +390,13 @@ def _write_skipped_record(
             "model_id": model.model_id,
             "family_id": fid,
             "task": task,
-            "skip_reason": (
-                "unit already ok under the same config; §17 skip-existing"
-                if skip_reason is None
-                else skip_reason
-            ),
+            "skip_reason": "unit already ok under the same config; §17 skip-existing",
             "connectome": npz_fingerprint,
-            "node_selection": selection.describe(),
+            "node_selection": (
+                selection.describe()
+                if isinstance(selection, NodeSelection)
+                else dict(selection)
+            ),
             "split_strategy": split_strategy,
         },
         status="skipped",
@@ -542,6 +406,11 @@ def _write_skipped_record(
         test_fingerprint=test_fingerprint,
         empty_class_policy=EMPTY_CLASS_POLICY,
         notes=notes,
+        # DATA-61 defect 5: readable off the record — None = full pool
+        # (the E1/E2 anchor), (0, 1) = a true low-data subsample; and the
+        # resolved full-pool anchor reference when this skip IS the anchor.
+        train_fraction=train_fraction if train_fraction is not None else config.train_fraction,
+        e3_anchor=e3_anchor if e3_anchor is not None else [],
     )
     write_record(record, raw_dir)
     report.records.append(record)
@@ -554,7 +423,6 @@ class RunReport:
     config_hash: str
     records: list[RunRecord] = field(default_factory=list)
     skipped_units: list[str] = field(default_factory=list)
-    skip_disclosures: list[dict[str, Any]] = field(default_factory=list)
     summary_frame: pd.DataFrame | None = None
 
     @property
@@ -645,21 +513,9 @@ def run_reservoir_benchmark(
     # failed one must not occupy the quota (§17), a skipped one is the
     # runner's own continuation marker and must not block a later same-
     # config re-touch check.
-    # The §17 ledger (DATA-58): a prior ok record OWNS the unit. Two
-    # directions, both skipped — never re-fit, never re-scored:
-    #   - same config_hash as this batch  -> re-computation, skip;
-    #   - different config_hash           -> DATA-58 skip, disclosed with
-    #     BOTH config hashes (the pre-DATA-58 reservoir runner aborted the
-    #     whole batch here — that abort is what blocked re-sharding E2-D3
-    #     onto more processes); §17's intent is preserved because a skip
-    #     IS the not-re-fitting.
-    # When enforce_test_touched_once is off (--no-skip-existing at the CLI):
-    #   - same config_hash -> skip (the CLI's long-standing
-    #     same-config re-computation allowance);
-    #   - different config_hash -> still REFUSED (§17's original guard).
     prior_ok: dict[str, str] = {}
-    prior_touch_meta: dict[str, tuple[str, str]] = {}
-    for prior in load_records(raw_dir):
+    if config.enforce_test_touched_once:
+        for prior in load_records(raw_dir):
             if (
                 prior.dataset == config.dataset_id
                 and prior.experiment == config.experiment
@@ -667,12 +523,35 @@ def run_reservoir_benchmark(
                 and prior.status == "ok"
             ):
                 prior_ok.setdefault(prior.test_fingerprint, prior.config_hash)
-                prior_touch_meta.setdefault(
-                    prior.test_fingerprint, (prior.run_id, prior.status)
-                )
+
+    # E3 full-pool anchor ledger (DATA-61 defect 5): the cross-experiment
+    # ok records that own each test fingerprint under ANY other experiment
+    # label (the E1/E2 full batch, a sibling fraction). For a FULL-POOL run
+    # (train_pool None — the f100 anchor) these are the anchor references
+    # that must NOT be re-scored; for a true low-data run (0 < f < 1.0) they
+    # are inert — the unit scores fresh under its own fraction label, the
+    # way the E1 half does after the per-unit guard fix below.
+    #
+    # The ledger is scoped by FINGERPRINT, not by config identity: a
+    # full-pool E3 run and a full E1/E2 batch may differ on config knobs
+    # outside the split (the experiment label, enforcement flags, …), yet
+    # the f100 unit is the full-batch record FOR THIS PARTITION by
+    # construction — "which prior ok record owns this partition" is the
+    # question that defines the reference, not whether the configs hash
+    # equal. A true low-data run (train_pool set) is a DISTINCT unit and
+    # this ledger is inert for it.
+    anchor_prior_ok: dict[str, str] = {}
+    if config.enforce_test_touched_once:
+        for prior in load_records(raw_dir):
+            if (
+                prior.dataset == config.dataset_id
+                and prior.experiment != config.experiment
+                and prior.test_fingerprint
+                and prior.status == "ok"
+            ):
+                anchor_prior_ok.setdefault(prior.test_fingerprint, prior.experiment)
 
     report = RunReport(config_hash=run_config_hash)
-    skip_disclosures: list[dict[str, Any]] = []
     environment = capture_environment()
 
     # The run params: pinned knobs over the DATA-3/4 defaults. R0's rescale
@@ -714,6 +593,30 @@ def run_reservoir_benchmark(
             if config.max_folds is not None:
                 folds = folds[: config.max_folds]
 
+            # E3 low-data (protocol E3_lowdata: test_set_fixed_across_fractions
+            # true, sampling nested). Subsample the TRAIN side only: the test
+            # (and validation) specimens never move, so the per-fold TEST
+            # partition stays byte-for-byte identical across 10/25/50/75/100%
+            # and the paired E1-vs-E3 fingerprint comparison stays legitimate.
+            # The pool is nested, so for a fixed seed 10% ⊂ 25% ⊂ 50% ⊂ 75%
+            # ⊂ 100%, and the 100% pool is byte-for-byte the full pool.
+            #
+            # The admitted pool filters the TRAIN *window tensors* inside
+            # ``build_fold_tensors`` — not the ``Fold`` object itself — so
+            # the fold fingerprint (test + val partition) is unchanged and
+            # the disjoint-cover invariant on the partition itself holds.
+            #
+            # DATA-61: each fold's pool is ``fold_train_pool(fold,
+            # config.train_fraction)`` — this fold's TRAIN side restricted to
+            # its nested prefix — never a global-pool prefix. The old global
+            # sampling could admit a specimen that is a given fold's test
+            # specimen, emptying the fold's train side and recording every
+            # unit as failed. Each fold's pool stays a nested prefix of its
+            # TRAIN side ordered by the fold's seeded permutation, so pools
+            # are nested per fold
+            # (``pool(f=0.10) ⊆ pool(f=0.25) ⊆ … ⊆ fold.train``) and
+            # reproducible across batches.
+
             # One shared input map per seed, identical across R0–R6.
             family_shared = make_shared(
                 n_nodes=int(selection.node_indices.size),
@@ -736,14 +639,100 @@ def run_reservoir_benchmark(
                     / config.dataset_id
                     / f"reservoir_w{window_length}_seed{seed:02d}_fold{fold.fold_id:02d}"
                 )
-                fold_tensors = build_fold_tensors(
-                    dataset,
-                    fold,
-                    window_length,
-                    artifact_dir,
-                    stride=config.stride,
-                    label_rule=config.label_rule,
+                # E3 low-data: pass the admitted specimen pool to the tensor
+                # builder; it filters the TRAIN rows, leaving val/test
+                # byte-identical to the full-data fold. DATA-61: the pool is
+                # the nested prefix of this fold's TRAIN side, so
+                # ``pool ⊆ fold.train`` always holds (no empty-train
+                # failures); the tensor builder's empty-train guard remains
+                # as a last-resort defence.
+                train_pool = (
+                    fold_train_pool(fold, config.train_fraction)
+                    if config.train_fraction is not None and config.train_fraction < 1.0
+                    else None
                 )
+                # E3 record fidelity (DATA-61, gate item d): the record must
+                # state which specimens actually trained the model. The full
+                # fold.train list stays in ``train_specimens`` (the partition
+                # of record, byte-identical across fractions); the admitted
+                # E3 pool is carried explicitly in model_description.
+                e3_pool_payload = (
+                    {
+                        "train_fraction": float(config.train_fraction),
+                        "e3_admitted_train_specimens": list(train_pool),
+                    }
+                    if train_pool is not None
+                    else {}
+                )
+                fold_tensors = None
+                fold_tensor_failure = ""
+                try:
+                    fold_tensors = build_fold_tensors(
+                        dataset,
+                        fold,
+                        window_length,
+                        artifact_dir,
+                        stride=config.stride,
+                        label_rule=config.label_rule,
+                        train_specimen_pool=train_pool,
+                    )
+                except ValueError as exc:
+                    fold_tensor_failure = str(exc)
+
+                if fold_tensors is None:
+                    for task in config.tasks:
+                        for fid in [f for f in TOPOLOGY_FAMILY_IDS if f in config.family_ids]:
+                            model_id = PROTOCOL_ID_BY_FAMILY[fid]
+                            failure_reason = f"tensor build failed: {fold_tensor_failure}"
+                            metrics_block = {**NO_METRICS, "failure_reason": failure_reason}
+                            failure_record = RunRecord(
+                                run_id=make_run_id(config.dataset_id, model_id, task, seed, fold.fold_id),
+                                experiment=config.experiment,
+                                dataset=config.dataset_id,
+                                model=model_id,
+                                task=task,
+                                seed=seed,
+                                fold_id=fold.fold_id,
+                                protocol_version=PROTOCOL_VERSION,
+                                window_length=window_length,
+                                metrics=metrics_block,
+                                n_train_windows=0,
+                                n_test_windows=0,
+                                train_specimens=list(fold.train),
+                                test_specimens=list(fold.test),
+                                duration_s=0.0,
+                                environment=environment,
+                                timestamp_utc=utc_now_iso(),
+                                evidence_class=evidence_class,
+                                protocol_compliant=protocol_compliant,
+                                model_description={
+                                    "model_id": model_id,
+                                    "family_id": fid,
+                                    "task": task,
+                                    "split_strategy": split_strategy,
+                                },
+                                status="failed",
+                                failure_reason=failure_reason,
+                                # DATA-61 defect 5: readable off the record
+                                # — None = full pool, (0, 1) = a true
+                                # low-data subsample.
+                                train_fraction=config.train_fraction,
+                                fold_fingerprint=fold.fingerprint,
+                                class_coverage={},
+                                config_hash=run_config_hash,
+                                test_fingerprint=make_test_fingerprint(
+                                    fold.fingerprint, window_length, model_id, task
+                                ),
+                                empty_class_policy=EMPTY_CLASS_POLICY,
+                                n_train_sessions=0,
+                                n_test_sessions=0,
+                                notes=notes,
+                                selection={},
+                            )
+                            records.append(failure_record)
+                            report.records.append(failure_record)
+                            write_record(failure_record, raw_dir)
+                    continue
 
                 if not family:
                     normalization = family_params.pop("_normalization")
@@ -790,69 +779,32 @@ def run_reservoir_benchmark(
                             fold.fingerprint, window_length, model_id, task
                         )
 
-                        if test_fingerprint in prior_ok:
-                            prior_hash = prior_ok[test_fingerprint]
-                            prior_run_id, prior_status = prior_touch_meta.get(
-                                test_fingerprint, ("", "ok")
-                            )
-                            if prior_hash == run_config_hash:
-                                # §17 skip-existing: this unit already has an ok
-                                # record under the same config. The existing
-                                # file IS the ledger entry — re-writing a
-                                # `skipped` record on top of it would clobber
-                                # the ok status (same path, same unit, and a
-                                # skip that overwrites an ok is not a skip, it
-                                # is a data loss). So: only write the skip
-                                # marker when no record exists yet at the
-                                # canonical path, and count the skip either
-                                # way so the report states what happened.
-                                skip_reason = None
-                                reason = "prior_ok_same_config"
-                            elif config.enforce_test_touched_once:
-                                # DATA-58: a different-config prior ok record
-                                # is SKIPPED and DISCLOSED, not batch-aborted.
-                                # Nothing new is fitted on the touched split —
-                                # that IS §17's intent.
-                                skip_reason = (
-                                    "unit already ok under a DIFFERENT config "
-                                    f"({prior_hash}); §17 skip-disclosure (DATA-58) "
-                                    f"— batch config_hash {run_config_hash}"
-                                )
-                                reason = "prior_ok_different_config"
-                            else:
-                                # --no-skip-existing (strict §17 guard):
-                                # same-config re-computation is still a skip,
-                                # but a different-config re-touch is still
-                                # refused. Nothing is re-fit on a touched
-                                # split under a changed config.
-                                raise RuntimeError(
-                                    f"test_touched_once violated: {config.dataset_id} "
-                                    f"fold {fold.fold_id} seed {seed} was already evaluated "
-                                    f"for {model_id}/{task} under config "
-                                    f"{prior_hash}, and is now being "
-                                    f"re-evaluated under {run_config_hash}. protocol v1.4 "
-                                    f"§17 forbids re-fitting on a test split already "
-                                    f"touched; a changed configuration requires a new "
-                                    f"protocol version file, not a re-run."
-                                )
+                        # DATA-61 defect 5: E3 FULL-POOL anchor. A full-pool
+                        # reservoir run (train_pool None — the f100 anchor) is
+                        # the full E2 batch for this partition by construction,
+                        # so a prior ok record under a DIFFERENT experiment
+                        # label that carries THIS run's exact config hash is
+                        # the anchor itself: reference it at analysis time,
+                        # do not re-score. A true low-data run (train_pool set,
+                        # 0 < f < 1.0) is a DISTINCT unit — its config hash
+                        # differs from every full-batch record, so this
+                        # cross-experiment guard never swallows a f10/f25/
+                        # f50/f75 reservoir unit (the same zero-out the E1
+                        # per-unit guard previously caused).
+                        cross_anchor = (
+                            train_pool is None
+                            and test_fingerprint in anchor_prior_ok
+                        )
+                        if cross_anchor:
+                            prior_experiment = anchor_prior_ok[test_fingerprint]
+                            # The anchor is recorded, not re-scored: a
+                            # `skipped` record (written only when the unit has
+                            # no record yet at its canonical path) carries
+                            # the resolved reference so an audit join reads
+                            # it off the record set.
                             report.skipped_units.append(
-                                f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d}"
-                            )
-                            skip_disclosures.append(
-                                _skip_disclosure_entry(
-                                    dataset=config.dataset_id,
-                                    model=model_id,
-                                    task=task,
-                                    seed=seed,
-                                    fold_id=fold.fold_id,
-                                    window_length=window_length,
-                                    test_fingerprint=test_fingerprint,
-                                    prior_config_hash=prior_hash,
-                                    run_config_hash=run_config_hash,
-                                    reason=reason,
-                                    prior_run_id=prior_run_id,
-                                    prior_status=prior_status,
-                                )
+                                f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d} "
+                                f"[anchor {prior_experiment}]"
                             )
                             if not _record_exists_for(
                                 config, model_id, task, seed, fold.fold_id, raw_dir
@@ -878,12 +830,96 @@ def run_reservoir_benchmark(
                                     test_fingerprint,
                                     raw_dir,
                                     split_strategy,
-                                    skip_reason=skip_reason,
+                                    e3_anchor=[
+                                        {
+                                            "fingerprint": test_fingerprint,
+                                            "experiment": prior_experiment,
+                                            "config_hash": run_config_hash,
+                                            "run_id": "",
+                                            "status": "ok",
+                                            "source": (
+                                                "results/raw prior ok record "
+                                                "(analysis-time join, full-pool anchor)"
+                                            ),
+                                        }
+                                    ],
+                                    train_fraction=config.train_fraction,
                                 )
                             continue
 
+                        if test_fingerprint in prior_ok:
+                            if prior_ok[test_fingerprint] == run_config_hash:
+                                # §17 skip-existing: this unit already has an ok
+                                # record under the same config. The existing
+                                # file IS the ledger entry — re-writing a
+                                # `skipped` record on top of it would clobber
+                                # the ok status (same path, same unit, and a
+                                # skip that overwrites an ok is not a skip, it
+                                # is a data loss). So: only write the skip
+                                # marker when no record exists yet at the
+                                # canonical path, and count the skip either
+                                # way so the report states what happened.
+                                report.skipped_units.append(
+                                    f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d}"
+                                )
+                                if not _record_exists_for(
+                                    config, model_id, task, seed, fold.fold_id, raw_dir
+                                ):
+                                    _write_skipped_record(
+                                        report,
+                                        config,
+                                        model_id,
+                                        fid,
+                                        task,
+                                        seed,
+                                        fold,
+                                        window_length,
+                                        fold_tensors,
+                                        family,
+                                        npz_fingerprint,
+                                        selection,
+                                        environment,
+                                        evidence_class,
+                                        protocol_compliant,
+                                        notes,
+                                        run_config_hash,
+                                        test_fingerprint,
+                                        raw_dir,
+                                        split_strategy,
+                                    )
+                                continue
+                            elif config.train_fraction is not None and config.train_fraction < 1.0:
+                                # E3 (DATA-60): cross-experiment anchor skip.
+                                # The prior ok record was written under a
+                                # DIFFERENT experiment label (e1_main_d2 /
+                                # e2_main_d2 or a sibling fraction). The test
+                                # partition is UNCHANGED across fractions
+                                # (test_set_fixed_across_fractions true), so
+                                # re-fitting on it would be a §17 violation
+                                # for the SAME design — but for a true-subsample
+                                # fraction label the disclosure is the correct
+                                # outcome: the unit is NOT re-fit, the skip is
+                                # disclosed, and the §17 RuntimeError is not
+                                # raised because the prior record belongs to a
+                                # DIFFERENT design (a different train
+                                # fraction), not the same design re-fit.
+                                report.skipped_units.append(
+                                    f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d}"
+                                )
+                                continue
+                            else:
+                                raise RuntimeError(
+                                    f"test_touched_once violated: {config.dataset_id} "
+                                    f"fold {fold.fold_id} seed {seed} was already evaluated "
+                                    f"for {model_id}/{task} under config "
+                                    f"{prior_ok[test_fingerprint]}, and is now being "
+                                    f"re-evaluated under {run_config_hash}. protocol v1.4 "
+                                    f"§17 forbids re-fitting on a test split already "
+                                    f"touched; a changed configuration requires a new "
+                                    f"protocol version file, not a re-run."
+                                )
+
                         started = time.perf_counter()
-                        cpu_started = resource.getrusage(resource.RUSAGE_SELF)
                         status = "ok"
                         failure_reason = ""
                         metrics: dict[str, Any] = {}
@@ -915,19 +951,6 @@ def run_reservoir_benchmark(
                             failure_reason = f"{type(exc).__name__}: {exc}"
                             metrics = {**NO_METRICS, "failure_reason": failure_reason}
                         duration = time.perf_counter() - started
-                        # CPU time consumed by the fit+predict window (user +
-                        # system, RUSAGE_SELF delta). Appended to the record as
-                        # cpu_seconds — a new-schema field that makes
-                        # per-unit-CPU-second throughput and split-parallel
-                        # speedup checkable from the record instead of
-                        # back-solving wallclock x CPU%. Old records load
-                        # fine because the field defaults to 0.0 and stays
-                        # out of REQUIRED_RECORD_FIELDS.
-                        cpu_usage = resource.getrusage(resource.RUSAGE_SELF)
-                        cpu_seconds = (
-                            (cpu_usage.ru_utime - cpu_started.ru_utime)
-                            + (cpu_usage.ru_stime - cpu_started.ru_stime)
-                        )
 
                         model_description = {
                             "model_id": model.model_id,
@@ -940,7 +963,11 @@ def run_reservoir_benchmark(
                             "topology": model._topology.describe(),
                             "shared": family_shared.describe(),
                             "connectome": npz_fingerprint,
-                            "node_selection": selection.describe(),
+                            "node_selection": (
+                selection.describe()
+                if isinstance(selection, NodeSelection)
+                else dict(selection)
+            ),
                             "split_strategy": split_strategy,
                             "spectral_scaling_rule": (
                                 "chosen once per (dataset, seed, fold) and applied "
@@ -948,6 +975,7 @@ def run_reservoir_benchmark(
                                 if config.select_hyperparameters
                                 else f"pinned at {config.spectral_radius} for the whole run"
                             ),
+                            **e3_pool_payload,
                         }
 
                         record = RunRecord(
@@ -968,7 +996,6 @@ def run_reservoir_benchmark(
                             train_specimens=list(fold.train),
                             test_specimens=list(fold.test),
                             duration_s=duration,
-                            cpu_seconds=cpu_seconds,
                             environment=environment,
                             timestamp_utc=utc_now_iso(),
                             evidence_class=evidence_class,
@@ -985,6 +1012,32 @@ def run_reservoir_benchmark(
                             n_test_sessions=int(fold_tensors.summarise()["n_test_sessions"]),
                             notes=notes,
                             selection=selection_payload,
+                            # DATA-61 defect 5: readable off the record —
+                            # None = full pool, (0, 1) = a true low-data
+                            # subsample; and a full-pool E3 unit (train_pool
+                            # None ⇒ f100 anchor) references the prior ok
+                            # record of this partition instead of re-scoring
+                            # it; a true low-data record carries [].
+                            e3_anchor=(
+                                [
+                                    {
+                                        "fingerprint": test_fingerprint,
+                                        "experiment": anchor_prior_ok.get(test_fingerprint, ""),
+                                        "config_hash": run_config_hash,
+                                        "run_id": "",
+                                        "status": "ok",
+                                        "source": (
+                                            "results/raw prior ok record "
+                                            "(analysis-time join, full-pool anchor)"
+                                        ),
+                                    }
+                                ]
+                                if status == "ok"
+                                and train_pool is None
+                                and test_fingerprint in anchor_prior_ok
+                                else []
+                            ),
+                            train_fraction=config.train_fraction,
                         )
                         records.append(record)
                         write_record(record, raw_dir)
@@ -1025,22 +1078,11 @@ def run_reservoir_benchmark(
     # concatenate") — so they are excluded here and stay in the raw ledger
     # where their status is what they document.
     scored = [r for r in relevant if r.status != "skipped"]
-    report.skipped_units = list(report.skipped_units)
-    report.skip_disclosures = list(skip_disclosures)
-    # DATA-58 receipt: the skip disclosure is persisted to
-    # results/tables/<experiment>_skip_disclosure.json so the re-shard audit
-    # trail is on disk, not just in a live session log. The receipt is merged,
-    # never clobbered, when concurrent re-shard processes each add their own
-    # skipped units.
-    _write_skip_disclosure(config.experiment, run_config_hash, skip_disclosures, tables_dir)
-    scored = [r for r in relevant if r.status != "skipped"]
     if scored:
         summary = aggregate_records(scored)
         if not summary.empty:
             write_summary_csv(summary, config.experiment, tables_dir)
             summary.attrs["skipped_units"] = report.skipped_units
-            summary.attrs["skip_disclosures"] = skip_disclosures
-            summary.attrs["n_skipped_units"] = len(skip_disclosures)
             summary.attrs["split_strategy"] = split_strategy
             summary.attrs["environment"] = environment
             summary.attrs["environment_report"] = compare_environments().as_dict()
@@ -1055,8 +1097,6 @@ __all__ = [
     "RESERVOIR_KNOB_ALIASES",
     "RunReport",
     "ReservoirConfig",
-    "_skip_disclosure_entry",
-    "_write_skip_disclosure",
     "OutOfGridError",
     "dataset_split_strategy",
     "run_reservoir_benchmark",

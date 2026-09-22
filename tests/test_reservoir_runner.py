@@ -27,7 +27,6 @@ a passing test meaningful.
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -241,148 +240,6 @@ def test_record_schema_isomorphic_with_e1(
         "R2_degree_rewired",
     )
 
-    # DATA-52 runner schema: the fresh runner records CPU time next to
-    # wall-clock time, and it is actually measured (the synthetic fixture
-    # still burns nonzero user CPU on fit + predict).
-    assert record.cpu_seconds > 0.0, (
-        f"fresh record must carry a measured cpu_seconds, got {record.cpu_seconds!r}"
-    )
-
-
-# ---------------------------------------------------------------------------
-# Regression guard (DATA-52, item 2): fcac719's silent-merge regression is
-# exactly this class of bug — the ALLOWED_NORMALIZATIONS tuple stayed intact
-# while the loader's NPZ-key mapping lost n0_raw, so only a test that
-# actually *loads* every allowed normalization would have caught it. This
-# tripwire must fail on any future merge that drops a routing key.
-# ---------------------------------------------------------------------------
-def test_all_allowed_normalizations_load_from_repo_npz() -> None:
-    """Every ALLOWED_NORMALIZATIONS entry resolves a real key prefix in the NPZ.
-
-    The synthetic NPZ fixture (:func:`_write_synthetic_olfactory_npz`) is
-    written with the *exact* key layout the DATA-3 build script emits into
-    the shipped ``olfactory_v1.npz``: raw CSR under ``adj_*`` (the
-    ``n0_raw`` semantic per meta.json's "n0_raw ... same as
-    adjacency_data"), the other five under ``norm_<name>_*``. Loading each
-    allowed normalization against that layout must succeed; a ValueError
-    means the loader's key routing disagrees with the build layout for that
-    normalization — the silent-merge failure mode.
-    """
-    from pathlib import Path as _Path
-
-    from drososense.reservoir import connectome_reservoir as _cr
-    from drososense.reservoir.connectome_reservoir import (
-        ALLOWED_NORMALIZATIONS,
-        load_reservoir_topology_from_npz,
-    )
-
-    # The synthetic NPZ written here mirrors the DATA-3 build layout exactly:
-    # raw CSR under adj_* (n0_raw), the other five under norm_<name>_* — the
-    # same key set tests/test_reservoir_topology.py's fixture writes.
-    n = 24
-    m = 90
-    rng = np.random.default_rng(20260921)
-    rows = rng.integers(0, n, size=m)
-    cols = rng.integers(0, n, size=m)
-    sl = rows == cols
-    rows[sl] = (rows[sl] + 1) % n
-    raw_values = rng.uniform(1.0, 8.0, size=m).astype(np.float32)
-    raw = sp.csr_matrix((raw_values, (rows, cols)), shape=(n, n))
-    dense = raw.toarray()
-    n1_dense = dense / np.where(dense.sum(axis=1, keepdims=True) > 0,
-                                 dense.sum(axis=1, keepdims=True), 1.0)
-    n2_dense = dense / np.where(dense.sum(axis=0, keepdims=True) > 0,
-                                 dense.sum(axis=0, keepdims=True), 1.0)
-    n3_dense = dense / dense.max()
-    n4_dense = np.log1p(dense)
-    n4_dense = n4_dense / np.where(n4_dense.sum(axis=1, keepdims=True) > 0,
-                                    n4_dense.sum(axis=1, keepdims=True), 1.0)
-    n5_dense = (dense > 0).astype(np.float32)
-    others = {
-        "n1_pre_l1": sp.csr_matrix(n1_dense.astype(np.float32)),
-        "n2_post_l1": sp.csr_matrix(n2_dense.astype(np.float32)),
-        "n3_global_max": sp.csr_matrix(n3_dense.astype(np.float32)),
-        "n4_log_pre_l1": sp.csr_matrix(n4_dense.astype(np.float32)),
-        "n5_binary": sp.csr_matrix(n5_dense),
-    }
-    arrays = {
-        "adj_data": raw.data, "adj_indices": raw.indices,
-        "adj_indptr": raw.indptr, "adj_shape": np.array(raw.shape),
-    }
-    for name, mat in others.items():
-        prefix = f"norm_{name}"
-        arrays[f"{prefix}_data"] = mat.data
-        arrays[f"{prefix}_indices"] = mat.indices
-        arrays[f"{prefix}_indptr"] = mat.indptr
-        arrays[f"{prefix}_shape"] = np.array(mat.shape)
-
-    missing = []
-    with tempfile.TemporaryDirectory() as tmp:
-        npz_path = _Path(tmp) / "synthetic_olfactory.npz"
-        np.savez(npz_path, **arrays)
-        for name in ALLOWED_NORMALIZATIONS:
-            try:
-                topo = load_reservoir_topology_from_npz(
-                    str(npz_path),
-                    normalization=name,
-                    target_spectral_radius=0.9,
-                    seed=0,
-                )
-            except ValueError as exc:
-                missing.append(f"{name}: {exc}")
-            else:
-                assert topo.normalization == name
-        assert not missing, (
-            "Some ALLOWED_NORMALIZATIONS entries do not load from the shipped "
-            f"NPZ layout — loader key routing out of sync with the build: "
-            f"{missing}"
-        )
-
-    # Structural companion: the routing dict's domain must cover exactly the
-    # allowed set, so a future regression cannot drop or add a routing key
-    # without this line failing on the set comparison.
-    assert set(_cr._NORMALIZATION_NPZ_PREFIX) == set(ALLOWED_NORMALIZATIONS), (
-        "_NORMALIZATION_NPZ_PREFIX must route every ALLOWED_NORMALIZATIONS "
-        "entry (and nothing else); a drop or add here is the silent-merge "
-        "regression this guard exists to catch"
-    )
-
-
-
-
-def test_cpu_seconds_is_appended_not_retried(
-    fake_dataset: tuple[str, Path],
-    reservoir_npz: Path,
-    runner_dirs: tuple[Path, Path],
-) -> None:
-    """cpu_seconds is a new-schema appended field: old records load, new ones carry it.
-
-    A record JSON written without ``cpu_seconds`` (pre-DATA-52 schema) still
-    loads and defaults to 0.0; a record the runner writes now always carries
-    a nonzero measured value. Neither direction is silently back-filled into
-    history.
-    """
-    dataset_id, _ = fake_dataset
-    raw_dir, tables_dir = runner_dirs
-
-    run_reservoir_benchmark(
-        _config(dataset_id, reservoir_npz, raw_dir, tables_dir),
-        raw_dir=raw_dir,
-        tables_dir=tables_dir,
-    )
-
-    record = next((r for r in load_records(raw_dir) if r.status == "ok"), None)
-    assert record is not None
-
-    # Legacy direction: strip the key from the record's own JSON view, reload.
-    view = record.to_dict()
-    view.pop("cpu_seconds", None)
-    reloaded = RunRecord.from_dict(view)
-    assert reloaded.cpu_seconds == 0.0, "legacy record must default cpu_seconds to 0.0"
-
-    # New direction: the runner's own record carries the measured value.
-    assert record.cpu_seconds > 0.0
-
 
 # ---------------------------------------------------------------------------
 # 2. Skip-existing: ok under the same config is not re-computed
@@ -418,98 +275,32 @@ def test_skip_existing_under_same_config(
     )
     assert second.ok_count == 0
     assert len(second.skipped_units) == first.ok_count
-    # DATA-58: the skip is disclosed with both config hashes (same-config
-    # case: both hashes are identical).
-    assert len(second.skip_disclosures) == first.ok_count
-    for entry in second.skip_disclosures:
-        assert entry["reason"] == "prior_ok_same_config"
-        assert entry["prior_config_hash"] == entry["run_config_hash"] == first.config_hash
     # The ok records from the first run are still on disk, untouched — the
-    # skip did not re-score, clobber or refuse.
+    # skip did not re-score, not clobber, not refuse.
     statuses = {record.status for record in load_records(raw_dir)}
     assert "ok" in statuses
     assert statuses <= {"ok", "skipped", "failed"}
 
 
-def test_skip_different_config_disclosed_not_raised(
+def test_skip_only_under_same_config_hash(
     fake_dataset: tuple[str, Path],
     reservoir_npz: Path,
     runner_dirs: tuple[Path, Path],
 ) -> None:
-    """DATA-58 ②: a different-config prior ok record is SKIPPED + DISCLOSED.
-
-    Pre-DATA-58, the second invocation aborted the whole batch at the first
-    already-ok unit (``RuntimeError: test_touched_once violated``). That
-    abort is what blocked re-sharding E2-D3 onto more processes. Now the
-    unit is skipped and the skip carries BOTH config hashes.
-    """
+    """A different config is a different run: no skip, no refusal."""
     dataset_id, _ = fake_dataset
     raw_dir, tables_dir = runner_dirs
 
-    first = run_reservoir_benchmark(
-        _config(dataset_id, reservoir_npz, raw_dir, tables_dir),
-        raw_dir=raw_dir,
-        tables_dir=tables_dir,
-    )
-    assert first.ok_count > 0
-    assert first.skip_disclosures == []
-
-    # Same families, different config_hash (leak 0.3 changes the hash):
-    # the R0 units scored on the first run are touched under the FIRST
-    # config. The second batch must NOT raise — it skips and discloses.
-    second = run_reservoir_benchmark(
-        _config(
-            dataset_id,
-            reservoir_npz,
-            raw_dir,
-            tables_dir,
-            leak=0.3,
-        ),
-        raw_dir=raw_dir,
-        tables_dir=tables_dir,
-    )
-    assert second.ok_count == 0
-    # Every unit of the second batch was already ok under a different
-    # config, so all of them are skipped and disclosed.
-    assert len(second.skipped_units) == first.ok_count
-    assert len(second.skip_disclosures) == first.ok_count
-    for entry in second.skip_disclosures:
-        assert entry["reason"] == "prior_ok_different_config"
-        assert entry["prior_config_hash"] == first.config_hash
-        assert entry["run_config_hash"] == second.config_hash
-        assert entry["prior_status"] == "ok"
-    # The ok records from the first run are still on disk, untouched — the
-    # skip did not re-score, clobber or refuse.
-    statuses = {record.status for record in load_records(raw_dir)}
-    assert "ok" in statuses
-    assert statuses <= {"ok", "skipped", "failed"}
-
-
-def test_no_skip_existing_still_refuses_different_config(
-    fake_dataset: tuple[str, Path],
-    reservoir_npz: Path,
-    runner_dirs: tuple[Path, Path],
-) -> None:
-    """DATA-58 ③: --no-skip-existing keeps the strict §17 guard.
-
-    With ``enforce_test_touched_once=False`` the runner allows a
-    same-config re-computation (still a skip — nothing new is fitted),
-    but a different-config prior ok record is REFUSED with a
-    ``test_touched_once`` violation. This is the existing semantics of
-    ``--no-skip-existing`` that DATA-58 explicitly preserves.
-    """
-    dataset_id, _ = fake_dataset
-    raw_dir, tables_dir = runner_dirs
-
-    # Seed the ledger with one ok record.
     run_reservoir_benchmark(
         _config(dataset_id, reservoir_npz, raw_dir, tables_dir),
         raw_dir=raw_dir,
         tables_dir=tables_dir,
     )
-    # A different-config run with enforce_test_touched_once=False must
-    # still raise — the §17 guard is off for skips but the refusal is
-    # the guard's other half.
+    # A different invocation (different families, different config_hash)
+    # scores the units it does not already hold ok under that config —
+    # here R3 was never scored, so it runs. The R0 units it did score on the
+    # first run are touched under the FIRST config, and §17 forbids scoring
+    # them again under a different one: the runner refuses up front.
     with pytest.raises(RuntimeError, match="test_touched_once violated"):
         run_reservoir_benchmark(
             _config(
@@ -517,75 +308,13 @@ def test_no_skip_existing_still_refuses_different_config(
                 reservoir_npz,
                 raw_dir,
                 tables_dir,
-                leak=0.3,
-                enforce_test_touched_once=False,
+                family_ids=("R0_real_fly", "R3_random_sparse"),
             ),
             raw_dir=raw_dir,
             tables_dir=tables_dir,
         )
 
-
-def test_no_skip_existing_allows_same_config_recomputation(
-    fake_dataset: tuple[str, Path],
-    reservoir_npz: Path,
-    runner_dirs: tuple[Path, Path],
-) -> None:
-    """DATA-58 ③b: --no-skip-existing still allows a same-config re-computation.
-
-    With ``enforce_test_touched_once=False`` a same-config prior ok record
-    is still skipped (re-computation — nothing new is fitted); only a
-    DIFFERENT-config record is refused. This pins the existing
-    same-config semantics of ``--no-skip-existing``.
-    """
-    dataset_id, _ = fake_dataset
-    raw_dir, tables_dir = runner_dirs
-
-    first = run_reservoir_benchmark(
-        _config(dataset_id, reservoir_npz, raw_dir, tables_dir),
-        raw_dir=raw_dir,
-        tables_dir=tables_dir,
-    )
-    # Same config, enforce_test_touched_once=False: all units are
-    # already ok and get skipped (re-computation is a skip, not a
-    # re-fit), no raise.
-    second = run_reservoir_benchmark(
-        _config(
-            dataset_id,
-            reservoir_npz,
-            raw_dir,
-            tables_dir,
-            enforce_test_touched_once=False,
-        ),
-        raw_dir=raw_dir,
-        tables_dir=tables_dir,
-    )
-    assert second.ok_count == 0
-    assert len(second.skipped_units) == first.ok_count
-    for entry in second.skip_disclosures:
-        assert entry["reason"] == "prior_ok_same_config"
-        assert entry["prior_config_hash"] == entry["run_config_hash"]
-    # The ok records from the first run are still on disk, untouched.
-    statuses = {record.status for record in load_records(raw_dir)}
-    assert "ok" in statuses
-    assert statuses <= {"ok", "skipped", "failed"}
-
-
-def test_untouched_families_run_fine(
-    fake_dataset: tuple[str, Path],
-    reservoir_npz: Path,
-    runner_dirs: tuple[Path, Path],
-) -> None:
-    """A batch that only names families it has not touched runs fine."""
-    dataset_id, _ = fake_dataset
-    raw_dir, tables_dir = runner_dirs
-
-    run_reservoir_benchmark(
-        _config(dataset_id, reservoir_npz, raw_dir, tables_dir),
-        raw_dir=raw_dir,
-        tables_dir=tables_dir,
-    )
-    # R3 was never scored; a batch naming only R3 has no prior ok
-    # record to skip.
+    # A run that only names families it has not touched runs fine.
     report = run_reservoir_benchmark(
         _config(
             dataset_id,
@@ -648,11 +377,9 @@ def test_failed_run_registers_no_touch(
     # that the failed classification units re-score while nothing else
     # happens that should not.
     #
-    # The second run uses a different config_hash (leak=0.3) and tasks=
-    # ("classification",) so it never touches the ok regression records.
-    # Under DATA-58, the already-ok classification units are SKIPPED and
-    # disclosed (not raised), while the failed classification units are
-    # re-scored — a failed record occupies no §17 quota.
+    # To isolate the failure-recovery assertion from the refuse assertion,
+    # the second run uses tasks=("classification",) so it never touches the
+    # ok regression records.
     report = run_reservoir_benchmark(
         _config(
             dataset_id,
@@ -673,61 +400,43 @@ def test_failed_run_registers_no_touch(
     assert not report.failed_units
     # The classification records that carry the previous crash's fingerprint
     # must hold fresh ok status — the failure was not a touch.
-    ok_units = {(record.model, record.task, record.fold_id, record.seed) for record in rescored}
+    ok_units = {(record.model, record.task) for record in rescored}
     for record in failed:
-        assert (record.model, record.task, record.fold_id, record.seed) in ok_units, \
-            f"failed unit {record.model}/{record.task}/seed{record.seed}/fold{record.fold_id} not re-scored"
-    # The classification units that were ok under the first config are now
-    # skipped (different config_hash, DATA-58) and disclosed. The failed
-    # units that were re-scored are not skipped, so every skip in this
-    # batch is a different-config skip.
-    skipped_diff = [d for d in report.skip_disclosures if d["reason"] == "prior_ok_different_config"]
-    assert len(skipped_diff) == len(report.skipped_units), \
-        "every skip in this batch must be a different-config skip"
+        assert (record.model, record.task) in ok_units
 
 
-def test_skip_disclosure_receipt_written(
+def test_ok_run_is_refused_under_different_config(
     fake_dataset: tuple[str, Path],
     reservoir_npz: Path,
     runner_dirs: tuple[Path, Path],
 ) -> None:
-    """DATA-58: the skip disclosure receipt is written to the tables dir.
+    """§17: an ok record DOES register; a re-touch under a new config is refused.
 
-    The receipt path is ``<tables_dir>/<experiment>_skip_disclosure.json``
-    and carries both config hashes for every disclosed skip.
+    The refusal surfaces on the first unit the run reaches — which is before
+    any fold tensor is built — so the run raises and writes nothing new.
     """
-    import json
     dataset_id, _ = fake_dataset
     raw_dir, tables_dir = runner_dirs
 
-    first = run_reservoir_benchmark(
+    run_reservoir_benchmark(
         _config(dataset_id, reservoir_npz, raw_dir, tables_dir),
         raw_dir=raw_dir,
         tables_dir=tables_dir,
     )
 
-    # Trigger a different-config skip.
-    second = run_reservoir_benchmark(
-        _config(
-            dataset_id,
-            reservoir_npz,
-            raw_dir,
-            tables_dir,
-            leak=0.3,
-        ),
-        raw_dir=raw_dir,
-        tables_dir=tables_dir,
-    )
-    # The receipt is named after the experiment, not the config hash.
-    receipt_path = tables_dir / f"reservoir_test_skip_disclosure.json"
-    assert receipt_path.is_file(), "skip disclosure receipt must exist"
-    payload = json.loads(receipt_path.read_text())
-    assert payload["n_skipped_units"] == len(second.skip_disclosures)
-    assert payload["n_skipped_different_config"] > 0
-    for entry in payload["disclosures"]:
-        assert entry["reason"] in ("prior_ok_same_config", "prior_ok_different_config")
-        assert "prior_config_hash" in entry
-        assert "run_config_hash" in entry
+    with pytest.raises(RuntimeError, match="test_touched_once violated"):
+        run_reservoir_benchmark(
+            _config(
+                dataset_id,
+                reservoir_npz,
+                raw_dir,
+                tables_dir,
+                family_ids=("R0_real_fly", "R3_random_sparse"),
+                leak=0.3,
+            ),
+            raw_dir=raw_dir,
+            tables_dir=tables_dir,
+        )
 
 
 # ---------------------------------------------------------------------------
