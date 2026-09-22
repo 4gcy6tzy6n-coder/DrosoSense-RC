@@ -36,7 +36,7 @@ grep -q 'skip_disclosures' "$REPO/drososense/evaluation/runner.py" \
 echo "E9/D3 size sweep (DATA-59, seed-half sharding); logs: $LOGDIR/e9_size_d3_${STAMP}_*.log"
 cd "$REPO"
 base=(scripts/run_reservoir_e2.py --dataset d3_rainbow_trout
-      --experiment e9_size --window-lengths 16
+      --experiment e9_size_d3 --window-lengths 16
       --tasks classification regression --split-strategy loso
       --normalization n1_pre_l1)
 run_seed_half() {
