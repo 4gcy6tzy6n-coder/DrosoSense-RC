@@ -1,0 +1,48 @@
+{
+  "experiment": "e2_main_d3",
+  "gates": {
+    "Gate_A": {
+      "detail": {},
+      "expression": "sum([ ci_contains_zero(R0, R4, macro_f1, D2) or noninferior(R0, R4, macro_f1, D2), ci_contains_zero(R0, R4, macro_f1, D3) or noninferior(R0, R4, macro_f1, D3) ]) == 2 and params(R0) < params(GRU)",
+      "reason": "Gate_A: no result for contrast R0_vs_R4 on macro_f1/d2_beef_uncontrolled/full; the gate cannot be evaluated",
+      "result": "UNEVALUABLE"
+    },
+    "Gate_B": {
+      "detail": {},
+      "expression": "sig(R0, R2, macro_f1, D2) or sig(R0, R2, macro_f1, D3) or sig_any(R0, R4, macro_f1, [D2, D3], [\"dropout_p0.3\", \"noise_s0.1\", \"train10pct\", \"train25pct\"])",
+      "reason": "Gate_B: no result for contrast R0_vs_R2 on macro_f1/d2_beef_uncontrolled/full; the gate cannot be evaluated",
+      "result": "UNEVALUABLE"
+    },
+    "Gate_C": {
+      "detail": {
+        "R0_vs_R2|macro_f1|d3_rainbow_trout|full": {
+          "ci_high": 0.0004892344718916415,
+          "ci_low": -0.0006874679652672044,
+          "delta": -0.00010093259424218198,
+          "minimum_achievable_p_over_clusters": 3.637978807091713e-12,
+          "n_clusters": 39,
+          "n_pairs": 620,
+          "p_holm": 0.10812902140605732
+        },
+        "R0_vs_R3|macro_f1|d3_rainbow_trout|full": {
+          "ci_high": -0.0001974767645405602,
+          "ci_low": -0.002260695658342746,
+          "delta": -0.0011777981637113386,
+          "minimum_achievable_p_over_clusters": 4.547473508864641e-13,
+          "n_clusters": 42,
+          "n_pairs": 620,
+          "p_holm": 0.17423408769536763
+        }
+      },
+      "expression": "sig(R0, R2, macro_f1, D3) and sig(R0, R3, macro_f1, D3) and sig_any(R0, R4, macro_f1, [D2, D3], [\"dropout_p0.3\", \"noise_s0.1\", \"train10pct\", \"train25pct\"])",
+      "reason": "",
+      "result": false
+    }
+  },
+  "n_gates": 3,
+  "note": "A gate that names a contrast / model / dataset this bundle does not carry is UNEVALUABLE with the reason, never a pass or a fail (protocol \u00a713 gate_rules). The unresolved_terms list is the explicit pending set for the next bundle.",
+  "unresolved_terms": [
+    "Gate_A: no result for contrast R0_vs_R4 on macro_f1/d2_beef_uncontrolled/full; the gate cannot be evaluated",
+    "Gate_B: no result for contrast R0_vs_R2 on macro_f1/d2_beef_uncontrolled/full; the gate cannot be evaluated"
+  ]
+}

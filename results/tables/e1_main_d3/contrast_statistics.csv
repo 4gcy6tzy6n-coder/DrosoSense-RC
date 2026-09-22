@@ -1,0 +1,13 @@
+contrast_id,metric,dataset,task,first,second,n_pairs,n_clusters,n_clusters_nonzero,n_seeds,status,delta,delta_ci_low,delta_ci_high,p_value,p_paired_wilcoxon,effect_size,effect_size_name,minimum_achievable_p_over_clusters,family,p_holm,first_code,second_code,first_resolved,second_resolved,note
+R0_vs_R2,macro_f1,d3_rainbow_trout,classification,R0,R2,10.0,5.0,5.0,2.0,ok,0.15000000000000005,0.15,0.15000000000000008,0.0625,0.001953125,1.0,rank_biserial,0.0625,F_primary,0.0625,R0,R2,R0,R2,
+R0_vs_R2,mae,d3_rainbow_trout,regression,R0,R2,10.0,5.0,5.0,2.0,ok,-0.3,-0.30000000000000004,-0.29999999999999993,0.0625,0.001953125,-0.30000000000000004,hodges_lehmann,0.0625,F_primary,0.0625,R0,R2,R0,R2,
+R0_vs_R4,macro_f1,d3_rainbow_trout,classification,R0,esn,10.0,5.0,5.0,2.0,ok,0.05000000000000003,0.05000000000000001,0.050000000000000044,0.0625,0.001953125,1.0,rank_biserial,0.0625,F_secondary_topology,0.0625,R0,R4,R0,esn,
+R0_vs_R4,mae,d3_rainbow_trout,regression,R0,esn,10.0,5.0,5.0,2.0,ok,-0.15000000000000005,-0.15000000000000013,-0.14999999999999997,0.0625,0.001953125,-0.15000000000000002,hodges_lehmann,0.0625,F_secondary_topology,0.0625,R0,R4,R0,esn,
+R0_vs_R3,macro_f1,d3_rainbow_trout,classification,,,,,,,unpairable,,,,,,,,,,,R0,R3,R0,R3,"no common scored (seed, fold_id, window_length) unit between R0 (resolved to 'R0') and R3 (resolved to 'R3')"
+R0_vs_R3,mae,d3_rainbow_trout,regression,,,,,,,unpairable,,,,,,,,,,,R0,R3,R0,R3,"no common scored (seed, fold_id, window_length) unit between R0 (resolved to 'R0') and R3 (resolved to 'R3')"
+R0_vs_GRU,macro_f1,d3_rainbow_trout,classification,,,,,,,unpairable,,,,,,,,,,,R0,GRU,R0,GRU,"no common scored (seed, fold_id, window_length) unit between R0 (resolved to 'R0') and GRU (resolved to 'GRU')"
+R0_vs_GRU,mae,d3_rainbow_trout,regression,,,,,,,unpairable,,,,,,,,,,,R0,GRU,R0,GRU,"no common scored (seed, fold_id, window_length) unit between R0 (resolved to 'R0') and GRU (resolved to 'GRU')"
+R0_vs_R5,macro_f1,d3_rainbow_trout,classification,,,,,,,unpairable,,,,,,,,,,,R0,R5,R0,R5,"no common scored (seed, fold_id, window_length) unit between R0 (resolved to 'R0') and R5 (resolved to 'R5')"
+R0_vs_R5,mae,d3_rainbow_trout,regression,,,,,,,unpairable,,,,,,,,,,,R0,R5,R0,R5,"no common scored (seed, fold_id, window_length) unit between R0 (resolved to 'R0') and R5 (resolved to 'R5')"
+R0_vs_R1,macro_f1,d3_rainbow_trout,classification,,,,,,,unpairable,,,,,,,,,,,R0,R1,R0,R1,"no common scored (seed, fold_id, window_length) unit between R0 (resolved to 'R0') and R1 (resolved to 'R1')"
+R0_vs_R1,mae,d3_rainbow_trout,regression,,,,,,,unpairable,,,,,,,,,,,R0,R1,R0,R1,"no common scored (seed, fold_id, window_length) unit between R0 (resolved to 'R0') and R1 (resolved to 'R1')"

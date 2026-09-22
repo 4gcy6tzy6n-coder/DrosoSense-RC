@@ -1,0 +1,47 @@
+{
+  "experiment": "e2_main_d2",
+  "note": "N5 reads dataset availability from the manifest when one is present, not from whether this bundle carried the dataset (protocol \u00a714: an acquired-but-excluded dataset is available, and N5 must not fire on it). More than one firing is reported as a conflict, never resolved by choice.",
+  "rules": {
+    "N1": {
+      "action": "Conclude that degree / statistical structure matters, not the specific Drosophila wiring. Rewrite the title and abstract accordingly. It is forbidden to state that the biological wiring is important.",
+      "detail": {},
+      "fired": false,
+      "reason": "N1: no result for contrast R0_vs_R2 on macro_f1/d3_rainbow_trout/full; the gate cannot be evaluated",
+      "trigger": "equiv(R0, R2, macro_f1, D3) and sig(R0, R3, macro_f1, D3)"
+    },
+    "N2": {
+      "action": "Reframe the paper as a robust sparse biological reservoir contribution rather than a performance contribution. Performance claims are dropped from the title and abstract.",
+      "detail": {},
+      "fired": false,
+      "reason": "N2: no result for contrast R0_vs_R4 on macro_f1/d3_rainbow_trout/full; the gate cannot be evaluated",
+      "trigger": "equiv(R0, R4, macro_f1, D3) and sig_any(R0, R4, macro_f1, [D2, D3], [\"dropout_p0.3\", \"noise_s0.1\"])"
+    },
+    "N3": {
+      "action": "Report the negative result honestly. Reframe as an investigation of why biological connectomes do not transfer directly to artificial sensory streams; state explicitly that this may be a computational-neuroscience result rather than a TAFE result.",
+      "detail": {},
+      "fired": false,
+      "reason": "N3: no result for contrast R4_vs_R0 on macro_f1/d3_rainbow_trout/full; the gate cannot be evaluated",
+      "trigger": "sig(R4, R0, macro_f1, D3)"
+    },
+    "N4": {
+      "action": "Report both. Cross-food generalization is claimed only if the ordering is consistent across both foods; otherwise the inconsistency is reported as a limitation and no cross-food claim is made.",
+      "detail": {},
+      "fired": false,
+      "reason": "N4: no result for contrast R2_vs_R0 on macro_f1/d3_rainbow_trout/full; the gate cannot be evaluated",
+      "trigger": "(sig(R0, R2, macro_f1, D2) and sig(R2, R0, macro_f1, D3)) or (sig(R2, R0, macro_f1, D2) and sig(R0, R2, macro_f1, D3))"
+    },
+    "N5": {
+      "action": "Report the blocker with the exact manual acquisition steps. Do not run, plot or tabulate a substitute. The affected dataset is marked UNAVAILABLE in every table.",
+      "detail": {},
+      "fired": false,
+      "reason": "",
+      "trigger": "unavailable(D1) or unavailable(D2) or unavailable(D3)"
+    }
+  },
+  "unresolved_terms": [
+    "N1: no result for contrast R0_vs_R2 on macro_f1/d3_rainbow_trout/full; the gate cannot be evaluated",
+    "N2: no result for contrast R0_vs_R4 on macro_f1/d3_rainbow_trout/full; the gate cannot be evaluated",
+    "N3: no result for contrast R4_vs_R0 on macro_f1/d3_rainbow_trout/full; the gate cannot be evaluated",
+    "N4: no result for contrast R2_vs_R0 on macro_f1/d3_rainbow_trout/full; the gate cannot be evaluated"
+  ]
+}

@@ -10,6 +10,9 @@ data/splits/**
 !data/splits/.gitkeep
 
 # Connectome source graphs and derived adjacency matrices (M2+, large binaries)
+# NOTE: raw inputs live OUTSIDE the repo in the shared data root (../data-root,
+# override with $DROSOSENSE_DATA) so the working tree stays small and replayable
+# into isolated task worktrees. Resolved by connectome/paths.py.
 connectome/raw/**
 connectome/adjacency/**
 !connectome/raw/.gitkeep
@@ -41,3 +44,13 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+
+# platform-local agent scaffolding (never deliver into the repo)
+.pi/
+AGENTS.md
+
+# DATA-5 rework (R3 gate, 2026-09-22): m4_pull/ is a scratch pull directory
+# (raw4.tar + 21,440 per-run JSONs, ~234 MB) that must never enter git.
+# Raw evidence is represented by sha256 + size + schema in the manifests only
+# (docs/m4_phase2_pipeline_manifest.md + results/tables/*_fingerprints.csv).
+m4_pull/

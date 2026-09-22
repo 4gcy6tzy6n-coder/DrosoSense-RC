@@ -1,0 +1,10 @@
+{
+  "n_distinct_test_fingerprints": 700,
+  "n_records": 700,
+  "n_repeated_test_fingerprints": 0,
+  "n_violations": 0,
+  "n_with_fingerprint": 700,
+  "repeated_test_fingerprints": [],
+  "rule": "protocol \u00a717: a second record with the same test_fingerprint and a different config_hash is a protocol violation. A repeat with the SAME config_hash is a re-computation and is reported but is not a violation.",
+  "violations": []
+}
