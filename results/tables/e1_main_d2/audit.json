@@ -1,9 +1,9 @@
 {
   "bundle_files": {
-    "fingerprints": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-56-7d5d4335cdb4/worktree/results/tables/e1_main_d2_fingerprints.csv",
-    "per_run": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-56-7d5d4335cdb4/worktree/results/tables/e1_main_d2_per_run.csv",
-    "summary": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-56-7d5d4335cdb4/worktree/results/tables/e1_main_d2_summary.csv",
-    "test_touched_once": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-56-7d5d4335cdb4/worktree/results/tables/e1_main_d2_test_touched_once.json"
+    "fingerprints": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-5-72011440566e/worktree/results/tables/e1_main_d2_fingerprints.csv",
+    "per_run": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-5-72011440566e/worktree/results/tables/e1_main_d2_per_run.csv",
+    "summary": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-5-72011440566e/worktree/results/tables/e1_main_d2_summary.csv",
+    "test_touched_once": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-5-72011440566e/worktree/results/tables/e1_main_d2_test_touched_once.json"
   },
   "bundle_prefix": "e1_main_d2",
   "decision_metric_by_task": {
@@ -16,7 +16,15 @@
     "Gate_B",
     "Gate_C"
   ],
-  "missing_required_models": [],
+  "missing_required_models": [
+    "R0",
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R5",
+    "R6"
+  ],
   "n_contrast_rows": 12,
   "n_contrast_rows_pairable": 0,
   "n_distinct_config_hashes": 4,
@@ -24,7 +32,7 @@
   "n_per_run": 900,
   "n_violations": 0,
   "note": "Read-only pipeline over already-scored records; no model evaluation. Unpairable / insufficient rows and UNEVALUABLE gates are reported with their reasons, never imputed.",
-  "output_dir": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-56-7d5d4335cdb4/worktree/results/tables/e1_main_d2",
+  "output_dir": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-5-72011440566e/worktree/results/tables/e1_main_d2",
   "r2_secondary_only": true,
   "secondary_metrics_reported_only": [
     "balanced_accuracy",
@@ -35,9 +43,9 @@
   ],
   "sha256": {
     "fingerprints": "933f3850ca507e96",
-    "per_run": "1e796ccb85a5bb86",
-    "summary": "c8369331a00c1cdb",
+    "per_run": "994ce524e1f619f4",
+    "summary": "e9ad3adbeb40a2a5",
     "test_touched_once": "345f7fcaa74faca8"
   },
-  "tables_dir": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-56-7d5d4335cdb4/worktree/results/tables"
+  "tables_dir": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-5-72011440566e/worktree/results/tables"
 }

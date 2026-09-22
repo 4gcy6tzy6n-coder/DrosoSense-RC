@@ -16,7 +16,7 @@
     "Gate_C": {
       "detail": {},
       "expression": "sig(R0, R2, macro_f1, D3) and sig(R0, R3, macro_f1, D3) and sig_any(R0, R4, macro_f1, [D2, D3], [\"dropout_p0.3\", \"noise_s0.1\", \"train10pct\", \"train25pct\"])",
-      "reason": "Gate_C: no result for contrast R0_vs_R3 on macro_f1/d3_rainbow_trout/full; the gate cannot be evaluated",
+      "reason": "Gate_C: no result for contrast R0_vs_R2 on macro_f1/d3_rainbow_trout/full; the gate cannot be evaluated",
       "result": "UNEVALUABLE"
     }
   },
@@ -25,6 +25,6 @@
   "unresolved_terms": [
     "Gate_A: no result for contrast R0_vs_R4 on macro_f1/d2_beef_uncontrolled/full; the gate cannot be evaluated",
     "Gate_B: no result for contrast R0_vs_R2 on macro_f1/d2_beef_uncontrolled/full; the gate cannot be evaluated",
-    "Gate_C: no result for contrast R0_vs_R3 on macro_f1/d3_rainbow_trout/full; the gate cannot be evaluated"
+    "Gate_C: no result for contrast R0_vs_R2 on macro_f1/d3_rainbow_trout/full; the gate cannot be evaluated"
   ]
 }

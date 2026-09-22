@@ -1111,6 +1111,7 @@ def run_evidence_pipeline(
     require_models: list[str] | None = None,
     tables_dir: str | Path | None = None,
     bundle_prefix: str | None = None,
+    protocol: dict[str, Any] | None = None,
 ) -> int:
     """The full read-only pipeline for one evidence bundle.
 
@@ -1134,7 +1135,8 @@ def run_evidence_pipeline(
     Returns:
         The process exit code (0 on a clean run; 2 on an integrity failure).
     """
-    protocol = load_protocol()
+    if protocol is None:
+        protocol = load_protocol()
     try:
         frame, meta = load_evidence_bundle(
             experiment,
@@ -1308,18 +1310,35 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "experiment label itself); the stub D3 demo uses 'stub_e1_main_d3'"
         ),
     )
+    parser.add_argument(
+        "--protocol-version",
+        default=None,
+        help=(
+            "run the pipeline on a specific frozen protocol file (e.g. "
+            "v1.3.0) instead of the active one; the E2 batches ran under "
+            "v1.4 while the frozen test parameters live in v1.3, so the "
+            "M4 closing run passes v1.3 explicitly"
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point for ``python -m drososense.evaluation.evidence_stats``."""
     args = parse_args(argv)
+    protocol: dict[str, Any] | None = None
+    if args.protocol_version:
+        from drososense.utils.config import load_protocol
+        from drososense.utils.paths import CONFIGS_DIR
+
+        protocol = load_protocol(CONFIGS_DIR / f"protocol_v{args.protocol_version}.yaml")
     return run_evidence_pipeline(
         args.experiment,
         output_prefix=args.output_prefix,
         require_models=args.require_models,
         tables_dir=args.tables_dir,
         bundle_prefix=args.bundle_prefix,
+        protocol=protocol,
     )
 
 

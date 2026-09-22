@@ -1,0 +1,76 @@
+{
+  "class_coverage": {
+    "missing_in_test": [],
+    "missing_in_train": []
+  },
+  "config_hash": "c84d501b1a72",
+  "dataset": "d2_beef_uncontrolled",
+  "duration_s": 1.0545796188525856,
+  "empty_class_policy": "require_all_classes",
+  "environment": {
+    "machine": "x86_64",
+    "numpy": "2.1.3",
+    "pandas": "3.0.6",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.35",
+    "python": "3.12.3",
+    "scipy": "1.18.1",
+    "sklearn": "1.9.1",
+    "torch": "2.5.1+cu124",
+    "xgboost": "3.4.1"
+  },
+  "evidence_class": "real",
+  "experiment": "e1_main_d2",
+  "failure_reason": "",
+  "fold_fingerprint": "20a70c561f8e",
+  "fold_id": 0,
+  "metrics": {
+    "mae": 0.2109405525183278,
+    "r2": 0.9162735086664303,
+    "rmse": 0.2745899063914894
+  },
+  "model": "svm_rbf",
+  "model_description": {
+    "model_id": "svm_rbf",
+    "n_trainable_parameters": null,
+    "params": {},
+    "proba_source": "predict_proba",
+    "resolved_params": {
+      "C": 1.0,
+      "cache_size": 200,
+      "coef0": 0.0,
+      "degree": 3,
+      "epsilon": 0.1,
+      "gamma": "scale",
+      "kernel": "rbf",
+      "max_iter": -1,
+      "shrinking": true,
+      "tol": 0.001,
+      "verbose": false
+    },
+    "seed": 0,
+    "task": "regression"
+  },
+  "n_test_sessions": 1,
+  "n_test_windows": 2145,
+  "n_train_sessions": 3,
+  "n_train_windows": 6435,
+  "notes": "",
+  "protocol_compliant": true,
+  "protocol_version": "1.4.0",
+  "run_id": "d2_beef_uncontrolled|svm_rbf|regression|seed00|fold00",
+  "seed": 0,
+  "selection": {},
+  "status": "ok",
+  "task": "regression",
+  "test_fingerprint": "92c06cface0f489b",
+  "test_specimens": [
+    "TS3"
+  ],
+  "timestamp_utc": "2026-09-21T09:42:57.326398+00:00",
+  "train_specimens": [
+    "TS4",
+    "TS1",
+    "TS2"
+  ],
+  "window_length": 16
+}

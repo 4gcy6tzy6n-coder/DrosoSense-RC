@@ -39,7 +39,10 @@ def _line_count(path: Path) -> int:
 
 
 def build_audit(
-    experiment: str, out_path: Path | None = None, tables_dir: str | None = None
+    experiment: str,
+    out_path: Path | None = None,
+    tables_dir: str | None = None,
+    protocol: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """Assemble the evidence-audit rows for one bundle.
 
@@ -48,11 +51,13 @@ def build_audit(
         out_path: Where to write the audit CSV (default
             ``results/tables/<experiment>/evidence_audit.csv``).
         tables_dir: Override the input tables directory.
+        protocol: Frozen protocol mapping; the active one when omitted.
 
     Returns:
         The audit frame.
     """
-    protocol = load_protocol()
+    if protocol is None:
+        protocol = load_protocol()
     base = Path(tables_dir) if tables_dir else RESULTS_TABLES_DIR
     out_dir = base / experiment
     gates_path = out_dir / "gates.json"
@@ -196,15 +201,33 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="override the input tables directory",
     )
+    parser.add_argument(
+        "--protocol-version",
+        default=None,
+        help=(
+            "frozen protocol file version to evaluate against "
+            "(default: the active protocol)"
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    protocol = None
+    if args.protocol_version:
+        from drososense.utils.paths import CONFIGS_DIR
+
+        protocol = load_protocol(CONFIGS_DIR / f"protocol_v{args.protocol_version}.yaml")
     base = Path(args.tables_dir) if args.tables_dir else RESULTS_TABLES_DIR
     default_out = base / args.experiment / "evidence_audit.csv"
     out = Path(args.output) if args.output else default_out
-    frame = build_audit(args.experiment, out_path=out, tables_dir=args.tables_dir)
+    frame = build_audit(
+        args.experiment,
+        out_path=out,
+        tables_dir=args.tables_dir,
+        protocol=protocol,
+    )
     print(f"{out}  ({len(frame)} rows)")
     return 0
 

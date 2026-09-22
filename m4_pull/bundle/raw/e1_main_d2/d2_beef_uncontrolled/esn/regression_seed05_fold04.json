@@ -1,0 +1,76 @@
+{
+  "class_coverage": {
+    "missing_in_test": [],
+    "missing_in_train": []
+  },
+  "config_hash": "d9528be0bd0a",
+  "dataset": "d2_beef_uncontrolled",
+  "duration_s": 2.5508908689953387,
+  "empty_class_policy": "require_all_classes",
+  "environment": {
+    "machine": "x86_64",
+    "numpy": "2.1.3",
+    "pandas": "3.0.6",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.35",
+    "python": "3.12.3",
+    "scipy": "1.18.1",
+    "sklearn": "1.9.1",
+    "torch": "2.5.1+cu124",
+    "xgboost": "3.4.1"
+  },
+  "evidence_class": "real",
+  "experiment": "e1_main_d2",
+  "failure_reason": "",
+  "fold_fingerprint": "6eee1b95b6aa",
+  "fold_id": 4,
+  "metrics": {
+    "mae": 6.256571873782487,
+    "r2": -59.87627905064661,
+    "rmse": 6.506835849391085
+  },
+  "model": "esn",
+  "model_description": {
+    "frozen_parameters": 4345,
+    "model_id": "esn",
+    "n_trainable_parameters": 201,
+    "params": {
+      "density": 0.05,
+      "gain": 1.0,
+      "input_scale": 0.5,
+      "leak": 0.3,
+      "readout": "ridge",
+      "reservoir_size": 200,
+      "ridge_lambda": 0.001,
+      "spectral_radius": 0.9,
+      "state_pooling": "last",
+      "washout": 10
+    },
+    "readout": "ridge",
+    "reservoir_sparsity": 0.951375,
+    "seed": 5,
+    "task": "regression"
+  },
+  "n_test_sessions": 1,
+  "n_test_windows": 2145,
+  "n_train_sessions": 3,
+  "n_train_windows": 6435,
+  "notes": "",
+  "protocol_compliant": true,
+  "protocol_version": "1.4.0",
+  "run_id": "d2_beef_uncontrolled|esn|regression|seed05|fold04",
+  "seed": 5,
+  "selection": {},
+  "status": "ok",
+  "task": "regression",
+  "test_fingerprint": "0ed769df5eaccbdc",
+  "test_specimens": [
+    "TS1"
+  ],
+  "timestamp_utc": "2026-09-21T09:45:43.068178+00:00",
+  "train_specimens": [
+    "TS4",
+    "TS2",
+    "TS3"
+  ],
+  "window_length": 16
+}

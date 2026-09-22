@@ -1,0 +1,80 @@
+{
+  "class_coverage": {
+    "missing_in_test": [],
+    "missing_in_train": []
+  },
+  "config_hash": "d9528be0bd0a",
+  "dataset": "d2_beef_uncontrolled",
+  "duration_s": 3.4741290928795934,
+  "empty_class_policy": "require_all_classes",
+  "environment": {
+    "machine": "x86_64",
+    "numpy": "2.1.3",
+    "pandas": "3.0.6",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.35",
+    "python": "3.12.3",
+    "scipy": "1.18.1",
+    "sklearn": "1.9.1",
+    "torch": "2.5.1+cu124",
+    "xgboost": "3.4.1"
+  },
+  "evidence_class": "real",
+  "experiment": "e1_main_d2",
+  "failure_reason": "",
+  "fold_fingerprint": "760fd382be4c",
+  "fold_id": 0,
+  "metrics": {
+    "accuracy": 0.6093240093240093,
+    "auroc": 0.7049772083559664,
+    "auroc_defined": true,
+    "auroc_n_classes_scored": 4,
+    "balanced_accuracy": 0.49759891879457097,
+    "empty_class_policy": "require_all_classes",
+    "macro_f1": 0.4570545854777704
+  },
+  "model": "esn",
+  "model_description": {
+    "frozen_parameters": 4343,
+    "model_id": "esn",
+    "n_trainable_parameters": 804,
+    "params": {
+      "density": 0.05,
+      "gain": 1.0,
+      "input_scale": 0.5,
+      "leak": 0.3,
+      "readout": "ridge",
+      "reservoir_size": 200,
+      "ridge_lambda": 0.001,
+      "spectral_radius": 0.9,
+      "state_pooling": "last",
+      "washout": 10
+    },
+    "readout": "ridge",
+    "reservoir_sparsity": 0.951425,
+    "seed": 8,
+    "task": "classification"
+  },
+  "n_test_sessions": 1,
+  "n_test_windows": 2145,
+  "n_train_sessions": 3,
+  "n_train_windows": 6435,
+  "notes": "",
+  "protocol_compliant": true,
+  "protocol_version": "1.4.0",
+  "run_id": "d2_beef_uncontrolled|esn|classification|seed08|fold00",
+  "seed": 8,
+  "selection": {},
+  "status": "ok",
+  "task": "classification",
+  "test_fingerprint": "f31f292765dd9675",
+  "test_specimens": [
+    "TS4"
+  ],
+  "timestamp_utc": "2026-09-21T09:46:42.842508+00:00",
+  "train_specimens": [
+    "TS2",
+    "TS3",
+    "TS5"
+  ],
+  "window_length": 16
+}

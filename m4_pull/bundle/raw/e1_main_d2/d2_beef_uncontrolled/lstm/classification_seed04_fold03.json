@@ -1,0 +1,75 @@
+{
+  "class_coverage": {
+    "missing_in_test": [],
+    "missing_in_train": []
+  },
+  "config_hash": "d9a050a656ab",
+  "dataset": "d2_beef_uncontrolled",
+  "duration_s": 12.928703086916357,
+  "empty_class_policy": "require_all_classes",
+  "environment": {
+    "machine": "x86_64",
+    "numpy": "2.1.3",
+    "pandas": "3.0.6",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.35",
+    "python": "3.12.3",
+    "scipy": "1.18.1",
+    "sklearn": "1.9.1",
+    "torch": "2.5.1+cu124",
+    "xgboost": "3.4.1"
+  },
+  "evidence_class": "real",
+  "experiment": "e1_main_d2",
+  "failure_reason": "",
+  "fold_fingerprint": "9dd348ffc2ab",
+  "fold_id": 3,
+  "metrics": {
+    "accuracy": 0.3986013986013986,
+    "auroc": 0.7397157780592339,
+    "auroc_defined": true,
+    "auroc_n_classes_scored": 4,
+    "balanced_accuracy": 0.4861111111111111,
+    "empty_class_policy": "require_all_classes",
+    "macro_f1": 0.34997294372294374
+  },
+  "model": "lstm",
+  "model_description": {
+    "model_id": "lstm",
+    "n_trainable_parameters": 5892,
+    "params": {
+      "batch_size": 64,
+      "dropout": 0.0,
+      "epochs": 30,
+      "hidden_size": 32,
+      "learning_rate": 0.001,
+      "num_layers": 1,
+      "torch_num_threads": 1,
+      "weight_decay": 0.0001
+    },
+    "seed": 4,
+    "task": "classification"
+  },
+  "n_test_sessions": 1,
+  "n_test_windows": 2145,
+  "n_train_sessions": 3,
+  "n_train_windows": 6435,
+  "notes": "",
+  "protocol_compliant": true,
+  "protocol_version": "1.4.0",
+  "run_id": "d2_beef_uncontrolled|lstm|classification|seed04|fold03",
+  "seed": 4,
+  "selection": {},
+  "status": "ok",
+  "task": "classification",
+  "test_fingerprint": "641be958e27c43b4",
+  "test_specimens": [
+    "TS2"
+  ],
+  "timestamp_utc": "2026-09-21T10:02:07.425717+00:00",
+  "train_specimens": [
+    "TS3",
+    "TS5",
+    "TS1"
+  ],
+  "window_length": 16
+}

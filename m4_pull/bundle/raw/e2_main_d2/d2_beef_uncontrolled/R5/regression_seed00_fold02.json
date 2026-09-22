@@ -1,0 +1,108 @@
+{
+  "class_coverage": {
+    "missing_in_test": [],
+    "missing_in_train": []
+  },
+  "config_hash": "07cd93e03295",
+  "cpu_seconds": 9.076645,
+  "dataset": "d2_beef_uncontrolled",
+  "duration_s": 2.1619937140494585,
+  "empty_class_policy": "require_all_classes",
+  "environment": {
+    "machine": "x86_64",
+    "numpy": "2.1.3",
+    "pandas": "3.0.6",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.35",
+    "python": "3.12.3",
+    "scipy": "1.18.1",
+    "sklearn": "1.9.1",
+    "torch": "2.5.1+cu124",
+    "xgboost": "3.4.1"
+  },
+  "evidence_class": "real",
+  "experiment": "e2_main_d2",
+  "failure_reason": "",
+  "fold_fingerprint": "8f5d6031eff3",
+  "fold_id": 2,
+  "metrics": {
+    "mae": 0.21350015369451783,
+    "r2": 0.8455403149724322,
+    "rmse": 0.3696285125220603
+  },
+  "model": "R5",
+  "model_description": {
+    "connectome": {
+      "normalization": "n1_pre_l1",
+      "npz_path": "/root/autodl-tmp/drososense/data/connectome/olfactory_v1.npz",
+      "npz_sha256": "ae86cbb9f848d39916136467405cab11225682c252228fd0752b8368f5049f8a"
+    },
+    "family_id": "R5_small_world",
+    "frozen_parameters": 3126,
+    "model_id": "R5_small_world",
+    "n_trainable_parameters": 251,
+    "node_selection": {
+      "full_graph_n": 124185,
+      "identity": false,
+      "method": "connectome.select_neurons (S0\u2013S4, layer-stratified, seeded)",
+      "n_selected": 250,
+      "node_index_sha256": "19aa6fddfe0e3954d2320229bd9f834027e1e9837b59d9f5f9b8865e265a9719",
+      "seed": 20260920,
+      "sha256_sorted_root_ids": "54816dbf0bd4a8c54285875229bf1fbc0bba3db1b1954fa57a74eeb027b876de",
+      "target_n": 250
+    },
+    "params": {
+      "gain": 0.5,
+      "input_scale": 0.1,
+      "leak": 0.1,
+      "readout": "ridge",
+      "reservoir_size": 200,
+      "ridge_lambda": 0.001,
+      "spectral_radius": 0.9,
+      "state_pooling": "last",
+      "washout": 10
+    },
+    "reservoir_sparsity": 0.997984,
+    "shared": {
+      "bias_sha256": "0fc7e9728e4a1b04d353a505ee9aff25ea86074a7fb5e41ea336bb8dc2b731a2",
+      "input_scale": 0.1,
+      "seed": 0,
+      "w_in_sha256": "95779f56257e5a9a31ec5da555bf3ea9293a7b5b76bd02091c8a56ea6ccb21e9"
+    },
+    "spectral_scaling_rule": "pinned at 0.9 for the whole run",
+    "split_strategy": "loso",
+    "task": "regression",
+    "topology": {
+      "density": 0.002016,
+      "kind": "R5_small_world",
+      "n_edges": 126,
+      "n_nodes": 250,
+      "nnz": 126,
+      "normalization": null,
+      "spectral_radius": 0.8999998569488525,
+      "weight_semantics": "synapse-count-informed structural weight (uncalibrated \u2014 not conductance, efficacy, or connection probability)"
+    }
+  },
+  "n_test_sessions": 1,
+  "n_test_windows": 2145,
+  "n_train_sessions": 3,
+  "n_train_windows": 6435,
+  "notes": "",
+  "protocol_compliant": true,
+  "protocol_version": "1.4.0",
+  "run_id": "d2_beef_uncontrolled|R5|regression|seed00|fold02",
+  "seed": 0,
+  "selection": {},
+  "status": "ok",
+  "task": "regression",
+  "test_fingerprint": "9bc0e0f7aefc3a5c",
+  "test_specimens": [
+    "TS4"
+  ],
+  "timestamp_utc": "2026-09-21T21:10:10.793924+00:00",
+  "train_specimens": [
+    "TS3",
+    "TS5",
+    "TS2"
+  ],
+  "window_length": 16
+}

@@ -1,0 +1,83 @@
+{
+  "class_coverage": {
+    "missing_in_test": [],
+    "missing_in_train": []
+  },
+  "config_hash": "c84d501b1a72",
+  "dataset": "d2_beef_uncontrolled",
+  "duration_s": 6.312530064955354,
+  "empty_class_policy": "require_all_classes",
+  "environment": {
+    "machine": "x86_64",
+    "numpy": "2.1.3",
+    "pandas": "3.0.6",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.35",
+    "python": "3.12.3",
+    "scipy": "1.18.1",
+    "sklearn": "1.9.1",
+    "torch": "2.5.1+cu124",
+    "xgboost": "3.4.1"
+  },
+  "evidence_class": "real",
+  "experiment": "e1_main_d2",
+  "failure_reason": "",
+  "fold_fingerprint": "477c37a8ab73",
+  "fold_id": 0,
+  "metrics": {
+    "mae": 0.1300703005270396,
+    "r2": 0.937353354384638,
+    "rmse": 0.23752101146450655
+  },
+  "model": "random_forest",
+  "model_description": {
+    "model_id": "random_forest",
+    "n_trainable_parameters": 184265,
+    "params": {},
+    "proba_source": "predict_proba",
+    "resolved_params": {
+      "bootstrap": true,
+      "ccp_alpha": 0.0,
+      "criterion": "squared_error",
+      "max_depth": null,
+      "max_features": 1.0,
+      "max_leaf_nodes": null,
+      "max_samples": null,
+      "min_impurity_decrease": 0.0,
+      "min_samples_leaf": 1,
+      "min_samples_split": 2,
+      "min_weight_fraction_leaf": 0.0,
+      "monotonic_cst": null,
+      "n_estimators": 300,
+      "n_jobs": -1,
+      "oob_score": false,
+      "random_state": 6,
+      "verbose": 0,
+      "warm_start": false
+    },
+    "seed": 6,
+    "task": "regression"
+  },
+  "n_test_sessions": 1,
+  "n_test_windows": 2145,
+  "n_train_sessions": 3,
+  "n_train_windows": 6435,
+  "notes": "",
+  "protocol_compliant": true,
+  "protocol_version": "1.4.0",
+  "run_id": "d2_beef_uncontrolled|random_forest|regression|seed06|fold00",
+  "seed": 6,
+  "selection": {},
+  "status": "ok",
+  "task": "regression",
+  "test_fingerprint": "adf03b27014a766d",
+  "test_specimens": [
+    "TS3"
+  ],
+  "timestamp_utc": "2026-09-21T09:51:17.141460+00:00",
+  "train_specimens": [
+    "TS1",
+    "TS4",
+    "TS2"
+  ],
+  "window_length": 16
+}
