@@ -546,6 +546,20 @@ def run_benchmark(
                     if config.train_fraction is not None and config.train_fraction < 1.0
                     else None
                 )
+                # E3 record fidelity (DATA-61, gate item d): when the batch is a
+                # true subsample, the record must state which specimens actually
+                # trained the model. ``train_specimens`` keeps the FULL fold.train
+                # list (the partition of record, byte-identical across fractions —
+                # the fold fingerprint and the §17 pairing depend on it); the
+                # admitted E3 pool is carried explicitly in model_description.
+                e3_pool_payload = (
+                    {
+                        "train_fraction": float(config.train_fraction),
+                        "e3_admitted_train_specimens": list(train_pool),
+                    }
+                    if train_pool is not None
+                    else {}
+                )
                 # E3 low-data: when a manually-supplied pool would empty
                 # this fold's TRAIN side the tensor builder raises a named,
                 # clear error. Record a failed run on the fold's units (not
@@ -747,7 +761,10 @@ def run_benchmark(
                                 timestamp_utc=utc_now_iso(),
                                 evidence_class=evidence_class,
                                 protocol_compliant=protocol_compliant,
-                                model_description=model.describe() if model is not None else {},
+                                model_description={
+                                    **({} if model is None else model.describe()),
+                                    **e3_pool_payload,
+                                },
                                 status=status,
                                 failure_reason=failure_reason,
                                 fold_fingerprint=fold.fingerprint,

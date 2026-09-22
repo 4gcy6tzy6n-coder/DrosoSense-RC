@@ -613,6 +613,19 @@ def run_reservoir_benchmark(
                     if config.train_fraction is not None and config.train_fraction < 1.0
                     else None
                 )
+                # E3 record fidelity (DATA-61, gate item d): the record must
+                # state which specimens actually trained the model. The full
+                # fold.train list stays in ``train_specimens`` (the partition
+                # of record, byte-identical across fractions); the admitted
+                # E3 pool is carried explicitly in model_description.
+                e3_pool_payload = (
+                    {
+                        "train_fraction": float(config.train_fraction),
+                        "e3_admitted_train_specimens": list(train_pool),
+                    }
+                    if train_pool is not None
+                    else {}
+                )
                 fold_tensors = None
                 fold_tensor_failure = ""
                 try:
@@ -848,6 +861,7 @@ def run_reservoir_benchmark(
                                 if config.select_hyperparameters
                                 else f"pinned at {config.spectral_radius} for the whole run"
                             ),
+                            **e3_pool_payload,
                         }
 
                         record = RunRecord(
