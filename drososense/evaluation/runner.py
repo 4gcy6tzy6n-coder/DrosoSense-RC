@@ -26,7 +26,7 @@ from drososense.baselines.registry import MODEL_IDS, build_model, model_availabi
 from drososense.data.loaders import dataset_config_path, load_dataset
 from drososense.data.manifest import load_manifest, manifest_path
 from drososense.data.pipeline import build_fold_tensors, usable_specimens
-from drososense.data.splits import make_folds, nested_train_fraction
+from drososense.data.splits import Fold, fold_train_pool, make_folds
 from drososense.evaluation.contact_log import record_contact
 from drososense.evaluation.metrics import (
     EMPTY_CLASS_POLICY,
@@ -430,13 +430,28 @@ def run_benchmark(
             # a fixed seed 10% ⊂ 25% ⊂ 50% ⊂ 75% ⊂ 100%, and the 100% pool is
             # byte-for-byte the full pool (E1-identical train set).
             #
+            # DATA-61: the admitted pool is taken from each fold's TRAIN side
+            # (``fold_train_pool``), not from the global specimen set — the old
+            # global sampling could admit a specimen that is THIS fold's test
+            # specimen, which emptied the fold's train side and recorded every
+            # unit as a failed run.
+            #
             # The admitted pool filters the TRAIN *window tensors* inside
             # ``build_fold_tensors`` — not the ``Fold`` object itself, which
             # would leak out of the disjoint-cover invariant or raise on an
-            # empty train block. A fold whose train side loses every admitted
-            # specimen records a run with ``failure_reason`` (one fold's
-            # small pool must not abort the whole batch); the test fingerprint
-            # is still byte-identical to the 100% fold's.
+            # empty train block. The test fingerprint is still byte-identical
+            # to the 100% fold's.
+            #
+            # DATA-61: each fold's pool is ``fold_train_pool(fold,
+            # config.train_fraction)`` — this fold's TRAIN side restricted to
+            # its nested prefix — never a global-pool prefix. The old global
+            # sampling could admit a specimen that is a given fold's test
+            # specimen, emptying the fold's train side and recording every
+            # unit as failed. Each fold's pool stays a nested prefix of its
+            # TRAIN side ordered by the fold's seeded permutation, so pools
+            # are nested per fold
+            # (``pool(f=0.10) ⊆ pool(f=0.25) ⊆ … ⊆ fold.train``) and
+            # reproducible across batches.
 
             for fold in folds:
                 artifact_dir = (
@@ -447,16 +462,24 @@ def run_benchmark(
                 )
                 # E3 low-data: pass the admitted specimen pool to the tensor
                 # builder; it filters the TRAIN rows, leaving val/test
-                # byte-identical to the full-data fold.
+                # byte-identical to the full-data fold. DATA-61: the pool is
+                # this fold's own TRAIN side restricted to the nested prefix
+                # (``fold_train_pool``), so ``pool ⊆ fold.train`` always holds
+                # — the old global sampling could admit this fold's test
+                # specimen and empty the train side, which is what made the
+                # D2 f10 batch 100% failed.
                 train_pool = (
-                    nested_train_fraction(specimens, config.train_fraction, seed)
+                    fold_train_pool(fold, config.train_fraction)
                     if config.train_fraction is not None and config.train_fraction < 1.0
                     else None
                 )
-                # E3 low-data: when the admitted pool empties this fold's TRAIN
-                # side the tensor builder raises a named, clear error. Record a
-                # failed run on the fold's units (not aborted) so a small fold
-                # in a 10% batch never blocks the whole run.
+                # E3 low-data: when a manually-supplied pool would empty
+                # this fold's TRAIN side the tensor builder raises a named,
+                # clear error. Record a failed run on the fold's units (not
+                # aborted) so a small fold in a 10% batch never blocks the
+                # whole run. After DATA-61 the runner's own pools are
+                # fold-train-side prefixes, so this path is a last-resort
+                # defence only.
                 fold_tensors = None
                 fold_tensor_failure = ""
                 try:

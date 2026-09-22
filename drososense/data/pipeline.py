@@ -142,11 +142,12 @@ def build_fold_tensors(
             in ``train_specimen_pool`` enter the TRAIN tensor; the validation
             and test tensors are built exactly as the full-data case, so the
             test partition — and its fingerprint — stays byte-identical
-            across fractions. A fold whose TRAIN side holds no admitted
-            specimen yields an empty train tensor and a run record with
-            ``status == "failed"`` (the tensor builder raises before the
-            model is built), never a partition-construction abort of the
-            whole batch.
+            across fractions. DATA-61: the pool is now built by the runner
+            via ``fold_train_pool`` (the fold's TRAIN side restricted to the
+            nested prefix), so ``pool ⊆ fold.train`` always holds and no
+            fold's train side is ever emptied by the sampling. The guard
+            below remains as a last-resort defence against a misconstructed
+            pool (e.g. a manual call with a disjoint pool).
 
     Returns:
         The assembled :class:`FoldTensors`.

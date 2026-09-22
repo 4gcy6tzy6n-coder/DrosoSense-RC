@@ -94,12 +94,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=float,
         default=None,
         help=(
-            "E3 low-data: fraction of the specimen pool admitted to each fold's TRAIN "
-            "side. Test and validation specimens are untouched, so the per-fold TEST "
+            "E3 low-data: fraction of each fold's TRAIN-side specimen pool admitted. "
+            "Test and validation specimens are untouched, so the per-fold TEST "
             "partition (and its fingerprint, which the E1-vs-E2 pairing keys on) is "
-            "identical across 10/25/50/75/100%. Sampling is nested for a fixed seed "
-            "(10% subset 25% subset ... subset 100%), and 100% is byte-for-byte the "
-            "full E2 train set. Must satisfy 0 < f <= 1; omit for full-pool E2."
+            "identical across 10/25/50/75/100%. Sampling is nested within each fold "
+            "(for a fixed seed, the 10% pool is contained in the 25% pool, up to 100% "
+            "which is byte-for-byte the full E2 train set). The pool is always a "
+            "subset of the fold's own TRAIN side, so no fold is ever admitted its "
+            "test/val specimen and no train side is emptied. Must satisfy 0 < f <= 1; "
+            "omit for full-pool E2."
         ),
     )
     parser.add_argument(

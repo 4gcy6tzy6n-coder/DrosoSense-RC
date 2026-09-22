@@ -14,7 +14,7 @@ from drososense.data.leakage import LeakageError, audit_fold, audit_scaler, audi
 from drososense.data.remote_zip import RemoteZip, RemoteZipEntry
 from drososense.data.scaling import Standardizer
 from drososense.data.schema import Dataset, DatasetSchema, SpecimenSource
-from drososense.data.splits import Fold, make_folds, nested_train_fraction
+from drososense.data.splits import Fold, fold_train_pool, make_folds, nested_train_fraction
 from drososense.data.windowing import WindowSet, make_windows
 
 __all__ = [
@@ -32,6 +32,7 @@ __all__ = [
     "audit_windows",
     "extract_remote_archive_members",
     "make_folds",
+    "fold_train_pool",
     "nested_train_fraction",
     "make_windows",
 ]

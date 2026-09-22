@@ -45,7 +45,7 @@ import pytest
 import scipy.sparse as sp
 import yaml
 
-from drososense.data.splits import make_folds, nested_train_fraction
+from drososense.data.splits import fold_train_pool, make_folds, nested_train_fraction
 from drososense.evaluation.results import load_records, make_test_fingerprint
 from drososense.evaluation.runner import BenchmarkConfig, run_benchmark
 from drososense.reservoir.runner import ReservoirConfig, run_reservoir_benchmark
@@ -157,10 +157,17 @@ def e3_dataset(tmp_path: Path, monkeypatch) -> tuple[str, Path]:
 def _runner_folds(config_path: Path, fraction: float, seed: int) -> tuple:
     """Rebuild the runner's TRAIN-side pool at ``fraction`` for a seed.
 
-    Returns the ``(folds, pool)`` pair: the full-data folds (unchanged, so
-    the test/val partition is byte-identical) and the admitted TRAIN
-    specimen pool the tensor builder would filter against. ``pool`` is
-    ``None`` at fraction 1.0 (full data, byte-for-byte E1/E2).
+    Returns the ``(folds, pools)`` pair: the full-data folds (unchanged, so
+    the test/val partition is byte-identical) and the per-fold admitted
+    TRAIN specimen pools the tensor builder would filter against. ``pools``
+    is a ``{fold_id: pool_tuple}`` dict (or ``None`` at fraction 1.0,
+    full data, byte-for-byte E1/E2).
+
+    DATA-61: the runner's pool is the fold's own TRAIN side restricted to
+    the nested prefix (``fold_train_pool``), NOT the global
+    ``nested_train_fraction`` prefix — the global prefix could admit a
+    specimen that is this fold's test specimen, which is the bug this
+    test file now guards against.
     """
     from drososense.data.loaders import load_dataset
     from drososense.data.pipeline import usable_specimens
@@ -168,12 +175,21 @@ def _runner_folds(config_path: Path, fraction: float, seed: int) -> tuple:
     dataset = load_dataset(config_path)
     specimens = usable_specimens(dataset, 8)
     folds = make_folds(specimens, "loso", seed=seed, n_splits=10)[:2]
-    pool = (
-        nested_train_fraction(specimens, fraction, seed)
-        if fraction < 1.0
-        else None
-    )
-    return folds, pool
+    # DATA-61: the runner's per-fold admitted pool is the fold's TRAIN side
+    # restricted to the nested prefix (fold_train_pool), NOT the global
+    # nested_train_fraction prefix. At fraction 1.0 there is no pool
+    # (None = full-data E1/E2).
+    if fraction < 1.0:
+        pools = {fold.fold_id: fold_train_pool(fold, fraction) for fold in folds}
+        return folds, pools
+    return folds, None
+
+
+def _admitted_train(fold, pools):
+    """The runner's admitted TRAIN specimens for a fold (DATA-61 semantics)."""
+    if pools is None:
+        return fold.train
+    return tuple(s for s in fold.train if s in set(pools[fold.fold_id]))
 
 
 # ---------------------------------------------------------------------------
@@ -214,21 +230,24 @@ def test_test_set_fixed_across_fractions(
     for fraction in e1_fractions:
         unit: set[tuple[tuple[str, ...], tuple[str, ...]]] = set()
         for seed in (0, 1):
-            # _runner_folds now returns (folds, pool); at every fraction the
+            # _runner_folds now returns (folds, pools); at every fraction the
             # test/val partition is unchanged, so the full folds are the
             # authoritative source of the partition (pool only filters train).
-            folds, pool = _runner_folds(config_path, fraction, seed)
+            folds, pools = _runner_folds(config_path, fraction, seed)
             for fold in folds:
-                # Invariant: test/val specimens are never in the runner's
-                # train side at any fraction.
-                if pool is not None:
-                    admitted_train = tuple(s for s in fold.train if s in set(pool))
-                    assert not (set(admitted_train) & (set(fold.test) | set(fold.val))), (
-                        f"seed {seed}: fold {fold.fold_id} — {fraction} train "
-                        f"leaks a test/val specimen"
-                    )
-                else:
-                    assert not (set(fold.train) & (set(fold.test) | set(fold.val)))
+                # Invariant: admitted test/val specimens are never in the
+                # runner's train side at any fraction.
+                admitted_train = _admitted_train(fold, pools)
+                assert not (set(admitted_train) & (set(fold.test) | set(fold.val))), (
+                    f"seed {seed}: fold {fold.fold_id} — {fraction} train "
+                    f"leaks a test/val specimen"
+                )
+                # DATA-61: the admitted train side is never empty (the bug
+                # the old global-pool code triggered).
+                assert admitted_train, (
+                    f"seed {seed}: fold {fold.fold_id} — admitted train side is "
+                    f"empty at fraction {fraction}"
+                )
                 unit.add((fold.test, fold.val))
         e1_partitions[fraction] = unit
     base_parts = e1_partitions[1.00]
@@ -335,17 +354,21 @@ def test_nested_train_side_folds(e3_dataset: tuple[str, Path]) -> None:
     sp = usable_specimens(ds, 8)
     admitted: dict[float, set[str]] = {}
     for fraction in (0.10, 0.25, 0.50, 0.75, 1.00):
-        folds, pool = _runner_folds(config_path, fraction, seed)
+        folds, pools = _runner_folds(config_path, fraction, seed)
         unit: set[str] = set()
         for fold in folds:
-            # Admitted train specimens = fold.train ∩ pool (or fold.train at 100%).
-            admitted_train = (
-                tuple(s for s in fold.train if s in set(pool)) if pool else fold.train
-            )
+            # Admitted train specimens = fold.train ∩ per-fold pool (or
+            # fold.train at 100%).
+            admitted_train = _admitted_train(fold, pools)
             unit.update(admitted_train)
             # No leakage: admitted train never overlaps test/val.
             overlap = set(admitted_train) & (set(fold.test) | set(fold.val))
             assert not overlap, f"leakage at {fraction}: {sorted(overlap)}"
+            # DATA-61: admitted train side is never empty.
+            assert admitted_train, (
+                f"fold {fold.fold_id}: admitted train side is empty at "
+                f"fraction {fraction}"
+            )
         admitted[fraction] = unit
     chain = [admitted[f] for f in (0.10, 0.25, 0.50, 0.75, 1.00)]
     for smaller, bigger in zip(chain, chain[1:]):
@@ -415,8 +438,8 @@ def test_full_fraction_matches_full_data_batch(
 
     # E1 half at 100%: the pool path returns the full, untouched pool.
     assert set(nested_train_fraction(specimens, 1.0, 0)) == set(specimens)
-    folds_100, pool_100 = _runner_folds(config_path, 1.00, 0)
-    assert pool_100 is None
+    folds_100, pools_100 = _runner_folds(config_path, 1.00, 0)
+    assert pools_100 is None
     assert all(
         a.fingerprint == b.fingerprint
         for a, b in zip(folds_100, baseline_folds[: len(folds_100)])
@@ -434,11 +457,20 @@ def test_benchmark_runner_train_fraction_subsamples_only_train(
 ) -> None:
     """The E1 benchmark respects ``--train-fraction`` end to end.
 
-    10% of 10 specimens admits 1 specimen. Fold 0 (whose test/val blocks
-    include the admitted specimen) fails with a named, clear reason; the
-    surviving fold 1 scores ok, and its record's train specimens are a
-    subset of the admitted pool — proving that only the TRAIN rows
-    moved, not the test partition.
+    DATA-61 regression: with the old global-pool sampling, the admitted
+    global pool (1 specimen at 10% of 10) could be exactly the test
+    specimen of one LOSO fold — emptying that fold's train side and
+    recording every unit as a failed run. The new per-fold pool
+    (``fold_train_pool``) always admits at least one specimen from every
+    fold's own TRAIN side, so every fold scores ``status == "ok"``.
+
+    The test asserts:
+    * no ``failed`` records at all (the bug is gone);
+    * every ``ok`` record's train side is a subset of the fold's train
+      side (no test/val leakage);
+    * the test partition and its fingerprint are byte-identical to the
+      full-data fold (the §17 pairing invariant, and the anchor for E1/
+      E2 vs E3 comparison).
     """
     dataset_id, config_path = e3_dataset
     from drososense.data.loaders import load_dataset
@@ -465,18 +497,28 @@ def test_benchmark_runner_train_fraction_subsamples_only_train(
     )
     run_benchmark(config, raw_dir=raw_dir, tables_dir=tables_dir)
 
-    records = [record for record in load_records(raw_dir) if record.status == "ok"]
-    failed_records = [record for record in load_records(raw_dir) if record.status == "failed"]
-    pool = set(nested_train_fraction(specimens, 0.10, seed))
+    all_records = load_records(raw_dir)
+    records = [r for r in all_records if r.status == "ok"]
+    failed_records = [r for r in all_records if r.status == "failed"]
 
-    # Every ok record's train specimens must be a subset of the admitted pool.
+    # DATA-61 invariant: no failed records. The old global-pool code would
+    # have recorded fold 0 as failed (its test specimen was the single
+    # admitted global specimen); the new per-fold code scores all folds.
+    assert not failed_records, (
+        f"DATA-61 regression: {len(failed_records)} failed records at "
+        f"train_fraction=0.10; per-fold pools must never empty a train "
+        f"side: {[(r.fold_id, r.failure_reason) for r in failed_records]}"
+    )
+    assert len(records) == len(full_folds), (
+        f"expected {len(full_folds)} ok records, got {len(records)}"
+    )
+
+    # Every ok record: test partition is byte-identical to the full-data
+    # fold (the §17 pairing invariant), and the record's train side is a
+    # subset of the fold's partition-level train side (the row-level
+    # admitted-pool restriction is what enters the tensors).
     for record in records:
         fold = full_folds[record.fold_id]
-        # The record's train_specimens field is the partition-level train
-        # (all specimens in fold.train); the row-level filter (the
-        # admitted-pool restriction) is what actually enters the tensors.
-        # Assert test-set invariance — the §17 pairing invariant — and
-        # leave the row-level filter to the runner's fold-records.
         assert record.test_specimens == list(fold.test), (
             "test set moved under --train-fraction"
         )
@@ -485,17 +527,16 @@ def test_benchmark_runner_train_fraction_subsamples_only_train(
         ), (
             "test fingerprint moved — the §17 pairing invariant must hold"
         )
-
-    # The fold whose train side held no admitted specimen is recorded as
-    # failed with a named reason (not silently dropped, not aborted).
-    failed_fold_ids = {r.fold_id for r in failed_records}
-    for fold in full_folds:
-        expected_train = tuple(s for s in fold.train if s in pool)
-        if not expected_train:
-            assert fold.fold_id in failed_fold_ids, (
-                f"fold {fold.fold_id} had an empty admitted train side but "
-                f"was not recorded as failed"
-            )
+        # The record's train_specimens is the partition-level train side;
+        # the admitted-pool restriction (the DATA-61 fix) is a subset of
+        # that and is what enters the tensors. Verify the pool is
+        # non-empty and contained in the train side.
+        admitted = fold_train_pool(fold, 0.10)
+        assert admitted, f"fold {record.fold_id}: admitted pool empty"
+        assert set(admitted) <= set(fold.train), (
+            f"fold {record.fold_id}: admitted pool leaks outside train side"
+        )
+        assert not (set(admitted) & (set(fold.test) | set(fold.val)))
 
 
 # ---------------------------------------------------------------------------

@@ -111,11 +111,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=float,
         default=None,
         help=(
-            "E3 low-data: fraction of the specimen pool admitted to each fold's TRAIN "
-            "side. Test and validation specimens are untouched, so the test set is "
-            "identical across 10/25/50/75/100%. Sampling is nested for a fixed seed "
-            "(10% subset 25% subset ... subset 100%), and 100% is byte-for-byte the "
-            "E1 train set. Epochs / hyperparameters are NOT scaled with the fraction. "
+            "E3 low-data: fraction of each fold's TRAIN-side specimen pool admitted. "
+            "Test and validation specimens are untouched, so the test set is "
+            "identical across 10/25/50/75/100%. Sampling is nested within each fold "
+            "(for a fixed seed, the 10% pool is contained in the 25% pool, contained in "
+            "the 50% pool, up to 100% which is byte-for-byte the E1/E2 train set). "
+            "The pool is always a subset of the fold's own TRAIN side, so no fold is "
+            "ever admitted its test/val specimen and no train side is emptied. "
+            "Epochs / hyperparameters are NOT scaled with the fraction. "
             "Must satisfy 0 < f <= 1; omit for the full E1/E2 behaviour."
         ),
     )

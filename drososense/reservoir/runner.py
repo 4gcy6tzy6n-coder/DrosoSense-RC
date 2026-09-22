@@ -47,7 +47,7 @@ from drososense.connectome_selection import NodeSelection, select_nodes
 from drososense.data.loaders import dataset_config_path, load_dataset
 from drososense.data.manifest import load_manifest, manifest_path
 from drososense.data.pipeline import build_fold_tensors, usable_specimens
-from drososense.data.splits import make_folds, nested_train_fraction
+from drososense.data.splits import fold_train_pool, make_folds
 from drososense.evaluation.contact_log import record_contact
 from drososense.evaluation.metrics import (
     EMPTY_CLASS_POLICY,
@@ -567,11 +567,17 @@ def run_reservoir_benchmark(
             # ``build_fold_tensors`` — not the ``Fold`` object itself — so
             # the fold fingerprint (test + val partition) is unchanged and
             # the disjoint-cover invariant on the partition itself holds.
-            train_pool = (
-                nested_train_fraction(specimens, config.train_fraction, seed)
-                if config.train_fraction is not None and config.train_fraction < 1.0
-                else None
-            )
+            #
+            # DATA-61: each fold's pool is ``fold_train_pool(fold,
+            # config.train_fraction)`` — this fold's TRAIN side restricted to
+            # its nested prefix — never a global-pool prefix. The old global
+            # sampling could admit a specimen that is a given fold's test
+            # specimen, emptying the fold's train side and recording every
+            # unit as failed. Each fold's pool stays a nested prefix of its
+            # TRAIN side ordered by the fold's seeded permutation, so pools
+            # are nested per fold
+            # (``pool(f=0.10) ⊆ pool(f=0.25) ⊆ … ⊆ fold.train``) and
+            # reproducible across batches.
 
             # One shared input map per seed, identical across R0–R6.
             family_shared = make_shared(
@@ -595,10 +601,18 @@ def run_reservoir_benchmark(
                     / config.dataset_id
                     / f"reservoir_w{window_length}_seed{seed:02d}_fold{fold.fold_id:02d}"
                 )
-                # E3 low-data: when the admitted pool empties this fold's TRAIN
-                # side the tensor builder raises a named, clear error. Record
-                # a failed run on the fold's units (not aborted) so a small
-                # fold in a 10% batch never blocks the whole run.
+                # E3 low-data: pass the admitted specimen pool to the tensor
+                # builder; it filters the TRAIN rows, leaving val/test
+                # byte-identical to the full-data fold. DATA-61: the pool is
+                # the nested prefix of this fold's TRAIN side, so
+                # ``pool ⊆ fold.train`` always holds (no empty-train
+                # failures); the tensor builder's empty-train guard remains
+                # as a last-resort defence.
+                train_pool = (
+                    fold_train_pool(fold, config.train_fraction)
+                    if config.train_fraction is not None and config.train_fraction < 1.0
+                    else None
+                )
                 fold_tensors = None
                 fold_tensor_failure = ""
                 try:
