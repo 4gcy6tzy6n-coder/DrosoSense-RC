@@ -1,0 +1,214 @@
+{
+  "topology_stats": {
+    "olfactory_nodes": 124185,
+    "olfactory_edges": 14828657,
+    "olfactory_density": 0.0009615392870437497,
+    "olfactory_isolated": 0,
+    "olfactory_isolated_pct": 0.0,
+    "olfactory_scc_count": 340,
+    "olfactory_largest_scc_size": 123789,
+    "olfactory_wcc_count": 1,
+    "olfactory_largest_wcc_size": 124185,
+    "olfactory_largest_cc_pct": 1.0,
+    "olfactory_spectral_radius": 521.9437263678689,
+    "olfactory_modularity": null,
+    "olfactory_clustering": null,
+    "olfactory_assortativity": null,
+    "olfactory_in_deg": {
+      "mean": 430.28533935546875,
+      "std": 990.231689453125,
+      "min": 1.0,
+      "max": 69948.0,
+      "median": 218.0
+    },
+    "olfactory_out_deg": {
+      "mean": 431.0767822265625,
+      "std": 925.5232543945312,
+      "min": 1.0,
+      "max": 99871.0,
+      "median": 251.0
+    },
+    "olfactory_total_deg": {
+      "mean": 860.5706787109375,
+      "std": 1817.08544921875,
+      "min": 1.0,
+      "max": 168572.0,
+      "median": 477.0
+    },
+    "normalization": {
+      "n0_raw": {
+        "stored": true,
+        "applied": false,
+        "description": "raw synapse count"
+      },
+      "n1_pre_l1": {
+        "stored": true,
+        "applied": false,
+        "description": "row L1 normalisation \u2014 divide each row by its sum"
+      },
+      "n2_post_l1": {
+        "stored": true,
+        "applied": false,
+        "description": "column L1 normalisation \u2014 divide each col by its sum"
+      },
+      "n3_global_max": {
+        "stored": true,
+        "applied": false,
+        "description": "divide by global max",
+        "global_max": 2405.0
+      },
+      "n4_log_pre_l1": {
+        "stored": true,
+        "applied": false,
+        "description": "log1p(syn_count) then row L1"
+      },
+      "n5_binary": {
+        "stored": true,
+        "applied": false,
+        "description": "1 if syn_count>=1 else 0"
+      }
+    },
+    "olfactory_avg_path_length": 2.9734710543368283,
+    "olfactory_avg_path_length_std": 0.5865418586066536,
+    "olfactory_avg_path_length_max": 9,
+    "olfactory_avg_path_length_N": 2111128
+  },
+  "build_params": {
+    "min_synapses": 1,
+    "core_only": false,
+    "rng_seed": 20260920
+  },
+  "file_manifest": {
+    "flywire_synapses_783 (1).feather": {
+      "size_bytes": 9492998242,
+      "sha256": "b597601805b31a04f3a90730ae3b6319f89e9f1c2795dd132e4c3f87fb32f44c",
+      "path": "connectome/raw/flywire_synapses_783 (1).feather",
+      "source": "FlyWire/FlyEM proofreading v783",
+      "platform": "FAFB-flyem.lbl.gov"
+    },
+    "per_neuron_neuropil_count_pre_783.feather": {
+      "size_bytes": 16853770,
+      "sha256": "35442a46f076892dff91bd6e55fa1489b3acc64fda1d35cee7dbbbbc509a3dff",
+      "path": "connectome/raw/per_neuron_neuropil_count_pre_783.feather",
+      "source": "FlyWire/FlyEM proofreading v783",
+      "platform": "FAFB-flyem.lbl.gov"
+    },
+    "per_neuron_neuropil_count_post_783.feather": {
+      "size_bytes": 233843050,
+      "sha256": "e2418f4794fe47984bb4bc15ffc194003ea8e349a428551f30af94947d85d712",
+      "path": "connectome/raw/per_neuron_neuropil_count_post_783.feather",
+      "source": "FlyWire/FlyEM proofreading v783",
+      "platform": "FAFB-flyem.lbl.gov"
+    },
+    "proofread_connections_783.feather": {
+      "size_bytes": 852022274,
+      "sha256": "24f960ae3e7d4f8cd30db3b62e99fb5179cc3d1e76d8c155bfb441e9737d3faf",
+      "path": "connectome/raw/proofread_connections_783.feather",
+      "source": "FlyWire/FlyEM proofreading v783",
+      "platform": "FAFB-flyem.lbl.gov"
+    },
+    "neuron_class_ranking_df_783-olfactory-10000.feather": {
+      "size_bytes": 1482018,
+      "sha256": "1226fc1a7ea8c86dee7b73b6f59ce2dd0711b1ea227a418c03eccd0075157fa3",
+      "path": "connectome/raw/neuron_class_ranking_df_783-olfactory-10000.feather",
+      "source": "FlyWire/FlyEM proofreading v783",
+      "platform": "FAFB-flyem.lbl.gov"
+    },
+    "proofread_root_ids_783.npy": {
+      "size_bytes": 1114168,
+      "sha256": "7c7b7e818e9232e5ab64793d52ba20574dbe9da3a6509fbc74193b0f259a01be",
+      "path": "connectome/raw/proofread_root_ids_783.npy",
+      "source": "FlyWire/FlyEM proofreading v783",
+      "platform": "FAFB-flyem.lbl.gov"
+    }
+  },
+  "provenance": {
+    "data_source": "FlyWire/FlyEM proofreading v783",
+    "platform": "FAFB-flyem.lbl.gov",
+    "dataset_version": "v783",
+    "license": "FlyWire CC BY-NC 4.0 (per DATA-9/17 pendency \u2014 not resolved; do not conflate with repo license)",
+    "weight_semantics": "synapse-count-informed structural weight (UNCALIBRATED \u2014 not conductance, efficacy, or connection probability)",
+    "S_ij_source": "flywire_synapses_783 (1).feather \u2014 synapse-level table (~130M rows, 18 cols). syn_count = count of rows where pre_pt_root_id=i and post_pt_root_id=j. proofread_connections_783.feather is the same data root-ID-aggregated by the FlyWire team and is used as the aggregation source. After aggregation, (pre_root_id, post_root_id) pairs are UNIQUE \u2014 no multi-edges.",
+    "duplicate_edge_semantics": "(pre_root_id, post_root_id) pairs are aggregated to a single row with syn_count = total synapses from i to j. No multi-edges remain post-aggregation. syn_count is a structural proxy, not a physiological connection strength.",
+    "self_loop_handling": "Self-loops are RETAINED on the diagonal of the adjacency matrix. A boolean mask 'self_loop_mask' (int8 0/1) is stored in the NPZ. To remove: adj_no_sl = adj.copy(); adj_no_sl.setdiag(0)",
+    "build_timestamp_utc": "2026-09-20T14:20:13.152910Z"
+  },
+  "biological_scope": "olfactory sensory pathway: ORNs \u2192 PNs \u2192 Kenyon cells \u2192 MB output neurons (MBONs) + DANs, per FlyWire cell-type classifier. Does NOT substitute a whole-brain connectome.",
+  "outputs": {
+    "adjacency": "connectome/adjacency/olfactory_v1.npz",
+    "node_meta": "connectome/metadata/olfactory_v1_node_meta.csv",
+    "edge_meta": "connectome/metadata/olfactory_v1_edge_meta.csv"
+  },
+  "edge_mask_counts": {
+    "note": "pathway_class/pre_class/post_class pending biological annotation \u2014 to be populated in a follow-up annotation step"
+  },
+  "size_structure_curve": [
+    {
+      "min_synapses": 1,
+      "core_only": false,
+      "N": 124185,
+      "M": 16661613,
+      "density": 0.0010803942315894739,
+      "spectral_radius": 522.4648966751314
+    },
+    {
+      "min_synapses": 1,
+      "core_only": true,
+      "N": 10176,
+      "M": 895074,
+      "density": 0.008644650224838905,
+      "spectral_radius": 302.2591102988286
+    },
+    {
+      "min_synapses": 2,
+      "core_only": false,
+      "N": 124185,
+      "M": 8056355,
+      "density": 0.000522400770539864,
+      "spectral_radius": 296.12363367453213
+    },
+    {
+      "min_synapses": 2,
+      "core_only": true,
+      "N": 10176,
+      "M": 351172,
+      "density": 0.003391629193515986,
+      "spectral_radius": 209.87162616902629
+    },
+    {
+      "min_synapses": 3,
+      "core_only": false,
+      "N": 124185,
+      "M": 5074956,
+      "density": 0.00032907697399827914,
+      "spectral_radius": 213.6174966055985
+    },
+    {
+      "min_synapses": 3,
+      "core_only": true,
+      "N": 10176,
+      "M": 219465,
+      "density": 0.002119599230448287,
+      "spectral_radius": 169.43301785701297
+    },
+    {
+      "min_synapses": 5,
+      "core_only": false,
+      "N": 124185,
+      "M": 2674191,
+      "density": 0.00017340341121645824,
+      "spectral_radius": 143.3760232154951
+    },
+    {
+      "min_synapses": 5,
+      "core_only": true,
+      "N": 10176,
+      "M": 129979,
+      "density": 0.001255340889774852,
+      "spectral_radius": 129.59014361084184
+    }
+  ],
+  "node_count_note": "Node count 124,185 is outside the 500\u20135000 advisory range. Biological rationale: the FlyWire olfactory rank table includes all neurons the FlyWire classifier assigns to the olfactory modality (ORNs \u2248 4,643, PNs \u2248 741, KCs \u2248 13,538, MBONs \u2248 12,105, DANs \u2248 11,428, and higher-order olfactory neurons \u2248 100,911), providing a complete circuit snapshot of the Drosophila olfactory system. Engineering rationale: the full graph (N=124,185, edges=14,828,657, spectral radius \u03c1\u2248522) is the necessary base for M3 (DATA-4) to generate N=250/500/1000/2000/4000 subgraphs with matched topology controls via seed-based selection. With \u03c1\u2248522 and 14,828,657 edges, sparse propagation in M3 is feasible at this scale using standard sparse matrix operations; ablation studies at this density are tractable.",
+  "commit_sha": "ee0c91f105fc7a05b80cc889ae44ab93396ac10b",
+  "pr_url": null
+}

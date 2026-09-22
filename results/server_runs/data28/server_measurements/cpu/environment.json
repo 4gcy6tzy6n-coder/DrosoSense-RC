@@ -1,0 +1,27 @@
+{
+  "fingerprint": {
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.35",
+    "python": "3.12.3",
+    "pid": "11316",
+    "numpy": "2.1.3",
+    "scipy": "1.18.1",
+    "sklearn": "1.9.1",
+    "xgboost": "3.4.1",
+    "torch": "2.5.1+cu124",
+    "pandas": "3.0.6"
+  },
+  "gpu_sample": {
+    "util_pct": "0",
+    "mem_used_mb": "1",
+    "mem_total_mb": "12288"
+  },
+  "torch_num_threads": 1,
+  "use_gpu": false,
+  "fold_index": 0,
+  "seed": 0,
+  "task": "classification",
+  "n_train_windows": 630,
+  "n_val_windows": 315,
+  "n_test_windows": 315,
+  "window_length": 16
+}

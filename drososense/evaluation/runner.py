@@ -12,6 +12,7 @@ it.
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -54,7 +55,7 @@ from drososense.utils.env_report import compare_environments
 from drososense.utils.paths import RESULTS_RAW_DIR, RESULTS_TABLES_DIR, ensure_dir
 from drososense.utils.seeding import load_seed_policy
 
-PROTOCOL_VERSION = "1.1.0"
+PROTOCOL_VERSION = "1.4.0"
 
 # The metric fields a failed run still carries, so every run has the same
 # columns and a failed run cannot be mistaken for a missing one.
@@ -154,6 +155,65 @@ def dataset_split_strategy(config_path: Path) -> tuple[str, int]:
     raw = load_yaml(config_path)
     split = raw.get("split", {})
     return str(split.get("strategy", "group_kfold")), int(split.get("n_splits", 5))
+
+
+def _skip_disclosure_entry(
+    dataset: str,
+    model: str,
+    task: str,
+    seed: int,
+    fold_id: int,
+    window_length: int,
+    test_fingerprint: str,
+    prior_config_hash: str,
+    run_config_hash: str,
+    reason: str,
+    prior_run_id: str,
+    prior_status: str,
+) -> dict[str, Any]:
+    """Build the disclosure entry for one skipped unit.
+
+    A skip is an explicit, auditable event: the reader must be able to see
+    exactly which unit was skipped, why (same config re-computation vs a
+    different-config prior ok record), which config hash the prior record
+    was produced under, and which config hash this batch ran under.
+
+    Args:
+        dataset: Dataset identifier.
+        model: Model identifier.
+        task: Task name.
+        seed: Seed.
+        fold_id: Fold index.
+        window_length: Window length used.
+        test_fingerprint: The (partition, window, model, task) fingerprint.
+        prior_config_hash: The config_hash of the prior ok record.
+        run_config_hash: The config_hash of the current batch.
+        reason: One of ``prior_ok_same_config`` or ``prior_ok_different_config``.
+        prior_run_id: The run_id of the prior ok record.
+        prior_status: Status of the prior record (always ``"ok"``).
+
+    Returns:
+        A JSON-serialisable mapping with the full skip disclosure.
+    """
+    return {
+        "dataset": dataset,
+        "model": model,
+        "task": task,
+        "seed": seed,
+        "fold_id": fold_id,
+        "window_length": window_length,
+        "test_fingerprint": test_fingerprint,
+        "reason": reason,
+        "prior_config_hash": prior_config_hash,
+        "run_config_hash": run_config_hash,
+        "prior_run_id": prior_run_id,
+        "prior_status": prior_status,
+        # DATA-51 is an implementation clarification of §17 (a skip is not a
+        # re-fit, so §17's intent is preserved). The protocol version label is
+        # carried so the disclosure is auditable against the active protocol
+        # without a live session.
+        "protocol_version": PROTOCOL_VERSION,
+    }
 
 
 def _evaluate_one(
@@ -275,11 +335,35 @@ def run_benchmark(
     # test_touched_once: a (test split, model, task) triple may be evaluated once.
     # Re-scoring saved predictions for another metric is not a new touch; fitting
     # the model again on the same test split under a different configuration is.
+    # Protocol v1.4 §17: only a run that actually scored the split (status == ok)
+    # occupies the (dataset, model, task, seed, fold) quota; a crashed/errored run
+    # never produced test evidence and is not a touch. The filter mirrors
+    # `test_touched_once_report` in drososense/evaluation/results.py.
     prior_touches: dict[str, str] = {}
+    # The prior-touches registry also carries the run_id and status of the ok
+    # record that owns each fingerprint, so a skip can be disclosed with the
+    # full audit trail (which run, which status) rather than just a hash.
+    prior_touch_meta: dict[str, tuple[str, str]] = {}
     if config.enforce_test_touched_once:
         for prior in load_records(raw_dir):
-            if prior.test_fingerprint:
+            if prior.test_fingerprint and prior.status == "ok":
                 prior_touches.setdefault(prior.test_fingerprint, prior.config_hash)
+                prior_touch_meta.setdefault(
+                    prior.test_fingerprint, (prior.run_id, prior.status)
+                )
+
+    # Skip disclosure (DATA-51): units whose test_fingerprint is already held by
+    # a status == "ok" record are SKIPPED — never re-fit and never re-scored —
+    # and the skip is made explicit, not silent. Both directions are disclosed:
+    #   - prior ok record has the SAME config_hash  -> re-computation, skip;
+    #   - prior ok record has a DIFFERENT config_hash -> the pre-DATA-51 guard
+    #     raised RuntimeError and aborted the whole batch here; now the unit is
+    #     skipped so the re-shard (e.g. model-subset fan-out or a seed half)
+    #     can finish, and the skip carries both config hashes so a reader can
+    #     audit exactly which prior run the skip refers to. §17's intent
+    #     ("a touched test split must not be re-fit") is preserved: skipping
+    #     IS the not-re-fitting — nothing new is fitted on the split.
+    skip_disclosures: list[dict[str, Any]] = []
 
     for window_length in config.window_lengths:
         specimens = usable_specimens(dataset, window_length)
@@ -323,15 +407,37 @@ def run_benchmark(
                             fold.fingerprint, window_length, model_id, task
                         )
                         prior = prior_touches.get(test_fingerprint)
-                        if prior is not None and prior != run_config_hash:
-                            raise RuntimeError(
-                                f"test_touched_once violated: {config.dataset_id} "
-                                f"fold {fold.fold_id} seed {seed} was already evaluated for "
-                                f"{model_id}/{task} under config {prior}, and is now being "
-                                f"re-evaluated under {run_config_hash}. protocol v1.1 "
-                                f"§17 forbids re-fitting on a test split already touched; "
-                                f"a changed protocol requires a new version file, not a re-run."
+                        if prior is not None:
+                            # An ok record already occupies this (dataset, model,
+                            # task, seed, fold) unit. Per §17 the split must not
+                            # be re-fit, and re-computation adds nothing to the
+                            # record set — so skip, and disclose the skip rather
+                            # than either aborting the batch (different config)
+                            # or silently overwriting the record (same config).
+                            prior_run_id, prior_status = prior_touch_meta.get(
+                                test_fingerprint, ("", "ok")
                             )
+                            if prior == run_config_hash:
+                                reason = "prior_ok_same_config"
+                            else:
+                                reason = "prior_ok_different_config"
+                            skip_disclosures.append(
+                                _skip_disclosure_entry(
+                                    dataset=config.dataset_id,
+                                    model=model_id,
+                                    task=task,
+                                    seed=seed,
+                                    fold_id=fold.fold_id,
+                                    window_length=window_length,
+                                    test_fingerprint=test_fingerprint,
+                                    prior_config_hash=prior,
+                                    run_config_hash=run_config_hash,
+                                    reason=reason,
+                                    prior_run_id=prior_run_id,
+                                    prior_status=prior_status,
+                                )
+                            )
+                            continue
 
                         started = time.perf_counter()
                         params = dict(config.model_params.get(model_id, {}))
@@ -414,11 +520,45 @@ def run_benchmark(
                                 selection=selection,
                             )
                         )
+                        # Write incrementally so a long-running parallel sweep is
+                        # observable from disk and a worker crash does not lose the
+                        # records already produced. Each record's path is unique in
+                        # (model, task, seed, fold) so concurrent workers don't race.
+                        write_record(records[-1], raw_dir)
 
     for record in records:
         write_record(record, raw_dir)
 
-    if records:
+    # Skipped units (units already held by a status == "ok" record) are
+    # disclosed here and in the summary so the re-shard audit trail is
+    # explicit on disk, not just in a chat log. A skip is not a run: no new
+    # record is written and the contact log is not touched by skipped units.
+    if skip_disclosures:
+        disclosure_counts = {
+            "prior_ok_same_config": sum(
+                1 for d in skip_disclosures if d["reason"] == "prior_ok_same_config"
+            ),
+            "prior_ok_different_config": sum(
+                1 for d in skip_disclosures if d["reason"] == "prior_ok_different_config"
+            ),
+        }
+        disclosure_payload = {
+            "n_skipped_units": len(skip_disclosures),
+            "n_skipped_same_config": disclosure_counts["prior_ok_same_config"],
+            "n_skipped_different_config": disclosure_counts["prior_ok_different_config"],
+            "run_config_hash": run_config_hash,
+            "protocol_version": PROTOCOL_VERSION,
+            "disclosures": skip_disclosures,
+        }
+        disclosure_path = (
+            (Path(tables_dir) if tables_dir is not None else RESULTS_TABLES_DIR)
+            / f"{config.experiment}_skip_disclosure.json"
+        )
+        ensure_dir(disclosure_path.parent)
+        with disclosure_path.open("w", encoding="utf-8") as handle:
+            json.dump(disclosure_payload, handle, indent=2, sort_keys=True)
+
+    if records or skip_disclosures:
         # Record that the test splits were touched, so the freeze claim is backed
         # by a file the experiment wrote rather than by a note in the protocol.
         record_contact(
@@ -431,13 +571,25 @@ def run_benchmark(
             base_dir=tables_dir,
         )
 
-    summary = aggregate_records(records)
+    summary = aggregate_records(records) if records else pd.DataFrame()
+    # The summary frame only covers records NEWLY produced by this invocation
+    # (skipped units are not re-scored and so contribute no new rows). The skip
+    # disclosure travels alongside it, whether or not any new records exist, so
+    # an invocation that did nothing but skip still reports it explicitly.
+    summary.attrs["skipped_units"] = skip_disclosures
+    summary.attrs["n_skipped_units"] = len(skip_disclosures)
+    summary.attrs["n_skipped_same_config"] = sum(
+        1 for d in skip_disclosures if d["reason"] == "prior_ok_same_config"
+    )
+    summary.attrs["n_skipped_different_config"] = sum(
+        1 for d in skip_disclosures if d["reason"] == "prior_ok_different_config"
+    )
+    summary.attrs["skipped_models"] = skipped
+    summary.attrs["split_strategy"] = split_strategy
+    summary.attrs["environment"] = environment
+    summary.attrs["environment_report"] = compare_environments().as_dict()
     if not summary.empty:
         write_summary_csv(summary, config.experiment, tables_dir)
-        summary.attrs["skipped_models"] = skipped
-        summary.attrs["split_strategy"] = split_strategy
-        summary.attrs["environment"] = environment
-        summary.attrs["environment_report"] = compare_environments().as_dict()
     return summary
 
 
@@ -482,6 +634,7 @@ __all__ = [
     "describe_models",
     "run_benchmark",
     "skipped_models",
+    "_skip_disclosure_entry",
     "ModelUnavailableError",
     "RESULTS_RAW_DIR",
     "RESULTS_TABLES_DIR",
