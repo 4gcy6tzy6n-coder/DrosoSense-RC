@@ -36,6 +36,7 @@ values declared in :data:`PINNED_KNOBS`. Neither path reads the test split.
 
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -301,6 +302,149 @@ def _family_builder(family: dict[str, Any]):
     return _builder
 
 
+def _skip_disclosure_entry(
+    dataset: str,
+    model: str,
+    task: str,
+    seed: int,
+    fold_id: int,
+    window_length: int,
+    test_fingerprint: str,
+    prior_config_hash: str,
+    run_config_hash: str,
+    reason: str,
+    prior_run_id: str,
+    prior_status: str,
+) -> dict[str, Any]:
+    """Build the disclosure entry for one skipped unit (DATA-58).
+
+    A skip is an explicit, auditable event: the reader must be able to see
+    which unit was skipped, why (same-config re-computation vs a
+    different-config prior ok record), which config hash the prior record
+    was produced under, and which config hash this batch ran under. Mirrors
+    the DATA-51 evaluation-runner disclosure entry field for field.
+
+    Args:
+        dataset: Dataset identifier.
+        model: Model identifier (the protocol reservoir id, e.g. ``R0``).
+        task: Task name.
+        seed: Seed.
+        fold_id: Fold index.
+        window_length: Window length used.
+        test_fingerprint: The (partition, window, model, task) fingerprint.
+        prior_config_hash: The config_hash of the prior ok record.
+        run_config_hash: The config_hash of the current batch.
+        reason: ``prior_ok_same_config`` or ``prior_ok_different_config``.
+        prior_run_id: The run_id of the prior ok record.
+        prior_status: Status of the prior record (always ``"ok"``).
+
+    Returns:
+        A JSON-serialisable mapping with the full skip disclosure.
+    """
+    return {
+        "dataset": dataset,
+        "model": model,
+        "task": task,
+        "seed": seed,
+        "fold_id": fold_id,
+        "window_length": window_length,
+        "test_fingerprint": test_fingerprint,
+        "reason": reason,
+        "prior_config_hash": prior_config_hash,
+        "run_config_hash": run_config_hash,
+        "prior_run_id": prior_run_id,
+        "prior_status": prior_status,
+        # DATA-58 is an implementation clarification of §17 on the
+        # reservoir runner (a skip is not a re-fit, so §17's intent is
+        # preserved), the same class of change as DATA-51 on the
+        # evaluation runner. The protocol version label is carried so the
+        # disclosure is auditable against the active protocol without a
+        # live session.
+        "protocol_version": PROTOCOL_VERSION,
+    }
+
+
+def _write_skip_disclosure(
+    experiment: str,
+    run_config_hash: str,
+    skip_disclosures: list[dict[str, Any]],
+    tables_dir: Path | None,
+) -> Path | None:
+    """Persist the skip disclosure receipt on disk (DATA-58).
+
+    The receipt lives in ``results/tables/<experiment>_skip_disclosure.json``
+    so the audit trail survives the live session. Concurrent re-shard
+    processes may each add their own skipped units; the receipt is UPDATED
+    (merged) rather than clobbered so no process discards the disclosures
+    recorded by any other process.
+
+    Args:
+        experiment: The experiment label.
+        run_config_hash: This batch's config hash.
+        skip_disclosures: The entries this batch produced.
+        tables_dir: Override for the tables directory.
+
+    Returns:
+        The receipt path, or ``None`` when there was nothing to write.
+    """
+    if not skip_disclosures:
+        return None
+    receipt_path = (
+        Path(tables_dir) if tables_dir is not None else RESULTS_TABLES_DIR
+    ) / f"{experiment}_skip_disclosure.json"
+    ensure_dir(receipt_path.parent)
+    merged_by_key: dict[tuple[Any, ...], dict[str, Any]] = {}
+    if receipt_path.is_file():
+        try:
+            with receipt_path.open("r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+            for entry in payload.get("disclosures", []):
+                merged_by_key[
+                    (
+                        entry.get("test_fingerprint"),
+                        entry.get("prior_config_hash"),
+                        entry.get("run_config_hash"),
+                    )
+                ] = entry
+        except (json.JSONDecodeError, OSError):
+            # A torn write from a crashed process: this batch's entries
+            # become the receipt rather than an unreadable merge base.
+            merged_by_key = {}
+    same = 0
+    different = 0
+    for entry in skip_disclosures:
+        merged_by_key[
+            (
+                entry["test_fingerprint"],
+                entry["prior_config_hash"],
+                entry["run_config_hash"],
+            )
+        ] = entry
+        if entry["reason"] == "prior_ok_same_config":
+            same += 1
+        else:
+            different += 1
+    merged = list(merged_by_key.values())
+    n_same = sum(1 for e in merged if e["reason"] == "prior_ok_same_config")
+    n_different = sum(1 for e in merged if e["reason"] == "prior_ok_different_config")
+    receipt = {
+        "n_skipped_units": len(merged),
+        "n_skipped_same_config": n_same,
+        "n_skipped_different_config": n_different,
+        "this_batch": {
+            "run_config_hash": run_config_hash,
+            "n_skipped_units": len(skip_disclosures),
+            "n_skipped_same_config": same,
+            "n_skipped_different_config": different,
+        },
+        "protocol_version": PROTOCOL_VERSION,
+        "disclosures": merged,
+    }
+    with receipt_path.open("w", encoding="utf-8") as handle:
+        json.dump(receipt, handle, indent=2, sort_keys=True)
+    return receipt_path
+
+
 def _record_exists_for(
     config: ReservoirConfig, model_id: str, task: str, seed: int, fold_id: int, raw_dir: Path | None
 ) -> bool:
@@ -353,6 +497,7 @@ def _write_skipped_record(
     test_fingerprint: str,
     raw_dir: Path | None,
     split_strategy: str,
+    skip_reason: str | None = None,
 ) -> None:
     """Persist the skip so the (unit, config) ledger stays complete."""
     model = family[fid]
@@ -380,7 +525,11 @@ def _write_skipped_record(
             "model_id": model.model_id,
             "family_id": fid,
             "task": task,
-            "skip_reason": "unit already ok under the same config; §17 skip-existing",
+            "skip_reason": (
+                "unit already ok under the same config; §17 skip-existing"
+                if skip_reason is None
+                else skip_reason
+            ),
             "connectome": npz_fingerprint,
             "node_selection": selection.describe(),
             "split_strategy": split_strategy,
@@ -404,6 +553,7 @@ class RunReport:
     config_hash: str
     records: list[RunRecord] = field(default_factory=list)
     skipped_units: list[str] = field(default_factory=list)
+    skip_disclosures: list[dict[str, Any]] = field(default_factory=list)
     summary_frame: pd.DataFrame | None = None
 
     @property
@@ -494,9 +644,21 @@ def run_reservoir_benchmark(
     # failed one must not occupy the quota (§17), a skipped one is the
     # runner's own continuation marker and must not block a later same-
     # config re-touch check.
+    # The §17 ledger (DATA-58): a prior ok record OWNS the unit. Two
+    # directions, both skipped — never re-fit, never re-scored:
+    #   - same config_hash as this batch  -> re-computation, skip;
+    #   - different config_hash           -> DATA-58 skip, disclosed with
+    #     BOTH config hashes (the pre-DATA-58 reservoir runner aborted the
+    #     whole batch here — that abort is what blocked re-sharding E2-D3
+    #     onto more processes); §17's intent is preserved because a skip
+    #     IS the not-re-fitting.
+    # When enforce_test_touched_once is off (--no-skip-existing at the CLI):
+    #   - same config_hash -> skip (the CLI's long-standing
+    #     same-config re-computation allowance);
+    #   - different config_hash -> still REFUSED (§17's original guard).
     prior_ok: dict[str, str] = {}
-    if config.enforce_test_touched_once:
-        for prior in load_records(raw_dir):
+    prior_touch_meta: dict[str, tuple[str, str]] = {}
+    for prior in load_records(raw_dir):
             if (
                 prior.dataset == config.dataset_id
                 and prior.experiment == config.experiment
@@ -504,8 +666,12 @@ def run_reservoir_benchmark(
                 and prior.status == "ok"
             ):
                 prior_ok.setdefault(prior.test_fingerprint, prior.config_hash)
+                prior_touch_meta.setdefault(
+                    prior.test_fingerprint, (prior.run_id, prior.status)
+                )
 
     report = RunReport(config_hash=run_config_hash)
+    skip_disclosures: list[dict[str, Any]] = []
     environment = capture_environment()
 
     # The run params: pinned knobs over the DATA-3/4 defaults. R0's rescale
@@ -624,7 +790,11 @@ def run_reservoir_benchmark(
                         )
 
                         if test_fingerprint in prior_ok:
-                            if prior_ok[test_fingerprint] == run_config_hash:
+                            prior_hash = prior_ok[test_fingerprint]
+                            prior_run_id, prior_status = prior_touch_meta.get(
+                                test_fingerprint, ("", "ok")
+                            )
+                            if prior_hash == run_config_hash:
                                 # §17 skip-existing: this unit already has an ok
                                 # record under the same config. The existing
                                 # file IS the ledger entry — re-writing a
@@ -635,45 +805,81 @@ def run_reservoir_benchmark(
                                 # marker when no record exists yet at the
                                 # canonical path, and count the skip either
                                 # way so the report states what happened.
-                                report.skipped_units.append(
-                                    f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d}"
+                                skip_reason = None
+                                reason = "prior_ok_same_config"
+                            elif config.enforce_test_touched_once:
+                                # DATA-58: a different-config prior ok record
+                                # is SKIPPED and DISCLOSED, not batch-aborted.
+                                # Nothing new is fitted on the touched split —
+                                # that IS §17's intent.
+                                skip_reason = (
+                                    "unit already ok under a DIFFERENT config "
+                                    f"({prior_hash}); §17 skip-disclosure (DATA-58) "
+                                    f"— batch config_hash {run_config_hash}"
                                 )
-                                if not _record_exists_for(
-                                    config, model_id, task, seed, fold.fold_id, raw_dir
-                                ):
-                                    _write_skipped_record(
-                                        report,
-                                        config,
-                                        model_id,
-                                        fid,
-                                        task,
-                                        seed,
-                                        fold,
-                                        window_length,
-                                        fold_tensors,
-                                        family,
-                                        npz_fingerprint,
-                                        selection,
-                                        environment,
-                                        evidence_class,
-                                        protocol_compliant,
-                                        notes,
-                                        run_config_hash,
-                                        test_fingerprint,
-                                        raw_dir,
-                                        split_strategy,
-                                    )
-                                continue
-                            raise RuntimeError(
-                                f"test_touched_once violated: {config.dataset_id} "
-                                f"fold {fold.fold_id} seed {seed} was already evaluated "
-                                f"for {model_id}/{task} under config "
-                                f"{prior_ok[test_fingerprint]}, and is now being "
-                                f"re-evaluated under {run_config_hash}. protocol v1.4 "
-                                f"§17 forbids re-fitting on a test split already "
-                                f"touched; a changed configuration requires a new "
-                                f"protocol version file, not a re-run."
+                                reason = "prior_ok_different_config"
+                            else:
+                                # --no-skip-existing (strict §17 guard):
+                                # same-config re-computation is still a skip,
+                                # but a different-config re-touch is still
+                                # refused. Nothing is re-fit on a touched
+                                # split under a changed config.
+                                raise RuntimeError(
+                                    f"test_touched_once violated: {config.dataset_id} "
+                                    f"fold {fold.fold_id} seed {seed} was already evaluated "
+                                    f"for {model_id}/{task} under config "
+                                    f"{prior_hash}, and is now being "
+                                    f"re-evaluated under {run_config_hash}. protocol v1.4 "
+                                    f"§17 forbids re-fitting on a test split already "
+                                    f"touched; a changed configuration requires a new "
+                                    f"protocol version file, not a re-run."
+                                )
+                            report.skipped_units.append(
+                                f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d}"
                             )
+                            skip_disclosures.append(
+                                _skip_disclosure_entry(
+                                    dataset=config.dataset_id,
+                                    model=model_id,
+                                    task=task,
+                                    seed=seed,
+                                    fold_id=fold.fold_id,
+                                    window_length=window_length,
+                                    test_fingerprint=test_fingerprint,
+                                    prior_config_hash=prior_hash,
+                                    run_config_hash=run_config_hash,
+                                    reason=reason,
+                                    prior_run_id=prior_run_id,
+                                    prior_status=prior_status,
+                                )
+                            )
+                            if not _record_exists_for(
+                                config, model_id, task, seed, fold.fold_id, raw_dir
+                            ):
+                                _write_skipped_record(
+                                    report,
+                                    config,
+                                    model_id,
+                                    fid,
+                                    task,
+                                    seed,
+                                    fold,
+                                    window_length,
+                                    fold_tensors,
+                                    family,
+                                    npz_fingerprint,
+                                    selection,
+                                    environment,
+                                    evidence_class,
+                                    protocol_compliant,
+                                    notes,
+                                    run_config_hash,
+                                    test_fingerprint,
+                                    raw_dir,
+                                    split_strategy,
+                                    skip_reason=skip_reason,
+                                )
+                            continue
 
                         started = time.perf_counter()
                         status = "ok"
@@ -803,11 +1009,22 @@ def run_reservoir_benchmark(
     # concatenate") — so they are excluded here and stay in the raw ledger
     # where their status is what they document.
     scored = [r for r in relevant if r.status != "skipped"]
+    report.skipped_units = list(report.skipped_units)
+    report.skip_disclosures = list(skip_disclosures)
+    # DATA-58 receipt: the skip disclosure is persisted to
+    # results/tables/<experiment>_skip_disclosure.json so the re-shard audit
+    # trail is on disk, not just in a live session log. The receipt is merged,
+    # never clobbered, when concurrent re-shard processes each add their own
+    # skipped units.
+    _write_skip_disclosure(config.experiment, run_config_hash, skip_disclosures, tables_dir)
+    scored = [r for r in relevant if r.status != "skipped"]
     if scored:
         summary = aggregate_records(scored)
         if not summary.empty:
             write_summary_csv(summary, config.experiment, tables_dir)
             summary.attrs["skipped_units"] = report.skipped_units
+            summary.attrs["skip_disclosures"] = skip_disclosures
+            summary.attrs["n_skipped_units"] = len(skip_disclosures)
             summary.attrs["split_strategy"] = split_strategy
             summary.attrs["environment"] = environment
             summary.attrs["environment_report"] = compare_environments().as_dict()
@@ -822,6 +1039,8 @@ __all__ = [
     "RESERVOIR_KNOB_ALIASES",
     "RunReport",
     "ReservoirConfig",
+    "_skip_disclosure_entry",
+    "_write_skip_disclosure",
     "OutOfGridError",
     "dataset_split_strategy",
     "run_reservoir_benchmark",

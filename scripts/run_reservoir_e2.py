@@ -112,13 +112,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--skip-existing", dest="skip_existing", action="store_true", default=True,
-        help="skip units that are already ok under the same config (default)",
+        help="skip units that already have an ok record and disclose the skip "
+             "with both config hashes (default; §17 skip-existing + DATA-58 "
+             "different-config skip-disclosure)",
     )
     parser.add_argument(
         "--no-skip-existing", dest="skip_existing", action="store_false",
-        help="re-run even when an ok record already exists (writes a new ok "
-             "record; the same-config re-touch is allowed, a different one is "
-             "still refused by §17)",
+        help="strict §17 guard: same-config already-ok units are still "
+             "skipped (re-computation), but a different-config prior ok record "
+             "is REFUSED with a §17 test_touched_once violation; never "
+             "overwritten",
     )
     parser.add_argument(
         "--output-dir", default=None,
@@ -171,6 +174,7 @@ def main(argv: list[str] | None = None) -> int:
         spectral_radius=args.spectral_radius,
         family_ids=family_ids,
         select_hyperparameters=args.select_hyperparameters,
+        enforce_test_touched_once=args.skip_existing,
     )
 
     started = time.time()
@@ -182,6 +186,16 @@ def main(argv: list[str] | None = None) -> int:
         raw_dir=Path(args.output_dir) if args.output_dir else None,
         tables_dir=tables_dir,
     )
+    skip_disclosure_receipt: str | None = None
+    if report.skip_disclosures:
+        receipt = (
+            Path(args.tables_dir) if args.tables_dir
+            else (Path(args.output_dir) / "tables" if args.output_dir else None)
+        )
+        receipt_base = receipt if receipt is not None else PROJECT_ROOT / "results" / "tables"
+        receipt_path = receipt_base / f"{config.experiment}_skip_disclosure.json"
+        if receipt_path.is_file():
+            skip_disclosure_receipt = str(receipt_path)
     wallclock = time.time() - started
 
     print(f"experiment: {config.experiment} | dataset: {config.dataset_id} | "
@@ -190,10 +204,16 @@ def main(argv: list[str] | None = None) -> int:
     print(f"config_hash: {report.config_hash}")
     print(f"runs ok: {report.ok_count} | skipped: {len(report.skipped_units)} | "
           f"failed: {len(report.failed_units)}")
+    n_same = sum(1 for d in report.skip_disclosures if d["reason"] == "prior_ok_same_config")
+    n_diff = sum(1 for d in report.skip_disclosures if d["reason"] == "prior_ok_different_config")
+    print(f"skip disclosure: {len(report.skip_disclosures)} total "
+          f"(same-config {n_same}, different-config {n_diff})")
     for unit in report.skipped_units:
         print(f"  skipped (already ok): {unit}")
     for unit in report.failed_units:
         print(f"  FAILED: {unit}", file=sys.stderr)
+    if skip_disclosure_receipt is not None:
+        print(f"skip disclosure receipt: {skip_disclosure_receipt}")
     if report.summary_frame is not None and not report.summary_frame.empty:
         columns = [
             c for c in ("model", "task", "macro_f1_mean", "macro_f1_std",
