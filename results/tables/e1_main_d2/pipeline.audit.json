@@ -1,0 +1,37 @@
+{
+  "bundle_sha256_prefixes": {
+    "fingerprints": "933f3850ca507e96",
+    "per_run": "1e796ccb85a5bb86",
+    "summary": "c8369331a00c1cdb",
+    "test_touched_once": "345f7fcaa74faca8"
+  },
+  "decision_metric_by_task": {
+    "classification": "macro_f1",
+    "regression": "mae"
+  },
+  "experiment": "e1_main_d2",
+  "models": [
+    "cnn1d",
+    "esn",
+    "gru",
+    "lstm",
+    "pca_svm",
+    "random_forest",
+    "svm_rbf",
+    "tcn",
+    "xgboost"
+  ],
+  "n_contrast_rows": 12,
+  "n_descriptive_rows": 18,
+  "n_pairable_declared_contrasts": 0,
+  "n_per_run": 900,
+  "note": "Read-only pipeline over already-scored records; no model evaluation. Insufficient/unpairable rows are reported, never imputed.",
+  "protocol_active_file": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-5-d0e1f153d420/worktree/configs/protocol_v1.3.yaml",
+  "secondary_only": [
+    "r2"
+  ],
+  "tasks": [
+    "classification",
+    "regression"
+  ]
+}

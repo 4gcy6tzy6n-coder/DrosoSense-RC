@@ -1,0 +1,43 @@
+{
+  "bundle_files": {
+    "fingerprints": "results/tables/stub_e1_main_d3_demo/e1_main_d3_fingerprints.csv",
+    "per_run": "results/tables/stub_e1_main_d3_demo/e1_main_d3_per_run.csv",
+    "summary": "results/tables/stub_e1_main_d3_demo/e1_main_d3_summary.csv",
+    "test_touched_once": "results/tables/stub_e1_main_d3_demo/e1_main_d3_test_touched_once.json"
+  },
+  "bundle_prefix": "stub_e1_main_d3",
+  "decision_metric_by_task": {
+    "classification": "macro_f1",
+    "regression": "mae"
+  },
+  "experiment": "e1_main_d3",
+  "gates_unevaluable": [
+    "Gate_A",
+    "Gate_B",
+    "Gate_C"
+  ],
+  "missing_required_models": [],
+  "n_contrast_rows": 12,
+  "n_contrast_rows_pairable": 4,
+  "n_distinct_config_hashes": 4,
+  "n_distinct_test_fingerprints": 60,
+  "n_per_run": 60,
+  "n_violations": 0,
+  "note": "Read-only pipeline over already-scored records; no model evaluation. Unpairable / insufficient rows and UNEVALUABLE gates are reported with their reasons, never imputed.",
+  "output_dir": "/Users/yyl/multica_workspaces_desktop-api.multica.ai/datascience-621b7a4b0b37/data-56-7d5d4335cdb4/worktree/results/tables/e1_main_d3",
+  "r2_secondary_only": true,
+  "secondary_metrics_reported_only": [
+    "balanced_accuracy",
+    "auroc",
+    "accuracy",
+    "rmse",
+    "r2"
+  ],
+  "sha256": {
+    "fingerprints": "2553b4b058982749",
+    "per_run": "b6aa5b38bd60e759",
+    "summary": "bb4e5a4ed8fcc02c",
+    "test_touched_once": "c4fdd8ae7c123d2c"
+  },
+  "tables_dir": "results/tables/stub_e1_main_d3_demo"
+}

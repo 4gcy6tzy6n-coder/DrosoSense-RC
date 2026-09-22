@@ -1,0 +1,7 @@
+dataset,model,task,n_ok,decision_metric,direction,mean,std,n_folds,ci95_low,ci95_high,status,balanced_accuracy_mean,balanced_accuracy_std,balanced_accuracy_n,auroc_mean,auroc_std,auroc_n,accuracy_mean,accuracy_std,accuracy_n,n_auroc_defined,n_auroc_undefined,rmse_mean,rmse_std,rmse_n,r2_mean,r2_std,r2_n
+d3_rainbow_trout,R0,classification,10,macro_f1,maximize,0.55,0.044721359549995836,5,0.514,0.5860000000000001,ok,0.5999999999999999,1.1702778228589004e-16,10.0,0.8,0.0,10.0,0.5999999999999999,1.1702778228589004e-16,10.0,10,0,,,,,,
+d3_rainbow_trout,R0,regression,10,mae,minimize,1.2,0.07453559924999298,5,1.14,1.26,ok,,,,,,,,,,0,10,2.0,0.0,10.0,-1.0,0.0,10.0
+d3_rainbow_trout,R2,classification,10,macro_f1,maximize,0.4000000000000001,0.044721359549995794,5,0.364,0.43600000000000005,ok,0.5999999999999999,1.1702778228589004e-16,10.0,0.8,0.0,10.0,0.5999999999999999,1.1702778228589004e-16,10.0,10,0,,,,,,
+d3_rainbow_trout,R2,regression,10,mae,minimize,1.5,0.07453559924999306,5,1.44,1.56,ok,,,,,,,,,,0,10,2.0,0.0,10.0,-2.0,0.0,10.0
+d3_rainbow_trout,esn,classification,10,macro_f1,maximize,0.5,0.04472135954999582,5,0.46399999999999997,0.536,ok,0.5999999999999999,1.1702778228589004e-16,10.0,0.8,0.0,10.0,0.5999999999999999,1.1702778228589004e-16,10.0,10,0,,,,,,
+d3_rainbow_trout,esn,regression,10,mae,minimize,1.35,0.07453559924999302,5,1.2899999999999998,1.4100000000000001,ok,,,,,,,,,,0,10,2.0,0.0,10.0,-1.5,0.0,10.0
