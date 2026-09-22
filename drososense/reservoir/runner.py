@@ -651,6 +651,19 @@ def run_reservoir_benchmark(
                     if config.train_fraction is not None and config.train_fraction < 1.0
                     else None
                 )
+                # E3 record fidelity (DATA-61, gate item d): the record must
+                # state which specimens actually trained the model. The full
+                # fold.train list stays in ``train_specimens`` (the partition
+                # of record, byte-identical across fractions); the admitted
+                # E3 pool is carried explicitly in model_description.
+                e3_pool_payload = (
+                    {
+                        "train_fraction": float(config.train_fraction),
+                        "e3_admitted_train_specimens": list(train_pool),
+                    }
+                    if train_pool is not None
+                    else {}
+                )
                 fold_tensors = None
                 fold_tensor_failure = ""
                 try:
@@ -875,16 +888,36 @@ def run_reservoir_benchmark(
                                         split_strategy,
                                     )
                                 continue
-                            raise RuntimeError(
-                                f"test_touched_once violated: {config.dataset_id} "
-                                f"fold {fold.fold_id} seed {seed} was already evaluated "
-                                f"for {model_id}/{task} under config "
-                                f"{prior_ok[test_fingerprint]}, and is now being "
-                                f"re-evaluated under {run_config_hash}. protocol v1.4 "
-                                f"§17 forbids re-fitting on a test split already "
-                                f"touched; a changed configuration requires a new "
-                                f"protocol version file, not a re-run."
-                            )
+                            elif config.train_fraction is not None and config.train_fraction < 1.0:
+                                # E3 (DATA-60): cross-experiment anchor skip.
+                                # The prior ok record was written under a
+                                # DIFFERENT experiment label (e1_main_d2 /
+                                # e2_main_d2 or a sibling fraction). The test
+                                # partition is UNCHANGED across fractions
+                                # (test_set_fixed_across_fractions true), so
+                                # re-fitting on it would be a §17 violation
+                                # for the SAME design — but for a true-subsample
+                                # fraction label the disclosure is the correct
+                                # outcome: the unit is NOT re-fit, the skip is
+                                # disclosed, and the §17 RuntimeError is not
+                                # raised because the prior record belongs to a
+                                # DIFFERENT design (a different train
+                                # fraction), not the same design re-fit.
+                                report.skipped_units.append(
+                                    f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d}"
+                                )
+                                continue
+                            else:
+                                raise RuntimeError(
+                                    f"test_touched_once violated: {config.dataset_id} "
+                                    f"fold {fold.fold_id} seed {seed} was already evaluated "
+                                    f"for {model_id}/{task} under config "
+                                    f"{prior_ok[test_fingerprint]}, and is now being "
+                                    f"re-evaluated under {run_config_hash}. protocol v1.4 "
+                                    f"§17 forbids re-fitting on a test split already "
+                                    f"touched; a changed configuration requires a new "
+                                    f"protocol version file, not a re-run."
+                                )
 
                         started = time.perf_counter()
                         status = "ok"
@@ -942,6 +975,7 @@ def run_reservoir_benchmark(
                                 if config.select_hyperparameters
                                 else f"pinned at {config.spectral_radius} for the whole run"
                             ),
+                            **e3_pool_payload,
                         }
 
                         record = RunRecord(

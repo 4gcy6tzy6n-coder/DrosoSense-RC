@@ -294,6 +294,105 @@ def test_pool_is_subset_of_train_and_nonempty() -> None:
                 )
 
 
+# ---------------------------------------------------------------------------
+# Invariant D — record fidelity (gate item d): a true-subsample fraction is
+# readable from the record; f100/full carries no pool payload
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_record_carries_e3_pool_on_true_subsample_only(tmp_path: Path, monkeypatch) -> None:
+    """The audit-ability requirement ("fraction must be readable from the
+    record"): under a true subsample (0 < f < 1.0) every record's
+    model_description carries the admitted pool and the fraction; under
+    f=1.0 / full-data it carries neither — so n250 and f10 are never
+    confused at record level."""
+    dataset_id, config_path = _make_d2_shaped_fixture(tmp_path, dataset_id="d2_recfid")
+
+    import drososense.data.loaders as loaders_module
+    import drososense.evaluation.runner as e1_module
+    import drososense.utils.paths as paths_module
+
+    raw_data_dir = tmp_path / "raw" / dataset_id
+    monkeypatch.setattr(paths_module, "dataset_raw_dir", lambda _: raw_data_dir)
+    from drososense.data.loaders import RawRead
+
+    monkeypatch.setattr(
+        loaders_module,
+        "_read_raw",
+        lambda config, ds_id: RawRead(
+            frame=pd.read_csv(raw_data_dir / f"{dataset_id}.csv"),
+            aliases=[],
+            source_files=[f"{dataset_id}.csv"],
+        ),
+    )
+    monkeypatch.setattr(e1_module, "dataset_config_path", lambda _: config_path)
+
+    dataset = load_dataset(config_path)
+    specimens = usable_specimens(dataset, 8)
+    folds = make_folds(specimens, "loso", seed=0, n_splits=5)
+
+    # --- true subsample: f=0.25 on the 4-specimen D2 shape --------------
+    e1_raw = tmp_path / "raw_fid_f25"
+    config = BenchmarkConfig(
+        dataset_id=dataset_id,
+        experiment="d2_smoke_e1_f25_fid",
+        models=("random_forest",),
+        tasks=("classification",),
+        seeds=(0,),
+        window_lengths=(8,),
+        split_strategy="loso",
+        n_splits=5,
+        train_fraction=0.25,
+        enforce_test_touched_once=False,
+    )
+    run_benchmark(config, raw_dir=e1_raw, tables_dir=tmp_path / "tables_fid_f25")
+    records = [
+        record
+        for record in load_records(e1_raw)
+        if record.experiment == "d2_smoke_e1_f25_fid" and record.status == "ok"
+    ]
+    assert records, "no ok records written for the f25 fidelity check"
+    for record in records:
+        fold = next(f for f in folds if f.fold_id == record.fold_id)
+        expected_pool = fold_train_pool(fold, 0.25)
+        description = record.model_description
+        assert description["train_fraction"] == 0.25, record.run_id
+        assert description["e3_admitted_train_specimens"] == list(expected_pool), (
+            f"{record.run_id}: admitted pool {description['e3_admitted_train_specimens']} "
+            f"!= fold_train_pool {list(expected_pool)}"
+        )
+        assert set(expected_pool) <= set(fold.train)
+        # the partition of record stays the FULL train side
+        assert sorted(record.train_specimens) == sorted(list(fold.train))
+
+    # --- f=1.0: byte-identical anchor, NO pool payload -------------------
+    e1_raw_full = tmp_path / "raw_fid_f100"
+    config_full = BenchmarkConfig(
+        dataset_id=dataset_id,
+        experiment="d2_smoke_e1_f100_fid",
+        models=("random_forest",),
+        tasks=("classification",),
+        seeds=(0,),
+        window_lengths=(8,),
+        split_strategy="loso",
+        n_splits=5,
+        train_fraction=1.00,
+        enforce_test_touched_once=False,
+    )
+    run_benchmark(config_full, raw_dir=e1_raw_full, tables_dir=tmp_path / "tables_fid_f100")
+    full_records = [
+        record
+        for record in load_records(e1_raw_full)
+        if record.experiment == "d2_smoke_e1_f100_fid" and record.status == "ok"
+    ]
+    assert full_records, "no ok records written for the f100 fidelity check"
+    for record in full_records:
+        description = record.model_description
+        assert "train_fraction" not in description, record.run_id
+        assert "e3_admitted_train_specimens" not in description, record.run_id
+
+
 if __name__ == "__main__":
     # Standalone smoke: run the pytest suite inline
     sys.exit(pytest.main([__file__, "-v", "--tb=short"]))
