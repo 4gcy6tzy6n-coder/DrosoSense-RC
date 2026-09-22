@@ -5,11 +5,6 @@
 # fraction 100 is a NO-OP alias: both runners map 1.0 -> None, so
 # e3_lowdata_d2_f100's config_hash and every record field stay
 # byte-identical to the full E1 batch (the required f100 anchor).
-# We still WRITE the f100 reservoir batch under its own label: same
-# config_hash as e2_main_d2, and under the same label the §17
-# skip-existing rule is a hash-agnostic SKIP (disclosed, zero new
-# computation, zero §17 violation) — so f100 gets its own label's
-# records without re-touching any e1/e2 unit.
 #
 # For fractions 10/25/50/75 we run BOTH halves fresh (the fXX label
 # has no prior records).
@@ -57,11 +52,12 @@ run_frac() {
 
   cd $R || return 1
   if [ -n "$TF" ]; then
+    # fractions 10/25/50/75: run svm_rbf (CPU) and gru (GPU) + reservoir R0/R2
     $PY -u scripts/run_baselines.py --dataset d2_beef_uncontrolled \
-      --experiment $TAG --models svm_rbf --tasks classification regression \
+      --experiment $TAG --models svm_rbf gru --tasks classification regression \
       --seeds 0 --window-lengths 16 --split-strategy auto $TF \
       >> $L 2>&1
-    echo "$(date -u +%FT%TZ) [f$F] baselines(svm_rbf) exit=$?" >> $L
+    echo "$(date -u +%FT%TZ) [f$F] baselines(svm_rbf,gru) exit=$?" >> $L
     $PY -u scripts/run_reservoir_e2.py --dataset d2_beef_uncontrolled \
       --experiment $TAG --seeds 0 --window-lengths 16 \
       --tasks classification regression --split-strategy auto \
@@ -69,16 +65,25 @@ run_frac() {
       >> $L 2>&1
     echo "$(date -u +%FT%TZ) [f$F] reservoir(R0,R2) exit=$?" >> $L
   else
-    # f100: the config_hash is identical to e1_main_d2 / e2_main_d2.
-    # Re-running under a NEW label is safe: §17 skip-existing is
-    # scoped per label (e3_lowdata_d2_f100 has no priors), so the
-    # run scores fresh — the f100 anchor gets its own label's records
-    # byte-identical to the E1/E2 evidence.
+    # f100: the config_hash is byte-identical to e1_main_d2 / e2_main_d2
+    # (the 1.0 no-op alias maps to train_fraction=None). Re-running under
+    # a NEW label is safe AND necessary: §17 skip-existing is scoped per
+    # experiment label, and e3_lowdata_d2_f100 has no priors — so the batch
+    # scores fresh and the f100 anchor gets its own label's records, which
+    # MUST carry test_fingerprint / train_specimens word-for-word matching
+    # e1_main_d2 / e2_main_d2 (the f100 self-proof).
+    #
+    # For f10/f25/f50/f75, a unit already held by a prior full batch
+    # (e1_main_d2 / e2_main_d2, same test fingerprint) is SKIPPED as a
+    # disclosed cross-experiment anchor touch — not a re-fit, not a §17
+    # violation: the test partition is UNCHANGED across fractions
+    # (test_set_fixed_across_fractions true), and the disclosure names
+    # the prior experiment so a reader can audit it.
     $PY -u scripts/run_baselines.py --dataset d2_beef_uncontrolled \
-      --experiment $TAG --models svm_rbf --tasks classification regression \
+      --experiment $TAG --models svm_rbf gru --tasks classification regression \
       --seeds 0 --window-lengths 16 --split-strategy auto \
       >> $L 2>&1
-    echo "$(date -u +%FT%TZ) [f$F] baselines(svm_rbf, full-pool anchor) exit=$?" >> $L
+    echo "$(date -u +%FT%TZ) [f$F] baselines(svm_rbf,gru, full-pool anchor) exit=$?" >> $L
     $PY -u scripts/run_reservoir_e2.py --dataset d2_beef_uncontrolled \
       --experiment $TAG --seeds 0 --window-lengths 16 \
       --tasks classification regression --split-strategy auto \
