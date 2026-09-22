@@ -107,6 +107,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--max-folds", type=int, default=None, help="cap folds per seed")
     parser.add_argument(
+        "--train-fraction",
+        type=float,
+        default=None,
+        help=(
+            "E3 low-data: fraction of the specimen pool admitted to each fold's TRAIN "
+            "side. Test and validation specimens are untouched, so the test set is "
+            "identical across 10/25/50/75/100%. Sampling is nested for a fixed seed "
+            "(10% subset 25% subset ... subset 100%), and 100% is byte-for-byte the "
+            "E1 train set. Epochs / hyperparameters are NOT scaled with the fraction. "
+            "Must satisfy 0 < f <= 1; omit for the full E1/E2 behaviour."
+        ),
+    )
+    parser.add_argument(
         "--smoke", action="store_true",
         help="use deliberately tiny hyperparameters (pipeline check, not tuning)",
     )
@@ -160,6 +173,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    # E3 low-data: the declared fractions are the protocol's; reject anything
+    # else so a batch cannot silently run on an undeclared split. 1.0 is
+    # accepted as a no-op alias for "no subsampling" (byte-identical E1).
+    if args.train_fraction is not None and not 0.0 < args.train_fraction <= 1.0:
+        print(f"--train-fraction must satisfy 0 < f <= 1, got {args.train_fraction}", file=sys.stderr)
+        return 2
+    if args.train_fraction == 1.0:
+        args.train_fraction = None
+
     config = BenchmarkConfig(
         dataset_id=args.dataset,
         experiment=args.experiment,
@@ -173,6 +195,7 @@ def main(argv: list[str] | None = None) -> int:
         label_rule=args.label_rule,
         model_params=SMOKE_PARAMS if args.smoke else {},
         max_folds=args.max_folds,
+        train_fraction=args.train_fraction,
     )
 
     summary = run_benchmark(config)

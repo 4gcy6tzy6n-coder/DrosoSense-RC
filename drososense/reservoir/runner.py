@@ -47,7 +47,7 @@ from drososense.connectome_selection import NodeSelection, select_nodes
 from drososense.data.loaders import dataset_config_path, load_dataset
 from drososense.data.manifest import load_manifest, manifest_path
 from drososense.data.pipeline import build_fold_tensors, usable_specimens
-from drososense.data.splits import make_folds
+from drososense.data.splits import make_folds, nested_train_fraction
 from drososense.evaluation.contact_log import record_contact
 from drososense.evaluation.metrics import (
     EMPTY_CLASS_POLICY,
@@ -197,6 +197,7 @@ class ReservoirConfig:
     enforce_seed_policy: bool = True
     enforce_declared_design: bool = True
     base_model_params: dict[str, dict[str, Any]] = field(default_factory=dict)
+    train_fraction: float | None = None
 
     def __post_init__(self) -> None:
         if self.normalization not in ALLOWED_NORMALIZATIONS:
@@ -239,6 +240,7 @@ class ReservoirConfig:
             "family_ids": list(self.family_ids),
             "select_hyperparameters": self.select_hyperparameters,
             "base_model_params": self.base_model_params,
+            "train_fraction": self.train_fraction,
         }
 
 
@@ -547,6 +549,24 @@ def run_reservoir_benchmark(
             if config.max_folds is not None:
                 folds = folds[: config.max_folds]
 
+            # E3 low-data (protocol E3_lowdata: test_set_fixed_across_fractions
+            # true, sampling nested). Subsample the TRAIN side only: the test
+            # (and validation) specimens never move, so the per-fold TEST
+            # partition stays byte-for-byte identical across 10/25/50/75/100%
+            # and the paired E1-vs-E3 fingerprint comparison stays legitimate.
+            # The pool is nested, so for a fixed seed 10% ⊂ 25% ⊂ 50% ⊂ 75%
+            # ⊂ 100%, and the 100% pool is byte-for-byte the full pool.
+            #
+            # The admitted pool filters the TRAIN *window tensors* inside
+            # ``build_fold_tensors`` — not the ``Fold`` object itself — so
+            # the fold fingerprint (test + val partition) is unchanged and
+            # the disjoint-cover invariant on the partition itself holds.
+            train_pool = (
+                nested_train_fraction(specimens, config.train_fraction, seed)
+                if config.train_fraction is not None and config.train_fraction < 1.0
+                else None
+            )
+
             # One shared input map per seed, identical across R0–R6.
             family_shared = make_shared(
                 n_nodes=int(selection.node_indices.size),
@@ -569,14 +589,75 @@ def run_reservoir_benchmark(
                     / config.dataset_id
                     / f"reservoir_w{window_length}_seed{seed:02d}_fold{fold.fold_id:02d}"
                 )
-                fold_tensors = build_fold_tensors(
-                    dataset,
-                    fold,
-                    window_length,
-                    artifact_dir,
-                    stride=config.stride,
-                    label_rule=config.label_rule,
-                )
+                # E3 low-data: when the admitted pool empties this fold's TRAIN
+                # side the tensor builder raises a named, clear error. Record
+                # a failed run on the fold's units (not aborted) so a small
+                # fold in a 10% batch never blocks the whole run.
+                fold_tensors = None
+                fold_tensor_failure = ""
+                try:
+                    fold_tensors = build_fold_tensors(
+                        dataset,
+                        fold,
+                        window_length,
+                        artifact_dir,
+                        stride=config.stride,
+                        label_rule=config.label_rule,
+                        train_specimen_pool=train_pool,
+                    )
+                except ValueError as exc:
+                    fold_tensor_failure = str(exc)
+
+                if fold_tensors is None:
+                    for task in config.tasks:
+                        for fid in [f for f in TOPOLOGY_FAMILY_IDS if f in config.family_ids]:
+                            model_id = PROTOCOL_ID_BY_FAMILY[fid]
+                            failure_reason = f"tensor build failed: {fold_tensor_failure}"
+                            metrics_block = {**NO_METRICS, "failure_reason": failure_reason}
+                            failure_record = RunRecord(
+                                run_id=make_run_id(config.dataset_id, model_id, task, seed, fold.fold_id),
+                                experiment=config.experiment,
+                                dataset=config.dataset_id,
+                                model=model_id,
+                                task=task,
+                                seed=seed,
+                                fold_id=fold.fold_id,
+                                protocol_version=PROTOCOL_VERSION,
+                                window_length=window_length,
+                                metrics=metrics_block,
+                                n_train_windows=0,
+                                n_test_windows=0,
+                                train_specimens=list(fold.train),
+                                test_specimens=list(fold.test),
+                                duration_s=0.0,
+                                environment=environment,
+                                timestamp_utc=utc_now_iso(),
+                                evidence_class=evidence_class,
+                                protocol_compliant=protocol_compliant,
+                                model_description={
+                                    "model_id": model_id,
+                                    "family_id": fid,
+                                    "task": task,
+                                    "split_strategy": split_strategy,
+                                },
+                                status="failed",
+                                failure_reason=failure_reason,
+                                fold_fingerprint=fold.fingerprint,
+                                class_coverage={},
+                                config_hash=run_config_hash,
+                                test_fingerprint=make_test_fingerprint(
+                                    fold.fingerprint, window_length, model_id, task
+                                ),
+                                empty_class_policy=EMPTY_CLASS_POLICY,
+                                n_train_sessions=0,
+                                n_test_sessions=0,
+                                notes=notes,
+                                selection={},
+                            )
+                            records.append(failure_record)
+                            report.records.append(failure_record)
+                            write_record(failure_record, raw_dir)
+                    continue
 
                 if not family:
                     normalization = family_params.pop("_normalization")

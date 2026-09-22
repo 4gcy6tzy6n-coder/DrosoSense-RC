@@ -89,6 +89,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--max-folds", type=int, default=None)
     parser.add_argument(
+        "--train-fraction",
+        type=float,
+        default=None,
+        help=(
+            "E3 low-data: fraction of the specimen pool admitted to each fold's TRAIN "
+            "side. Test and validation specimens are untouched, so the per-fold TEST "
+            "partition (and its fingerprint, which the E1-vs-E2 pairing keys on) is "
+            "identical across 10/25/50/75/100%. Sampling is nested for a fixed seed "
+            "(10% subset 25% subset ... subset 100%), and 100% is byte-for-byte the "
+            "full E2 train set. Must satisfy 0 < f <= 1; omit for full-pool E2."
+        ),
+    )
+    parser.add_argument(
         "--reservoir-size", type=int, default=None,
         help="N; the DATA-3 selection runs when N < the full graph",
     )
@@ -154,6 +167,13 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         family_ids = tuple(args.families)
 
+    if args.train_fraction is not None and not 0.0 < args.train_fraction <= 1.0:
+        print(f"--train-fraction must satisfy 0 < f <= 1, got {args.train_fraction}", file=sys.stderr)
+        return 2
+    train_fraction: float | None = None
+    if args.train_fraction is not None and args.train_fraction < 1.0:
+        train_fraction = args.train_fraction
+
     config = ReservoirConfig(
         dataset_id=args.dataset,
         experiment=args.experiment,
@@ -171,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
         spectral_radius=args.spectral_radius,
         family_ids=family_ids,
         select_hyperparameters=args.select_hyperparameters,
+        train_fraction=train_fraction,
     )
 
     started = time.time()

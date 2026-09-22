@@ -278,6 +278,40 @@ def time_block_holdout(
     return tuple(folds)
 
 
+def nested_train_fraction(specimens: Iterable[str], fraction: float, seed: int) -> tuple[str, ...]:
+    """Select a nested, deterministic fraction of the specimen set for training.
+
+    Protocol ``E3_lowdata`` (``fractions: [0.10, 0.25, 0.50, 0.75, 1.00]``,
+    ``sampling: nested``): for a fixed seed the specimen pool that survives a
+    low-data subsample is a prefix of the pool for any higher fraction, so
+    10% is nested inside 25% and so on up to 100%. Every specimen therefore
+    has exactly one position in the order, independent of which fraction
+    later consumes it; and at ``fraction == 1.0`` the pool is untouched, so a
+    100% run is byte-identical to the full-data (E1/E2) batch.
+
+    Args:
+        specimens: Specimen identifiers (duplicates are collapsed).
+        fraction: Fraction of the pool to keep; must satisfy ``0 < f <= 1``.
+        seed: Non-negative seed for the specimen permutation. The same seed
+            therefore yields the same nested chain.
+
+    Returns:
+        The ordered specimen pool of ``ceil(fraction * n)`` unique specimens.
+
+    Raises:
+        ValueError: If the collection is empty, or ``fraction`` is outside
+            ``(0, 1]``.
+    """
+    unique = _as_unique_sorted(specimens)
+    if not 0.0 < fraction <= 1.0:
+        raise ValueError(f"train fraction must satisfy 0 < f <= 1, got {fraction!r}")
+    if fraction >= 1.0:
+        return unique
+    pool_size = max(1, int(np.ceil(fraction * len(unique))))
+    permuted = permute_specimens(unique, seed)
+    return permuted[:pool_size]
+
+
 _STRATEGIES = {
     "group_kfold": group_kfold,
     "loso": loso,

@@ -26,7 +26,7 @@ from drososense.baselines.registry import MODEL_IDS, build_model, model_availabi
 from drososense.data.loaders import dataset_config_path, load_dataset
 from drososense.data.manifest import load_manifest, manifest_path
 from drososense.data.pipeline import build_fold_tensors, usable_specimens
-from drososense.data.splits import make_folds
+from drososense.data.splits import make_folds, nested_train_fraction
 from drososense.evaluation.contact_log import record_contact
 from drososense.evaluation.metrics import (
     EMPTY_CLASS_POLICY,
@@ -95,6 +95,13 @@ class BenchmarkConfig:
             hyperparameters on that fold's validation split, drawing only from
             this grid. ``None`` keeps the M1 behaviour of taking the supplied
             parameters; the declared grid is enforced either way.
+        train_fraction: E3 low-data subsampling (protocol ``E3_lowdata``).
+            When set to a value in ``(0, 1)``, only the nested prefix of the
+            full specimen pool (seeded, deterministic) is allowed into each
+            fold's TRAIN side; test (and validation) are untouched, so the
+            test set is fixed across fractions. ``None`` (the default) keeps
+            the full-pool, E1-identical behaviour — with which a 100% run is
+            byte-for-byte the same split as any prior E1/E2 batch.
     """
 
     dataset_id: str
@@ -112,6 +119,7 @@ class BenchmarkConfig:
     evidence_class: str = "real"
     enforce_test_touched_once: bool = True
     selection_grid: HyperparameterGrid | None = None
+    train_fraction: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
         """Return a JSON-serialisable view for the config fingerprint.
@@ -133,6 +141,7 @@ class BenchmarkConfig:
             "model_params": self.model_params,
             "max_folds": self.max_folds,
             "selection_grid": None if self.selection_grid is None else self.selection_grid.as_dict(),
+            "train_fraction": self.train_fraction,
         }
 
 
@@ -274,6 +283,10 @@ def run_benchmark(
         raise ValueError("no models selected")
     if not config.tasks:
         raise ValueError("no tasks selected")
+    if config.train_fraction is not None and not 0.0 < config.train_fraction <= 1.0:
+        raise ValueError(
+            f"train_fraction must satisfy 0 < f <= 1, got {config.train_fraction!r}"
+        )
 
     # The declared design, checked before any data is touched. The seed set was
     # previously whatever the caller passed — a run outside 0..9 would have been
@@ -378,6 +391,22 @@ def run_benchmark(
             if config.max_folds is not None:
                 folds = folds[: config.max_folds]
 
+            # E3 low-data (protocol E3_lowdata: test_set_fixed_across_fractions
+            # true, sampling nested). Subsample the TRAIN side only: the test
+            # (and validation) specimens never move, so the test set — and the
+            # per-fold TEST partition fingerprint the E1/E2 records carry — is
+            # identical across 10/25/50/75/100%. The pool is nested, so for
+            # a fixed seed 10% ⊂ 25% ⊂ 50% ⊂ 75% ⊂ 100%, and the 100% pool is
+            # byte-for-byte the full pool (E1-identical train set).
+            #
+            # The admitted pool filters the TRAIN *window tensors* inside
+            # ``build_fold_tensors`` — not the ``Fold`` object itself, which
+            # would leak out of the disjoint-cover invariant or raise on an
+            # empty train block. A fold whose train side loses every admitted
+            # specimen records a run with ``failure_reason`` (one fold's
+            # small pool must not abort the whole batch); the test fingerprint
+            # is still byte-identical to the 100% fold's.
+
             for fold in folds:
                 artifact_dir = (
                     ensure_dir(RESULTS_RAW_DIR)
@@ -385,14 +414,79 @@ def run_benchmark(
                     / config.dataset_id
                     / f"w{window_length}_seed{seed:02d}_fold{fold.fold_id:02d}"
                 )
-                fold_tensors = build_fold_tensors(
-                    dataset,
-                    fold,
-                    window_length,
-                    artifact_dir,
-                    stride=config.stride,
-                    label_rule=config.label_rule,
+                # E3 low-data: pass the admitted specimen pool to the tensor
+                # builder; it filters the TRAIN rows, leaving val/test
+                # byte-identical to the full-data fold.
+                train_pool = (
+                    nested_train_fraction(specimens, config.train_fraction, seed)
+                    if config.train_fraction is not None and config.train_fraction < 1.0
+                    else None
                 )
+                # E3 low-data: when the admitted pool empties this fold's TRAIN
+                # side the tensor builder raises a named, clear error. Record a
+                # failed run on the fold's units (not aborted) so a small fold
+                # in a 10% batch never blocks the whole run.
+                fold_tensors = None
+                fold_tensor_failure = ""
+                try:
+                    fold_tensors = build_fold_tensors(
+                        dataset,
+                        fold,
+                        window_length,
+                        artifact_dir,
+                        stride=config.stride,
+                        label_rule=config.label_rule,
+                        train_specimen_pool=train_pool,
+                    )
+                except ValueError as exc:
+                    fold_tensor_failure = str(exc)
+
+                if fold_tensors is None:
+                    for model_id in config.models:
+                        if not availability.get(model_id, {}).get("available", False):
+                            continue
+                        for task in config.tasks:
+                            test_fp = make_test_fingerprint(
+                                fold.fingerprint, window_length, model_id, task
+                            )
+                            failure_reason = f"tensor build failed: {fold_tensor_failure}"
+                            metrics_block = {**NO_METRICS, "failure_reason": failure_reason}
+                            failure_record = RunRecord(
+                                run_id=make_run_id(config.dataset_id, model_id, task, seed, fold.fold_id),
+                                experiment=config.experiment,
+                                dataset=config.dataset_id,
+                                model=model_id,
+                                task=task,
+                                seed=seed,
+                                fold_id=fold.fold_id,
+                                protocol_version=PROTOCOL_VERSION,
+                                window_length=window_length,
+                                metrics=metrics_block,
+                                n_train_windows=0,
+                                n_test_windows=0,
+                                train_specimens=list(fold.train),
+                                test_specimens=list(fold.test),
+                                duration_s=0.0,
+                                environment=environment,
+                                timestamp_utc=utc_now_iso(),
+                                evidence_class=evidence_class,
+                                protocol_compliant=protocol_compliant,
+                                model_description={"model_id": model_id, "task": task},
+                                status="failed",
+                                failure_reason=failure_reason,
+                                fold_fingerprint=fold.fingerprint,
+                                class_coverage={},
+                                config_hash=run_config_hash,
+                                test_fingerprint=test_fp,
+                                empty_class_policy=EMPTY_CLASS_POLICY,
+                                n_train_sessions=0,
+                                n_test_sessions=0,
+                                notes=notes,
+                                selection={},
+                            )
+                            records.append(failure_record)
+                            write_record(failure_record, raw_dir)
+                    continue
 
                 for model_id in config.models:
                     if not availability.get(model_id, {}).get("available", False):
