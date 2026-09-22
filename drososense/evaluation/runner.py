@@ -277,6 +277,49 @@ def _evaluate_one(
     return metrics, predictions, scores
 
 
+def load_prior_test_touches(
+    raw_dir: Path | None,
+    enforce_test_touched_once: bool,
+) -> tuple[dict[str, str], dict[str, tuple[str, str]], dict[str, str]]:
+    """§17 / E3 prior-touch ledger: scan ``results/raw`` once, keyed by
+    ``test_fingerprint``.
+
+    The runner inlines this scan (defect 5: the ledger is the shared
+    source), but extracting it keeps the two readers of the §17 ledger
+    — the runner's skip path and :func:`_full_pool_anchor_refs`'s
+    analysis-time join — reading the same records with the same filter,
+    so a ledger that disagrees with the runner's own skip decision is
+    impossible by construction.
+
+    Args:
+        raw_dir: The raw-records root the ledger reads (``None`` reads
+            the default ``results/raw``); the scan only runs when the
+            guard is in force.
+        enforce_test_touched_once: The guard flag (``§17``; ``False``
+            returns empty ledgers).
+
+    Returns:
+        ``(prior_touches, prior_touch_meta, prior_experiment_meta)`` —
+        the fingerprint → config_hash map, the fingerprint → (run_id,
+        status) map, and the fingerprint → experiment-label map, each
+        built from the first ok record that owns the fingerprint.
+    """
+    prior_touches: dict[str, str] = {}
+    prior_touch_meta: dict[str, tuple[str, str]] = {}
+    prior_experiment_meta: dict[str, str] = {}
+    if enforce_test_touched_once:
+        for prior in load_records(raw_dir):
+            if prior.test_fingerprint and prior.status == "ok":
+                prior_touches.setdefault(prior.test_fingerprint, prior.config_hash)
+                prior_touch_meta.setdefault(
+                    prior.test_fingerprint, (prior.run_id, prior.status)
+                )
+                prior_experiment_meta.setdefault(
+                    prior.test_fingerprint, prior.experiment
+                )
+    return prior_touches, prior_touch_meta, prior_experiment_meta
+
+
 def run_benchmark(
     config: BenchmarkConfig,
     raw_dir: Path | None = None,
@@ -385,16 +428,11 @@ def run_benchmark(
     # / a sibling fraction) — a reader sees exactly which prior run the
     # skip refers to and under which experiment it was written.
     prior_experiment_meta: dict[str, str] = {}
-    if config.enforce_test_touched_once:
-        for prior in load_records(raw_dir):
-            if prior.test_fingerprint and prior.status == "ok":
-                prior_touches.setdefault(prior.test_fingerprint, prior.config_hash)
-                prior_touch_meta.setdefault(
-                    prior.test_fingerprint, (prior.run_id, prior.status)
-                )
-                prior_experiment_meta.setdefault(
-                    prior.test_fingerprint, prior.experiment
-                )
+    (
+        prior_touches,
+        prior_touch_meta,
+        prior_experiment_meta,
+    ) = load_prior_test_touches(raw_dir, config.enforce_test_touched_once)
     # Skip disclosure (DATA-51): units whose test_fingerprint is already held by
     # a status == "ok" record are SKIPPED — never re-fit and never re-scored —
     # and the skip is made explicit, not silent. Both directions are disclosed:
@@ -489,6 +527,20 @@ def run_benchmark(
                             )
                             _prior_exp = prior_experiment_meta.get(_fp, "")
                             _prior_cfg = prior_touches.get(_fp, "")
+                            # DATA-61 defect 5: the fold-level anchor guard is
+                            # scoped by FINGERPRINT AND CONFIG IDENTITY — a
+                            # full-pool E3 unit and the full E1/E2 batch
+                            # carry the SAME config_hash (the no-op alias
+                            # 1.0 ≡ None, pinned by the DATA-60 invariant),
+                            # so a cross-experiment prior that hashes equal
+                            # IS this unit (the f100 anchor, referenced, not
+                            # re-scored). A true low-data run (0 < f < 1.0)
+                            # carries a DISTINCT config_hash — the prior is a
+                            # different unit's reference, not this unit's
+                            # identity — so the guard stays off and the
+                            # fraction scores fresh under its own label.
+                            # Same ledger semantics as the reservoir half
+                            # (fingerprint ownership + config identity).
                             if (
                                 _prior_exp
                                 and _prior_exp != config.experiment
@@ -610,6 +662,7 @@ def run_benchmark(
                                 n_test_sessions=0,
                                 notes=notes,
                                 selection={},
+                                train_fraction=config.train_fraction,
                             )
                             records.append(failure_record)
                             write_record(failure_record, raw_dir)
@@ -628,8 +681,7 @@ def run_benchmark(
                             fold.fingerprint, window_length, model_id, task
                         )
                         prior = prior_touches.get(test_fingerprint)
-                        if prior is not None:
-                            # An ok record already occupies this (dataset, model,
+                        if prior is not None and train_pool is None:                            # An ok record already occupies this (dataset, model,
                             # task, seed, fold) unit. Per §17 the split must not
                             # be re-fit, and re-computation adds nothing to the
                             # record set — so skip, and disclose the skip rather
@@ -644,20 +696,18 @@ def run_benchmark(
                             if prior == run_config_hash:
                                 reason = "prior_ok_same_config"
                             elif prior_experiment and prior_experiment != config.experiment:
-                                # E3 (DATA-60): cross-experiment anchor.
-                                # The prior ok record belongs to a DIFFERENT
-                                # experiment label — either a prior full batch
-                                # (e1_main_d2 / e2_main_d2, the 100% anchor)
-                                # or a sibling fraction (f10/f25/…). The test
-                                # split's partition is UNCHANGED across
-                                # fractions (test_set_fixed_across_fractions
-                                # true), so a §17 quota violation would mean
-                                # the fraction design is broken, not that the
-                                # guard fired correctly. The unit is NOT
-                                # re-fit; it is SKIPped as a disclosed anchor
-                                # touch, and the disclosure names the prior
-                                # experiment so a reader can audit exactly
-                                # which batch holds the fingerprint.
+                                # E3 (DATA-60/61): cross-experiment FULL-POOL
+                                # anchor. The prior ok record belongs to a
+                                # DIFFERENT experiment label — the E1/E2 full
+                                # batch this f100 run audits against (or a prior
+                                # full-pool sibling). The test split's partition
+                                # is UNCHANGED, and re-scoring it adds nothing:
+                                # the f100 anchor is the prior record itself,
+                                # referenced at analysis time (e3_anchor), not
+                                # re-scored. SKIPped as a disclosed anchor touch,
+                                # and the disclosure names the prior experiment
+                                # so a reader can audit exactly which batch
+                                # holds the fingerprint.
                                 reason = "prior_ok_cross_experiment_anchor"
                             else:
                                 reason = "prior_ok_different_config"
@@ -759,6 +809,23 @@ def run_benchmark(
                                 n_test_sessions=fold_tensors.summarise()["n_test_sessions"],
                                 notes=notes,
                                 selection=selection,
+                                # DATA-61 defect 5: readable off the record
+                                # — None = full pool (the E1/E2 anchor), a
+                                # value in (0, 1) = a true low-data subsample.
+                                train_fraction=config.train_fraction,
+                                e3_anchor=(
+                                    _full_pool_anchor_refs(
+                                        config.dataset_id,
+                                        model_id,
+                                        task,
+                                        seed,
+                                        fold.fingerprint,
+                                        window_length,
+                                        raw_dir=raw_dir,
+                                    )
+                                    if status == "ok" and train_pool is None
+                                    else []
+                                ),
                             )
                         )
                         # Write incrementally so a long-running parallel sweep is
@@ -839,6 +906,80 @@ def run_benchmark(
     if not summary.empty:
         write_summary_csv(summary, config.experiment, tables_dir)
     return summary
+
+
+def _full_pool_anchor_refs(
+    dataset_id: str,
+    model: str,
+    task: str,
+    seed: int,
+    fold_fingerprint: str,
+    window_length: int,
+    raw_dir: Path | None = None,
+) -> list[dict[str, Any]]:
+    """DATA-61 defect 5 — resolve the E3 full-pool anchor as a REFERENCE.
+
+    An E3 unit at ``train_fraction`` None/1.0 (the full pool) is the
+    E1/E2 full-batch record for the same partition by construction, so the
+    f100 anchor must NOT be re-run: re-running it is exactly the no-op
+    batch the §17 guard correctly rejects (the v6 zero-out — the root cause
+    is that the f100 unit IS the E1 record, not that the guard misfired).
+    The anchor is therefore resolved analytically: the existing ok record
+    the E3 design audits against, referenced — not re-scored.
+
+    Args:
+        dataset_id: The dataset the anchor references (e.g.
+            ``d2_beef_uncontrolled``); prior records outside it are not
+            full-pool anchors of THIS dataset's E3 design.
+        model: The model the anchor unit scores under.
+        task: The task the anchor unit scores under.
+        seed: The seed the anchor fold was built at.
+        fold_fingerprint: The fold's partition fingerprint — the anchor
+            shares it with every full-batch record on the same partition.
+        window_length: The window length the anchor unit uses.
+        raw_dir: The raw-records root to join against (``None`` reads the
+            default ``results/raw``; a test passing its own root keeps the
+            join scoped to the records the test controls).
+
+    Returns:
+        One reference entry per prior ok record that anchors this unit:
+        ``{fingerprint, experiment, config_hash, run_id, status, source}``.
+        Empty when no prior ok record owns the fingerprint — a full-pool
+        unit with no prior record is a fresh dataset (not an audit of an
+        already-scored E1/E2 batch), and scoring it fresh is legitimate;
+        the anchor reference simply does not exist yet.
+    """
+    from drososense.evaluation.results import make_test_fingerprint
+
+    fingerprint = make_test_fingerprint(fold_fingerprint, window_length, model, task)
+    references: list[dict[str, Any]] = []
+    # The anchor join reads the records the SAME §17 filter the runner's own
+    # skip path reads (ok records with a fingerprint) — scoped to the
+    # dataset the E3 design audits and to the caller's raw root, so the
+    # join is machine-checkable against the ledger rather than a second,
+    # drift-prone scan.
+    for prior in load_records(raw_dir):
+        if (
+            prior.status != "ok"
+            or prior.dataset != dataset_id
+            or prior.model != model
+            or prior.task != task
+            or prior.seed != seed
+            or prior.window_length != window_length
+        ):
+            continue
+        if prior.test_fingerprint == fingerprint:
+            references.append(
+                {
+                    "fingerprint": fingerprint,
+                    "experiment": prior.experiment,
+                    "config_hash": prior.config_hash,
+                    "run_id": prior.run_id,
+                    "status": prior.status,
+                    "source": "results/raw prior ok record (analysis-time join)",
+                }
+            )
+    return references
 
 
 def skipped_models(config: BenchmarkConfig) -> list[dict[str, str]]:

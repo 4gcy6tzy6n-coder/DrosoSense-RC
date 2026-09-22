@@ -19,6 +19,17 @@ set -u
 D=/root/autodl-tmp/drososense; R=$D/repo; PY=/root/miniconda3/bin/python
 export DROSOSENSE_DATA=$D/data
 
+# DATA-61 defect 3: the v6 batch (this script, v6 run) hung >26 min with
+# zero output — 5 procs × 128 BLAS threads on an 80-core box, no threading
+# knobs set, nothing in the record to evidence it. Pin the per-process
+# limits in every worker; 5 procs × 4 threads = 20 in-flight: no
+# oversubscription, no starved core. The runner's main() validates the
+# same knobs and every record's ENV_* keys carry the values it ran under.
+export OMP_NUM_THREADS=4
+export OPENBLAS_NUM_THREADS=4
+export MKL_NUM_THREADS=4
+export NUMEXPR_NUM_THREADS=4
+
 run_frac() {
   local F=$1
   local TAG=e3_lowdata_d2_f$F

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import platform
 import sys
 from dataclasses import asdict, dataclass, field
@@ -130,6 +131,24 @@ class RunRecord:
     failure_reason: str = ""
     notes: str = ""
     selection: dict[str, Any] = field(default_factory=dict)
+    # DATA-61 defect 5: the admitted TRAIN-side fraction this record was
+    # built under, readable off the record (the acceptance check "记录里
+    # 能读出 train_fraction"). ``None`` = full pool (E1/E2 byte-identical
+    # anchor); a value in ``(0, 1)`` = a true E3 low-data subsample. The
+    # value that enters ``config_hash`` is the RAW config value (the
+    # no-op alias 1.0 stays out of the fingerprint, matching the
+    # invariant pinned in ``as_dict``); the record states the semantics,
+    # not the hash.
+    train_fraction: float | None = None
+    # DATA-61 defect 5: E3 full-pool (f100) anchor references — for a
+    # full-pool E3 record this lists the prior ok record(s) that own the
+    # same test fingerprint in the SAME dataset (the E1/E2 full-batch
+    # record this design audits against), resolved at analysis time; a
+    # true low-data (0 < f < 1.0) or non-E3 record carries []. Empty also
+    # means "no prior ok record owns this fingerprint yet" (a fresh
+    # dataset), which is when scoring the full-pool unit fresh is
+    # legitimate.
+    e3_anchor: list[dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.evidence_class not in ("real", "synthetic_fixture"):
@@ -168,6 +187,14 @@ class RunRecord:
 def capture_environment() -> dict[str, Any]:
     """Capture interpreter and library versions for reproducibility.
 
+    BLAS/OpenMP threading knobs (``OMP_NUM_THREADS``,
+    ``OPENBLAS_NUM_THREADS``, ``MKL_NUM_THREADS``, ``NUMEXPR_NUM_THREADS``)
+    are captured as ``ENV_<NAME>`` keys so a record states the thread
+    limits the batch ran under (DATA-61, defect 3: the v6 hang was a
+    BLAS thread-oversubscription — 5 processes × 128 threads on an
+    80-core box — with no env var set to evidence it). Unset vars are
+    recorded as ``None`` so "unlimited threads" is explicit, not implied.
+
     Returns:
         Mapping with the Python version, platform and key package versions.
     """
@@ -182,6 +209,13 @@ def capture_environment() -> dict[str, Any]:
             environment[module_name] = getattr(module, "__version__", "unknown")
         except Exception:
             environment[module_name] = None
+    for threading_var in (
+        "OMP_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "NUMEXPR_NUM_THREADS",
+    ):
+        environment[f"ENV_{threading_var}"] = os.environ.get(threading_var)
     return environment
 
 

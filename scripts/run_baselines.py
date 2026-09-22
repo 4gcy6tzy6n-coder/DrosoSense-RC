@@ -143,6 +143,19 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = parse_args(argv)
 
+    # DATA-61 defect 3: E3 batches fan out (5 parallel subprocesses); without
+    # pinned BLAS limits the v6 hang returns — 128 threads × 5 procs on an
+    # 80-core box, with nothing in the record to evidence it. Validate the
+    # threading knobs at start (before any worker could initialise BLAS);
+    # when they are unset, pin them in-process so the record's ENV_* keys
+    # evidence the limits the batch actually ran under.
+    from ops import thread_limits
+
+    try:
+        thread_limits.validate_thread_limits(max_threads=8)
+    except RuntimeError:
+        thread_limits.set_thread_limits(thread_limits.DEFAULT_LIMIT)
+
     if args.list_models:
         print(json.dumps(describe_models(), indent=2))
         return 0

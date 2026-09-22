@@ -352,7 +352,7 @@ def _write_skipped_record(
     fold_tensors: Any,
     family: dict[str, Any],
     npz_fingerprint: dict[str, Any],
-    selection: NodeSelection,
+    selection: NodeSelection | dict[str, Any],
     environment: dict[str, Any],
     evidence_class: str,
     protocol_compliant: bool,
@@ -361,6 +361,8 @@ def _write_skipped_record(
     test_fingerprint: str,
     raw_dir: Path | None,
     split_strategy: str,
+    e3_anchor: list[dict[str, Any]] | None = None,
+    train_fraction: float | None = None,
 ) -> None:
     """Persist the skip so the (unit, config) ledger stays complete."""
     model = family[fid]
@@ -390,7 +392,11 @@ def _write_skipped_record(
             "task": task,
             "skip_reason": "unit already ok under the same config; §17 skip-existing",
             "connectome": npz_fingerprint,
-            "node_selection": selection.describe(),
+            "node_selection": (
+                selection.describe()
+                if isinstance(selection, NodeSelection)
+                else dict(selection)
+            ),
             "split_strategy": split_strategy,
         },
         status="skipped",
@@ -400,6 +406,11 @@ def _write_skipped_record(
         test_fingerprint=test_fingerprint,
         empty_class_policy=EMPTY_CLASS_POLICY,
         notes=notes,
+        # DATA-61 defect 5: readable off the record — None = full pool
+        # (the E1/E2 anchor), (0, 1) = a true low-data subsample; and the
+        # resolved full-pool anchor reference when this skip IS the anchor.
+        train_fraction=train_fraction if train_fraction is not None else config.train_fraction,
+        e3_anchor=e3_anchor if e3_anchor is not None else [],
     )
     write_record(record, raw_dir)
     report.records.append(record)
@@ -512,6 +523,33 @@ def run_reservoir_benchmark(
                 and prior.status == "ok"
             ):
                 prior_ok.setdefault(prior.test_fingerprint, prior.config_hash)
+
+    # E3 full-pool anchor ledger (DATA-61 defect 5): the cross-experiment
+    # ok records that own each test fingerprint under ANY other experiment
+    # label (the E1/E2 full batch, a sibling fraction). For a FULL-POOL run
+    # (train_pool None — the f100 anchor) these are the anchor references
+    # that must NOT be re-scored; for a true low-data run (0 < f < 1.0) they
+    # are inert — the unit scores fresh under its own fraction label, the
+    # way the E1 half does after the per-unit guard fix below.
+    #
+    # The ledger is scoped by FINGERPRINT, not by config identity: a
+    # full-pool E3 run and a full E1/E2 batch may differ on config knobs
+    # outside the split (the experiment label, enforcement flags, …), yet
+    # the f100 unit is the full-batch record FOR THIS PARTITION by
+    # construction — "which prior ok record owns this partition" is the
+    # question that defines the reference, not whether the configs hash
+    # equal. A true low-data run (train_pool set) is a DISTINCT unit and
+    # this ledger is inert for it.
+    anchor_prior_ok: dict[str, str] = {}
+    if config.enforce_test_touched_once:
+        for prior in load_records(raw_dir):
+            if (
+                prior.dataset == config.dataset_id
+                and prior.experiment != config.experiment
+                and prior.test_fingerprint
+                and prior.status == "ok"
+            ):
+                anchor_prior_ok.setdefault(prior.test_fingerprint, prior.experiment)
 
     report = RunReport(config_hash=run_config_hash)
     environment = capture_environment()
@@ -662,6 +700,10 @@ def run_reservoir_benchmark(
                                 },
                                 status="failed",
                                 failure_reason=failure_reason,
+                                # DATA-61 defect 5: readable off the record
+                                # — None = full pool, (0, 1) = a true
+                                # low-data subsample.
+                                train_fraction=config.train_fraction,
                                 fold_fingerprint=fold.fingerprint,
                                 class_coverage={},
                                 config_hash=run_config_hash,
@@ -723,6 +765,74 @@ def run_reservoir_benchmark(
                         test_fingerprint = make_test_fingerprint(
                             fold.fingerprint, window_length, model_id, task
                         )
+
+                        # DATA-61 defect 5: E3 FULL-POOL anchor. A full-pool
+                        # reservoir run (train_pool None — the f100 anchor) is
+                        # the full E2 batch for this partition by construction,
+                        # so a prior ok record under a DIFFERENT experiment
+                        # label that carries THIS run's exact config hash is
+                        # the anchor itself: reference it at analysis time,
+                        # do not re-score. A true low-data run (train_pool set,
+                        # 0 < f < 1.0) is a DISTINCT unit — its config hash
+                        # differs from every full-batch record, so this
+                        # cross-experiment guard never swallows a f10/f25/
+                        # f50/f75 reservoir unit (the same zero-out the E1
+                        # per-unit guard previously caused).
+                        cross_anchor = (
+                            train_pool is None
+                            and test_fingerprint in anchor_prior_ok
+                        )
+                        if cross_anchor:
+                            prior_experiment = anchor_prior_ok[test_fingerprint]
+                            # The anchor is recorded, not re-scored: a
+                            # `skipped` record (written only when the unit has
+                            # no record yet at its canonical path) carries
+                            # the resolved reference so an audit join reads
+                            # it off the record set.
+                            report.skipped_units.append(
+                                f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d} "
+                                f"[anchor {prior_experiment}]"
+                            )
+                            if not _record_exists_for(
+                                config, model_id, task, seed, fold.fold_id, raw_dir
+                            ):
+                                _write_skipped_record(
+                                    report,
+                                    config,
+                                    model_id,
+                                    fid,
+                                    task,
+                                    seed,
+                                    fold,
+                                    window_length,
+                                    fold_tensors,
+                                    family,
+                                    npz_fingerprint,
+                                    selection,
+                                    environment,
+                                    evidence_class,
+                                    protocol_compliant,
+                                    notes,
+                                    run_config_hash,
+                                    test_fingerprint,
+                                    raw_dir,
+                                    split_strategy,
+                                    e3_anchor=[
+                                        {
+                                            "fingerprint": test_fingerprint,
+                                            "experiment": prior_experiment,
+                                            "config_hash": run_config_hash,
+                                            "run_id": "",
+                                            "status": "ok",
+                                            "source": (
+                                                "results/raw prior ok record "
+                                                "(analysis-time join, full-pool anchor)"
+                                            ),
+                                        }
+                                    ],
+                                    train_fraction=config.train_fraction,
+                                )
+                            continue
 
                         if test_fingerprint in prior_ok:
                             if prior_ok[test_fingerprint] == run_config_hash:
@@ -820,7 +930,11 @@ def run_reservoir_benchmark(
                             "topology": model._topology.describe(),
                             "shared": family_shared.describe(),
                             "connectome": npz_fingerprint,
-                            "node_selection": selection.describe(),
+                            "node_selection": (
+                selection.describe()
+                if isinstance(selection, NodeSelection)
+                else dict(selection)
+            ),
                             "split_strategy": split_strategy,
                             "spectral_scaling_rule": (
                                 "chosen once per (dataset, seed, fold) and applied "
@@ -864,6 +978,32 @@ def run_reservoir_benchmark(
                             n_test_sessions=int(fold_tensors.summarise()["n_test_sessions"]),
                             notes=notes,
                             selection=selection_payload,
+                            # DATA-61 defect 5: readable off the record —
+                            # None = full pool, (0, 1) = a true low-data
+                            # subsample; and a full-pool E3 unit (train_pool
+                            # None ⇒ f100 anchor) references the prior ok
+                            # record of this partition instead of re-scoring
+                            # it; a true low-data record carries [].
+                            e3_anchor=(
+                                [
+                                    {
+                                        "fingerprint": test_fingerprint,
+                                        "experiment": anchor_prior_ok.get(test_fingerprint, ""),
+                                        "config_hash": run_config_hash,
+                                        "run_id": "",
+                                        "status": "ok",
+                                        "source": (
+                                            "results/raw prior ok record "
+                                            "(analysis-time join, full-pool anchor)"
+                                        ),
+                                    }
+                                ]
+                                if status == "ok"
+                                and train_pool is None
+                                and test_fingerprint in anchor_prior_ok
+                                else []
+                            ),
+                            train_fraction=config.train_fraction,
                         )
                         records.append(record)
                         write_record(record, raw_dir)

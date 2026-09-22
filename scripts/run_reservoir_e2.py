@@ -162,7 +162,16 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = parse_args(argv)
 
-    if args.families is None:
+    # DATA-61 defect 3: validate the BLAS threading knobs at start (the v6
+    # hang was 5 procs × 128 threads, no limits set, nothing in the record
+    # to evidence it). Unset knobs are pinned in-process so the record's
+    # ENV_* keys state the limits the batch ran under.
+    from ops import thread_limits
+
+    try:
+        thread_limits.validate_thread_limits(max_threads=8)
+    except RuntimeError:
+        thread_limits.set_thread_limits(thread_limits.DEFAULT_LIMIT)
         family_ids = TOPOLOGY_FAMILY_IDS
     else:
         # E3 (DATA-60): protocol shorthand aliases — R0/R1/…/R6 map to the
