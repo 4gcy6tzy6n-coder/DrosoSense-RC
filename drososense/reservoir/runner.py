@@ -596,6 +596,18 @@ def run_reservoir_benchmark(
                     selection_payload: dict[str, Any] = {}
                     params_this = dict(base_params)
                     params_this["_normalization"] = config.normalization
+                    # Record fidelity (DATA-59): the run's params must state
+                    # the ACTUAL node count of the reservoir in use. The
+                    # DATA-3 default (DEFAULT_RESERVOIR_PARAMS["reservoir_size"]
+                    # = 200) is a stale placeholder — it would let a record
+                    # claim N=200 while its node_selection proves N was
+                    # something else (exposed by the E9 size study: target_n
+                    # 250 vs params.reservoir_size 200). The real size is
+                    # selection.node_indices.size; when the requested target_n
+                    # exceeds the full graph the selection is the identity map
+                    # (n_selected = full graph, identity=True), which is also
+                    # the truthful value.
+                    params_this["reservoir_size"] = int(selection.node_indices.size)
 
                     if config.select_hyperparameters and grid is not None:
                         chosen = select_hyperparameters(

@@ -467,6 +467,12 @@ def test_node_selection_provenance(
     assert selection["node_index_sha256"]
     assert not selection["identity"]
 
+    # DATA-59 record fidelity: params.reservoir_size must state the ACTUAL
+    # node count of the reservoir in use, not the stale DATA-3 default
+    # (200). The record must be self-certifying about its own size.
+    assert record.model_description["params"]["reservoir_size"] == 48
+    assert selection["target_n"] == 48
+
     # The selection is the deterministic DATA-3 function: re-running it
     # produces the same provenance.
     direct = select_nodes(reservoir_npz, target_n=48, seed=20260920)
