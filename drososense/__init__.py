@@ -14,6 +14,6 @@ here. Nothing in this package supports a claim about connectome advantage.
 
 __version__ = "0.1.0"
 
-PROTOCOL_VERSION = "1.1.0"
+PROTOCOL_VERSION = "1.4.0"
 
 __all__ = ["__version__", "PROTOCOL_VERSION"]

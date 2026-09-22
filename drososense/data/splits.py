@@ -278,6 +278,99 @@ def time_block_holdout(
     return tuple(folds)
 
 
+def nested_train_fraction(specimens: Iterable[str], fraction: float, seed: int) -> tuple[str, ...]:
+    """Select a nested, deterministic fraction of the specimen set for training.
+
+    Protocol ``E3_lowdata`` (``fractions: [0.10, 0.25, 0.50, 0.75, 1.00]``,
+    ``sampling: nested``): for a fixed seed the specimen pool that survives a
+    low-data subsample is a prefix of the pool for any higher fraction, so
+    10% is nested inside 25% and so on up to 100%. Every specimen therefore
+    has exactly one position in the order, independent of which fraction
+    later consumes it; and at ``fraction == 1.0`` the pool is untouched, so a
+    100% run is byte-identical to the full-data (E1/E2) batch.
+
+    Args:
+        specimens: Specimen identifiers (duplicates are collapsed).
+        fraction: Fraction of the pool to keep; must satisfy ``0 < f <= 1``.
+        seed: Non-negative seed for the specimen permutation. The same seed
+            therefore yields the same nested chain.
+
+    Returns:
+        The ordered specimen pool of ``ceil(fraction * n)`` unique specimens.
+
+    Raises:
+        ValueError: If the collection is empty, or ``fraction`` is outside
+            ``(0, 1]``.
+    """
+    unique = _as_unique_sorted(specimens)
+    if not 0.0 < fraction <= 1.0:
+        raise ValueError(f"train fraction must satisfy 0 < f <= 1, got {fraction!r}")
+    if fraction >= 1.0:
+        return unique
+    pool_size = max(1, int(np.ceil(fraction * len(unique))))
+    permuted = permute_specimens(unique, seed)
+    return permuted[:pool_size]
+
+
+def fold_train_pool(fold: Fold, fraction: float) -> tuple[str, ...]:
+    """Build one fold's E3 low-data TRAIN pool (DATA-61 fix).
+
+    The E3 low-data admitted pool is taken from each fold's TRAIN side, not
+    from the global specimen set. The pre-DATA-61 runner passed
+    ``nested_train_fraction(specimens, fraction, seed)`` — a prefix of the
+    global permutation — straight into every fold's tensor builder; when
+    that prefix contained this fold's test (or val) specimen and no
+    train-side specimen, the builder's last-resort guard raised and every
+    unit of the fold was recorded as failed (the 100%-failed D2 f10 batch).
+
+    Semantics (option (b) of the DATA-61 fix — global nested ordering):
+
+    1. The fold's own seeded permutation ``perm = permute_specimens(
+       fold.train, fold.seed)`` is the order source. Because ``group_kfold``
+       and ``loso`` both build their train sides by restriction of the same
+       global seed permutation that ``make_folds`` used, this is the
+       restriction of that global permutation to the fold's train side —
+       i.e. option (b)'s "global permutation ∩ fold.train" order, which the
+       fold's own ``seed`` carries (``Fold.seed`` is the seed that produced
+       the partition, recorded on the fold object).
+    2. ``pool = perm[:max(1, ceil(fraction * len(fold.train)))]``, so
+       ``pool ⊆ fold.train`` always: a fold can never be admitted its own
+       test/val specimen, and no fold's train side can be emptied by the
+       sampling.
+    3. Within one fold the chain is monotone: for the same fold
+       ``pool(f=0.10) ⊆ pool(f=0.25) ⊆ … ⊆ pool(f=1.00) = fold.train``
+       (byte-identical to the E1/E2 train side at 100%).
+    4. Across folds the pools may differ (the train sides differ), but
+       every order derives from the one seeded permutation, so results are
+       reproducible across batches.
+
+    Args:
+        fold: The fold whose TRAIN side the pool is built from.
+        fraction: Low-data fraction; must satisfy ``0 < f <= 1``. At
+            ``f == 1.0`` the pool is the full train side (no subsampling).
+
+    Returns:
+        The ordered tuple of admitted TRAIN specimens for this fold: always
+        non-empty when ``fold.train`` is non-empty, always a subset of
+        ``fold.train``, and a nested prefix of the fold's order at any
+        higher fraction.
+
+    Raises:
+        ValueError: If the fold's train side is empty, or ``fraction`` is
+            outside ``(0, 1]``.
+    """
+    unique_train = _as_unique_sorted(fold.train)
+    if not unique_train:
+        raise ValueError(f"fold {fold.fold_id}: train side is empty; no pool to build")
+    if not 0.0 < fraction <= 1.0:
+        raise ValueError(f"train fraction must satisfy 0 < f <= 1, got {fraction!r}")
+    if fraction >= 1.0:
+        return unique_train
+    permuted = permute_specimens(unique_train, fold.seed)
+    pool_size = max(1, int(np.ceil(fraction * len(unique_train))))
+    return permuted[:pool_size]
+
+
 _STRATEGIES = {
     "group_kfold": group_kfold,
     "loso": loso,

@@ -32,6 +32,21 @@ RESULTS_FIGURES_DIR: Path = PROJECT_ROOT / "results" / "figures"
 PROTOCOL_V1_PATH: Path = CONFIGS_DIR / "protocol_v1.yaml"
 PROTOCOL_V1_1_PATH: Path = CONFIGS_DIR / "protocol_v1.1.yaml"
 PROTOCOL_V1_2_PATH: Path = CONFIGS_DIR / "protocol_v1.2.yaml"
+# v1.3 (DATA-25) is the amendment that changes D3's split to LOSO(62) per OD1
+# ruling (a). The file is on disk with its own sidecar, but PROTOCOL_PATH below
+# stays on v1.2 — the active protocol switch is the Experimental Statistician's
+# independent review + Thinker gate, not part of this issue's deliverable.
+PROTOCOL_V1_3_PATH: Path = CONFIGS_DIR / "protocol_v1.3.yaml"
+# v1.4 (DATA-41/DATA-42) is the §17 clarification amendment (crashed runs do not
+# consume the test-touch quota). Its file + sidecar travel byte-identical from
+# the reviewed DATA-41 commit. It amends v1.3, which STAYS the ACTIVE
+# protocol: the runner records PROTOCOL_VERSION = "1.4.0" on new runs (the
+# clarified §17 behaviour), while dataset splits and every other field are
+# still read from v1.3, so D3 remains LOSO(62). The active switch to the
+# v1.4 FILE is the next active-switch version file's job (DATA-44) and needs
+# its own independent review — v1.4 alone is a 6-key amendment record, not a
+# loadable protocol.
+PROTOCOL_V1_4_PATH: Path = CONFIGS_DIR / "protocol_v1.4.yaml"
 
 # The active protocol. Everything that reads "the protocol" reads this.
 #
@@ -39,12 +54,49 @@ PROTOCOL_V1_2_PATH: Path = CONFIGS_DIR / "protocol_v1.2.yaml"
 # could not resolve a dataset name and its decisive p-value was pseudoreplicated.
 # v1.1 stays on disk, unchanged, with its own sidecar still matching, so every
 # result produced under it remains attributable to the text that produced it.
-PROTOCOL_PATH: Path = PROTOCOL_V1_2_PATH
+# v1.3 stays active in turn: v1.4 on disk is the amendment record, and the
+# runner's version label carries the clarified §17 semantics.
+PROTOCOL_PATH: Path = PROTOCOL_V1_3_PATH
 
 # A protocol cannot contain its own hash. The digest of the frozen YAML lives in
 # a sidecar file next to it, which is what makes a post-freeze edit detectable:
 # `python -m drososense.utils.protocol --check` recomputes it.
-PROTOCOL_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.2.sha256"
+PROTOCOL_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.3.sha256"
+PROTOCOL_V1_1_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.1.sha256"
+PROTOCOL_V1_2_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.2.sha256"
+PROTOCOL_V1_3_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.3.sha256"
+PROTOCOL_V1_4_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.4.sha256"
+
+
+def protocol_version_paths(version: str) -> tuple[Path, Path]:
+    """Return the (protocol_path, sidecar_path) for a frozen version.
+
+    Args:
+        version: The protocol version string, e.g. ``"1.3.0"``.
+
+    Returns:
+        ``(PROTOCOL_V{N+1}_PATH, PROTOCOL_V{N+1}_SHA256_PATH)``.
+
+    Raises:
+        ValueError: If ``version`` does not match any registered protocol file.
+
+    Notes:
+        v1.0.0 predates the sidecar mechanism and has no sidecar; the v1 entry
+        points at a sidecar path that does not exist on disk, and any reader
+        must check ``sidecar.is_file()`` before relying on it.
+    """
+    table = {
+        "1.0.0": (PROTOCOL_V1_PATH, CONFIGS_DIR / "protocol_v1.sha256"),
+        "1.1.0": (PROTOCOL_V1_1_PATH, PROTOCOL_V1_1_SHA256_PATH),
+        "1.2.0": (PROTOCOL_V1_2_PATH, PROTOCOL_V1_2_SHA256_PATH),
+        "1.3.0": (PROTOCOL_V1_3_PATH, PROTOCOL_V1_3_SHA256_PATH),
+        "1.4.0": (PROTOCOL_V1_4_PATH, PROTOCOL_V1_4_SHA256_PATH),
+    }
+    if version not in table:
+        raise ValueError(
+            f"unknown protocol version {version!r}; known: {sorted(table)}"
+        )
+    return table[version]
 
 
 def ensure_dir(path: Path) -> Path:
