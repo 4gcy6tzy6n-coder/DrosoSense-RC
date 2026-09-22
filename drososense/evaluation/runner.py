@@ -190,6 +190,7 @@ def _skip_disclosure_entry(
     reason: str,
     prior_run_id: str,
     prior_status: str,
+    prior_experiment: str = "",
 ) -> dict[str, Any]:
     """Build the disclosure entry for one skipped unit.
 
@@ -228,6 +229,13 @@ def _skip_disclosure_entry(
         "run_config_hash": run_config_hash,
         "prior_run_id": prior_run_id,
         "prior_status": prior_status,
+        # E3 (DATA-60): the experiment label the prior ok record was written
+        # under. Empty when the prior belongs to the SAME experiment label as
+        # this batch (the re-shard / seed-half case from DATA-51); non-empty
+        # on a cross-label anchor touch, so a reader can name the prior
+        # batch (e1_main_d2 / e2_main_d2 / a sibling fraction) without
+        # re-deriving it from the run_id alone.
+        "prior_experiment": prior_experiment,
         # DATA-51 is an implementation clarification of §17 (a skip is not a
         # re-fit, so §17's intent is preserved). The protocol version label is
         # carried so the disclosure is auditable against the active protocol
@@ -356,24 +364,36 @@ def run_benchmark(
     # the group selects and every later one is handed the same value.
     shared_choices: dict[tuple[int, int], dict[str, Any]] = {}
 
-    # test_touched_once: a (test split, model, task) triple may be evaluated once.
-    # Re-scoring saved predictions for another metric is not a new touch; fitting
-    # the model again on the same test split under a different configuration is.
-    # Protocol v1.4 §17: only a run that actually scored the split (status == ok)
-    # occupies the (dataset, model, task, seed, fold) quota; a crashed/errored run
-    # never produced test evidence and is not a touch. The filter mirrors
-    # `test_touched_once_report` in drososense/evaluation/results.py.
+    # §17 / E3 (DATA-60): when train_fraction is set (any value, including the
+    # 1.0 no-op alias), the unit's test split is already occupied by ok records
+    # from a prior batch of a DIFFERENT experiment (e1_main_d2, e2_main_d2,
+    # the 100% anchor, or any 0<f<1.0 sibling). In that case the prior's
+    # "hold" is the E3 design itself — the fractions differ only in the
+    # admitted TRAIN pool — so re-touching is not a §17 violation; the
+    # §17 quota is about re-fitting on a test split that the SAME design
+    # already scored. A prior ok record under a DIFFERENT experiment label
+    # is therefore the E3 anchor, not a guard: a unit is skipped ONLY when
+    # the prior record was written by THIS experiment (same label)
+    # under a different config (the re-shard / seed-half case from DATA-51).
     prior_touches: dict[str, str] = {}
     # The prior-touches registry also carries the run_id and status of the ok
     # record that owns each fingerprint, so a skip can be disclosed with the
     # full audit trail (which run, which status) rather than just a hash.
     prior_touch_meta: dict[str, tuple[str, str]] = {}
+    # And, for the E3 cross-label case, the prior EXPERIMENT label itself, so
+    # the skip disclosure can name the anchor batch (e1_main_d2 / e2_main_d2
+    # / a sibling fraction) — a reader sees exactly which prior run the
+    # skip refers to and under which experiment it was written.
+    prior_experiment_meta: dict[str, str] = {}
     if config.enforce_test_touched_once:
         for prior in load_records(raw_dir):
             if prior.test_fingerprint and prior.status == "ok":
                 prior_touches.setdefault(prior.test_fingerprint, prior.config_hash)
                 prior_touch_meta.setdefault(
                     prior.test_fingerprint, (prior.run_id, prior.status)
+                )
+                prior_experiment_meta.setdefault(
+                    prior.test_fingerprint, prior.experiment
                 )
 
     # Skip disclosure (DATA-51): units whose test_fingerprint is already held by
@@ -522,8 +542,27 @@ def run_benchmark(
                             prior_run_id, prior_status = prior_touch_meta.get(
                                 test_fingerprint, ("", "ok")
                             )
+                            prior_experiment = prior_experiment_meta.get(
+                                test_fingerprint, ""
+                            )
                             if prior == run_config_hash:
                                 reason = "prior_ok_same_config"
+                            elif config.train_fraction is not None and prior_experiment and prior_experiment != config.experiment:
+                                # E3 (DATA-60): cross-experiment anchor.
+                                # The prior ok record belongs to a DIFFERENT
+                                # experiment label — either a prior full batch
+                                # (e1_main_d2 / e2_main_d2, the 100% anchor)
+                                # or a sibling fraction (f10/f25/…). The test
+                                # split's partition is UNCHANGED across
+                                # fractions (test_set_fixed_across_fractions
+                                # true), so a §17 quota violation would mean
+                                # the fraction design is broken, not that the
+                                # guard fired correctly. The unit is NOT
+                                # re-fit; it is SKIPped as a disclosed anchor
+                                # touch, and the disclosure names the prior
+                                # experiment so a reader can audit exactly
+                                # which batch holds the fingerprint.
+                                reason = "prior_ok_cross_experiment_anchor"
                             else:
                                 reason = "prior_ok_different_config"
                             skip_disclosures.append(
@@ -540,6 +579,7 @@ def run_benchmark(
                                     reason=reason,
                                     prior_run_id=prior_run_id,
                                     prior_status=prior_status,
+                                    prior_experiment=prior_experiment,
                                 )
                             )
                             continue
@@ -645,6 +685,13 @@ def run_benchmark(
             ),
             "prior_ok_different_config": sum(
                 1 for d in skip_disclosures if d["reason"] == "prior_ok_different_config"
+            ),
+            # E3 (DATA-60): cross-experiment anchor skips — the prior ok record
+            # belongs to a different experiment label (a prior full batch or
+            # a sibling fraction); disclosed separately so a reader can
+            # distinguish "re-shard under the same label" from "E3 anchor".
+            "prior_ok_cross_experiment_anchor": sum(
+                1 for d in skip_disclosures if d["reason"] == "prior_ok_cross_experiment_anchor"
             ),
         }
         disclosure_payload = {

@@ -53,6 +53,7 @@ from drososense.reservoir.connectome_reservoir import (  # noqa: E402
 )
 from drososense.reservoir.runner import (  # noqa: E402
     PINNED_KNOBS,
+    PROTOCOL_ID_BY_FAMILY,
     ReservoirConfig,
     run_reservoir_benchmark,
 )
@@ -161,11 +162,24 @@ def main(argv: list[str] | None = None) -> int:
     if args.families is None:
         family_ids = TOPOLOGY_FAMILY_IDS
     else:
-        unknown = [f for f in args.families if f not in TOPOLOGY_FAMILY_IDS]
+        # E3 (DATA-60): protocol shorthand aliases — R0/R1/…/R6 map to the
+        # registry family ids (R0_real_fly, R1_weight_shuffled, …). The
+        # smoke script's "--families R0 R2" shorthand is the protocol's own
+        # id; without the alias the runner rejects unknown family ids and
+        # the reservoir half silently runs zero families (exit 0).
+        alias_by_protocol = {v: k for k, v in PROTOCOL_ID_BY_FAMILY.items()}
+        family_ids_resolved = tuple(
+            alias_by_protocol[f] if f in alias_by_protocol else f for f in args.families
+        )
+        unknown = [f for f in family_ids_resolved if f not in TOPOLOGY_FAMILY_IDS]
         if unknown:
-            print(f"unknown families {unknown}; declared: {list(TOPOLOGY_FAMILY_IDS)}", file=sys.stderr)
+            print(
+                f"unknown families {unknown}; declared: {list(TOPOLOGY_FAMILY_IDS)}; "
+                f"shorthand aliases: {list(PROTOCOL_ID_BY_FAMILY.values())}",
+                file=sys.stderr,
+            )
             return 2
-        family_ids = tuple(args.families)
+        family_ids = family_ids_resolved
 
     if args.train_fraction is not None and not 0.0 < args.train_fraction <= 1.0:
         print(f"--train-fraction must satisfy 0 < f <= 1, got {args.train_fraction}", file=sys.stderr)
