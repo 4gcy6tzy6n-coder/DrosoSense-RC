@@ -395,7 +395,6 @@ def run_benchmark(
                 prior_experiment_meta.setdefault(
                     prior.test_fingerprint, prior.experiment
                 )
-
     # Skip disclosure (DATA-51): units whose test_fingerprint is already held by
     # a status == "ok" record are SKIPPED — never re-fit and never re-scored —
     # and the skip is made explicit, not silent. Both directions are disclosed:
@@ -454,6 +453,58 @@ def run_benchmark(
             # reproducible across batches.
 
             for fold in folds:
+                # E3 cross-experiment anchor guard (DATA-60): if EVERY
+                # (model, task) unit on this fold is already held by an
+                # ok record under a DIFFERENT experiment label (a prior
+                # full batch or a sibling fraction), the entire fold is a
+                # disclosed anchor skip — no tensor build, no records.
+                # This is the D2-smoke guard that replaces the failed
+                # RunRecord path when the skip is a cross-label anchor
+                # (test partition unchanged across fractions), not a
+                # genuinely empty train pool on a fresh label.
+                all_anchor = False
+                if config.enforce_test_touched_once:
+                    all_anchor = True
+                    for _model_id in config.models:
+                        for _task in config.tasks:
+                            _fp = make_test_fingerprint(
+                                fold.fingerprint, window_length, _model_id, _task
+                            )
+                            _prior_exp = prior_experiment_meta.get(_fp, "")
+                            if not _prior_exp or _prior_exp == config.experiment:
+                                all_anchor = False
+                                break
+                        if not all_anchor:
+                            break
+                if all_anchor:
+                    for _model_id in config.models:
+                        for _task in config.tasks:
+                            _fp = make_test_fingerprint(
+                                fold.fingerprint, window_length, _model_id, _task
+                            )
+                            _prior_cfg = prior_touches.get(_fp, "")
+                            _prior_run_id, _prior_status = prior_touch_meta.get(
+                                _fp, ("", "ok")
+                            )
+                            skip_disclosures.append(
+                                _skip_disclosure_entry(
+                                    dataset=config.dataset_id,
+                                    model=_model_id,
+                                    task=_task,
+                                    seed=seed,
+                                    fold_id=fold.fold_id,
+                                    window_length=window_length,
+                                    test_fingerprint=_fp,
+                                    prior_config_hash=_prior_cfg,
+                                    run_config_hash=run_config_hash,
+                                    reason="prior_ok_cross_experiment_anchor",
+                                    prior_run_id=_prior_run_id,
+                                    prior_status=_prior_status,
+                                    prior_experiment=prior_experiment_meta.get(_fp, ""),
+                                )
+                            )
+                    continue
+
                 artifact_dir = (
                     ensure_dir(RESULTS_RAW_DIR)
                     / "_artifacts"
