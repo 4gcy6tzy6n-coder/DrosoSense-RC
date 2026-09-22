@@ -22,6 +22,17 @@ The three invariants pinned here:
 
 The tests run fully offline on the throwaway fixture the reservoir test
 suite already builds (a 6-specimen LOSO dataset) plus a synthetic NPZ.
+
+A fourth invariant is pinned by the fingerprint rule in
+``drososense/{evaluation,reservoir}/runner.py`` (DATA-60 post-D2-smoke
+fix): ``train_fraction`` is EXCLUDED from the config fingerprint when it
+is ``None`` or ``1.0`` — 1.0 is a no-op alias for the full E1/E2 batch,
+so ``e3_lowdata_d2_f100`` records stay byte-identical to the full batches
+(anchor requirement). A true subsample (``0 < f < 1.0``) still enters
+the fingerprint, and MUST carry a distinct experiment label per fraction
+(the record path carries no fraction, so a shared label would collide on
+the (fingerprint, different-config) hash-agnostic skip path — the
+same-source trap that zeroed out E9 with ``n_skipped_units=140``).
 """
 
 from __future__ import annotations
@@ -485,3 +496,68 @@ def test_benchmark_runner_train_fraction_subsamples_only_train(
                 f"fold {fold.fold_id} had an empty admitted train side but "
                 f"was not recorded as failed"
             )
+
+
+# ---------------------------------------------------------------------------
+# Invariant 4 — config-fingerprint stability across the fraction ladder
+# ---------------------------------------------------------------------------
+
+
+def test_fraction_fingerprint_rule() -> None:
+    """fraction=None, 1.0, and omitted all fingerprint identically (E1/E2 anchor).
+
+    The record path ``results/raw/<experiment>/<dataset>/<model>/
+    <task>_seed<NN>_fold<NN>.json`` carries no fraction, so any value that
+    changes the config fingerprint within ONE experiment label collides:
+    the 2nd fraction's units sit on top of the 1st's ok records and are
+    all hash-agnostic-skipped (``prior_ok_different_config``) — the E9
+    zero-out. The fix: 1.0 is a no-op alias for None, so
+    ``e3_lowdata_d2_f100`` records stay byte-identical to the full E1/E2
+    batches; true subsamples (0 < f < 1.0) enter the fingerprint and MUST
+    carry a distinct experiment label per fraction.
+    """
+    from drososense.utils.config import config_hash
+
+    base = dict(
+        dataset_id="e3_lowdata_fixture",
+        experiment="e3_lowdata_d2_f100",
+        models=("random_forest",),
+        tasks=("classification",),
+        seeds=(0,),
+        window_lengths=(8,),
+        split_strategy="loso",
+        n_splits=10,
+    )
+    hash_none = config_hash({**BenchmarkConfig(**base, train_fraction=None).as_dict()})
+    hash_full = config_hash({**BenchmarkConfig(**base, train_fraction=1.0).as_dict()})
+    assert hash_none == hash_full, (
+        "fraction=1.0 must be a no-op alias for the full E1/E2 batch — "
+        "e3_lowdata_d2_f100 records must stay byte-identical to E1/E2"
+    )
+
+    # The reservoir half follows the same rule.
+    res_base = dict(
+        dataset_id="e3_lowdata_fixture",
+        experiment="e3_lowdata_d2_f100",
+        tasks=("classification",),
+        seeds=(0,),
+        window_lengths=(8,),
+        split_strategy="loso",
+        n_splits=10,
+        npz_path=Path("dummy.npz"),
+        family_ids=("R0_real_fly",),
+    )
+    res_none = config_hash(
+        {**ReservoirConfig(**res_base, train_fraction=None).as_dict()}
+    )
+    res_full = config_hash({**ReservoirConfig(**res_base, train_fraction=1.0).as_dict()})
+    assert res_none == res_full
+
+    # A true subsample DOES change the fingerprint — it is a different
+    # split, and must therefore live under a different experiment label.
+    sub = config_hash({**BenchmarkConfig(**base, train_fraction=0.10).as_dict()})
+    assert sub != hash_full, (
+        "0 < f < 1.0 must be distinguishable in the fingerprint (different "
+        "train sets); share one experiment label and the collision is "
+        "guaranteed"
+    )

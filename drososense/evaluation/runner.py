@@ -141,7 +141,18 @@ class BenchmarkConfig:
             "model_params": self.model_params,
             "max_folds": self.max_folds,
             "selection_grid": None if self.selection_grid is None else self.selection_grid.as_dict(),
-            "train_fraction": self.train_fraction,
+            # E3 low-data (DATA-60): train_fraction is EXCLUDED from the
+            # config fingerprint when it is None or 1.0. fraction=1.0 is a
+            # no-op alias for "no subsampling", so e3_lowdata_d2_f100's
+            # config_hash stays byte-identical to the full E1/E2 batches
+            # (the required f100 anchor). Only a true subsample
+            # (0 < f < 1.0) enters the fingerprint, and those values MUST
+            # carry a distinct experiment label per fraction
+            # (e3_lowdata_d2_f10 / _f25 / ...) — the record path does not
+            # carry the fraction, so a shared label would collide on the
+            # (fingerprint, different-config) hash-agnostic skip path (the
+            # same-source trap that zeroed out E9).
+            "train_fraction": self.train_fraction if 0.0 < (self.train_fraction or 0.0) < 1.0 else None,
         }
 
 

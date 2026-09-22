@@ -240,7 +240,13 @@ class ReservoirConfig:
             "family_ids": list(self.family_ids),
             "select_hyperparameters": self.select_hyperparameters,
             "base_model_params": self.base_model_params,
-            "train_fraction": self.train_fraction,
+            # E3 low-data (DATA-60): same fingerprint semantics as the E1
+            # runner — None or 1.0 stays out of the config fingerprint so
+            # e3_lowdata_d2_f100 records are byte-identical to the full E2
+            # batches; a true subsample (0 < f < 1.0) requires a distinct
+            # experiment label per fraction, because the record path
+            # (results/raw/<experiment>/...) carries no fraction.
+            "train_fraction": self.train_fraction if 0.0 < (self.train_fraction or 0.0) < 1.0 else None,
         }
 
 
