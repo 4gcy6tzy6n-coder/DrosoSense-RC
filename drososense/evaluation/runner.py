@@ -464,17 +464,24 @@ def run_benchmark(
                 # genuinely empty train pool on a fresh label.
                 all_anchor = False
                 if config.enforce_test_touched_once:
-                    # Skip at the fold level only when the prior ok record
-                    # belongs to a different experiment label AND the prior
-                    # config_hash equals this batch's config_hash. A prior
-                    # fraction label's config_hash differs from the current
-                    # label's (different train_fraction values enter the
-                    # fingerprint for 0<f<1.0), so a sibling fraction is
-                    # NOT an anchor skip — the unit scores fresh under its
-                    # own label. A prior full batch (e1_main_d2 / e2_main_d2)
-                    # has the same config_hash as f100 (1.0 no-op alias)
-                    # only when the f100 label omits --train-fraction
-                    # (which it does), making f100 a genuine anchor.
+                    # E3 (DATA-60): cross-experiment anchor skip at the fold
+                    # level. Fire ONLY when a prior ok record exists under a
+                    # DIFFERENT experiment label AND the prior config_hash
+                    # equals the current batch's config_hash. This means:
+                    #
+                    # - f100 (train_fraction=None, byte-identical to the full
+                    #   E1/E2 batch): prior e1_main_d2 / e2_main_d2 records
+                    #   have the SAME config_hash as f100 → ANCHOR SKIP
+                    #   (the full-pool reference that f100 labels audit against).
+                    #
+                    # - f10/f25/f50/f75 (train_fraction in (0,1), a different
+                    #   config_hash than any prior full batch): prior e1_main_d2
+                    #   records have a DIFFERENT config_hash → NOT an anchor skip,
+                    #   the unit scores fresh under its own fraction label.
+                    #
+                    # The D2 smoke spec: "cross-fraction `prior_ok_different_
+                    # config` skips must not occur" — achieved by the fold-level
+                    # guard firing only when config_hash matches exactly.
                     for _model_id in config.models:
                         for _task in config.tasks:
                             _fp = make_test_fingerprint(
@@ -482,7 +489,11 @@ def run_benchmark(
                             )
                             _prior_exp = prior_experiment_meta.get(_fp, "")
                             _prior_cfg = prior_touches.get(_fp, "")
-                            if _prior_exp and _prior_exp != config.experiment and _prior_cfg == run_config_hash:
+                            if (
+                                _prior_exp
+                                and _prior_exp != config.experiment
+                                and _prior_cfg == run_config_hash
+                            ):
                                 all_anchor = True
                                 break
                         if all_anchor:
