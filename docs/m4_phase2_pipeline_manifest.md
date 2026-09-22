@@ -184,3 +184,38 @@ set per rule without re-deriving it.
 - `r2` stays secondary-only;
 - every number in this page is a function of the files in the table above,
   reproducible by the one command above on this tree.
+
+## Raw-evidence records (sha256 + size + schema only — never the bytes, 铁律 2)
+
+The four bundles' per-run JSONs are kept OUTSIDE git. The scratch pull
+directory `m4_pull/` (raw4.tar + `m4_pull/bundle/raw/**`, 21,440 per-run
+JSONs, ~148 MB) was added to `.gitignore` (DATA-5 rework, R3 gate) and
+removed from git history-in-progress via forward-only `git rm --cached`.
+Raw evidence is represented here by hash + size + schema so any of the four
+bundles can be re-verified without the bytes:
+
+| artifact | sha256 | size | contents / schema |
+|---|---|---|---|
+| `m4_pull/raw4.tar` | `f04a7edeedc8445c3dce4f485fa6b161fc8ef4dd49dee4f6e47f5abb206b45e8` | 85,821,440 bytes | 21,440 per-run JSONs + directory entries (22,780 total), layout `<bundle>/<dataset>/<model>/<task>_seedNN_foldNN.json` |
+
+Per-bundle counts inside the tar match the committed `results/tables/*_fingerprints.csv`
+row counts 1:1 (verified 2026-09-22, re-derivable):
+
+| bundle | tar per-run JSONs | `*_fingerprints.csv` data rows | per-run JSON schema (field set) |
+|---|---|---|---|
+| `e1_main_d2` | 900 | 900 | shared 28-field record schema |
+| `e1_main_d3` | 11,160 | 11,160 | shared 28-field record schema |
+| `e2_main_d2` | 700 | 700 | shared 28-field record schema |
+| `e2_main_d3` | 8,680 | 8,680 | shared 28-field record schema |
+
+Shared per-run record schema (JSON top-level keys, all four bundles):
+`class_coverage, config_hash, dataset, duration_s, empty_class_policy,
+environment, evidence_class, experiment, failure_reason, fold_fingerprint,
+fold_id, metrics, model, model_description, n_test_sessions, n_test_windows,
+n_train_sessions, n_train_windows, notes, protocol_compliant,
+protocol_version, run_id, seed, selection, status, task,
+test_fingerprint, test_specimens, timestamp_utc, train_specimens,
+window_length`. Cross-checks performed at this commit: (a) `e2_main_d3`
+all 8,680 tar JSONs — `run_id` keys the committed `e2_main_d3_fingerprints.csv`
+and every JSON's `config_hash` equals the fingerprint row's (0 mismatches);
+(b) tar per-bundle JSON counts equal fingerprint data-row counts above.
