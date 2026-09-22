@@ -9,8 +9,8 @@
 # per-family x seed-half processes.
 #
 # Process map (14 processes: 7 families x 2 seed-halves):
-#   R0_0_4   --families R0_real_fly    --seeds 0 1 2 3 4
-#   R0_5_9   --families R0_real_fly    --seeds 5 6 7 8 9
+#   R0_0_4   --families R0_real_fly      --seeds 0 1 2 3 4
+#   R0_5_9   --families R0_real_fly      --seeds 5 6 7 8 9
 #   R1_0_4   --families R1_weight_shuffled --seeds 0 1 2 3 4
 #   R1_5_9   --families R1_weight_shuffled --seeds 5 6 7 8 9
 #   R2_0_4   --families R2_degree_rewired  --seeds 0 1 2 3 4
@@ -20,11 +20,12 @@
 #   R4_0_4   --families R4_er_esn        --seeds 0 1 2 3 4
 #   R4_5_9   --families R4_er_esn        --seeds 5 6 7 8 9
 #   R5_0_4   --families R5_small_world   --seeds 0 1 2 3 4
+#   PIDs are written to $LOGDIR/e2_main_d3_${STAMP}_pids
 #   R5_5_9   --families R5_small_world   --seeds 5 6 7 8 9
 #   R6_0_4   --families R6_dense_random  --seeds 0 1 2 3 4
 #   R6_5_9   --families R6_dense_random  --seeds 5 6 7 8 9
 #
-# Each process logs to $LOGDIR/e2_main_d3_<family>_<half>.log so a
+# Each process logs to $LOGDIR/e2_main_d3_${STAMP}_<family>_<half>.log so a
 # timeout-walled session does not lose scan evidence. The runner prints
 # the skip disclosure (DATA-58) to stdout on exit; the on-disk receipt is
 # results/tables/e2_main_d3_skip_disclosure.json.
@@ -77,24 +78,45 @@ cd "$REPO"
 # ---------------------------------------------------------------------------
 # Process map
 # ---------------------------------------------------------------------------
+PIDS_FILE="$LOGDIR/e2_main_d3_${STAMP}_pids"
+: > "$PIDS_FILE"
+
 run_reshard() {
     local tag="$1"; local family="$2"; shift 2
     local seeds=("$@")
     local log="$LOGDIR/e2_main_d3_${STAMP}_${tag}.log"
-    local cmd="env DROSOSENSE_DATA=$DATA $PYBIN -u scripts/run_reservoir_e2.py \\"
-    cmd+=" --dataset d3_rainbow_trout --experiment e2_main_d3 \\"
-    cmd+=" --split-strategy loso --normalization n1_pre_l1 --reservoir-size 250 \\"
-    cmd+=" --tasks classification regression --window-lengths 16 \\"
-    cmd+=" --families $family --seeds ${seeds[*]} \\"
-    cmd+=" --npz-path $NPZ \\"
-    cmd+=" > $log 2>&1 & echo \$!"
+    local wrapper="$LOGDIR/e2_main_d3_${STAMP}_${tag}.sh"
+
+    # Write the per-process script first, then nohup it. This keeps the
+    # process tree clean (one nohup -> one python) and lets us record the
+    # exact PID that was launched.
+    cat > "$wrapper" <<EOT
+#!/usr/bin/env bash
+set -uo pipefail
+cd "$REPO"
+env DROSOSENSE_DATA="$DATA" "$PYBIN" -u scripts/run_reservoir_e2.py \
+    --dataset d3_rainbow_trout \
+    --experiment e2_main_d3 \
+    --split-strategy loso \
+    --normalization n1_pre_l1 \
+    --reservoir-size 250 \
+    --tasks classification regression \
+    --window-lengths 16 \
+    --families "$family" \
+    --seeds ${seeds[*]} \
+    --npz-path "$NPZ" \
+    > "$log" 2>&1
+echo "\$?" > "${log}.exit"
+EOT
+    chmod +x "$wrapper"
 
     if [[ $DRY_RUN -eq 1 ]]; then
-        echo "[DRY-RUN] nohup $cmd"
+        echo "[DRY-RUN] nohup $wrapper &"
         echo "[DRY-RUN]   log: $log"
     else
-        nohup bash -c "$cmd" > "$LOGDIR/e2_main_d3_${STAMP}_${tag}.nohup" 2>&1 &
+        nohup "$wrapper" > "$LOGDIR/e2_main_d3_${STAMP}_${tag}.nohup" 2>&1 &
         local pid=$!
+        echo "$tag $pid" >> "$PIDS_FILE"
         echo "launched e2_main_d3_${STAMP}_${tag}  pid=$pid  log=$log"
     fi
 }
@@ -119,8 +141,10 @@ if [[ $DRY_RUN -eq 1 ]]; then
     echo "[DRY-RUN] 14 nohup commands printed; nothing launched."
 else
     echo ""
-    echo "14 processes launched."
+    echo "14 processes launched; PIDs: $PIDS_FILE"
+    echo "  $(cat "$PIDS_FILE" | tr '\n' '  ')"
+    echo ""
     echo "Monitor: watch -n 10 'tail -n 5 $LOGDIR/e2_main_d3_${STAMP}_R*.log'"
-    echo "ETA check: results/tables/e2_main_d3_skip_disclosure.json"
-    echo "Stop all: pkill -f 'run_reservoir_e2.py.*e2_main_d3' || true"
+    echo "Receipt: results/tables/e2_main_d3_skip_disclosure.json"
+    echo "Stop all: cat $PIDS_FILE | while read tag pid; do kill \$pid; done"
 fi
