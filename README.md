@@ -100,6 +100,13 @@ read it.** That class had now appeared three times (gate symbols, `model_params`
 declarative field and its reader — see [`docs/protocol_field_readers.md`](docs/protocol_field_readers.md),
 regenerate with `python scripts/protocol_field_readers.py --write`.
 
+The merge that replayed the repository (`fcac719`) also silently dropped two
+functional code paths — the `n0_raw` normalization loader routing and the
+DATA-28 server harness (~2,000 lines). The rule that any code-dropping merge
+must narrate the drop, file a recovery/disposition issue, and ship a guard
+test is in [`docs/merge_drop_policy.md`](docs/merge_drop_policy.md); this
+issue's audit (DATA-52) is its first enforcement.
+
 682 declared leaves: 225 read by the production path, 2 read through a named exception, 189
 free text, and 266 orphaned with a recorded disposition — 195 of them statements or
 declarations whose operative copy lives elsewhere, 16 **awaiting human determination**, and

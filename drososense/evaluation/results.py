@@ -97,6 +97,11 @@ class RunRecord:
         selection: The hyperparameters chosen for this run, the split and metric
             they were chosen on, and the grid point they came from. Empty when
             the run supplied its own parameters instead of selecting.
+        cpu_seconds: User+system CPU time for the fitted portion (``resource.
+            getrusage`` delta, RUSAGE_SELF). Appended in the DATA-52 runner
+            schema, default 0.0, so pre-DATA-52 records without the key still
+            load; makes duration_s (wall) and CPU time separately auditable
+            instead of back-solving one from the other via a CPU% sample.
     """
 
     run_id: str
@@ -130,6 +135,7 @@ class RunRecord:
     failure_reason: str = ""
     notes: str = ""
     selection: dict[str, Any] = field(default_factory=dict)
+    cpu_seconds: float = 0.0
 
     def __post_init__(self) -> None:
         if self.evidence_class not in ("real", "synthetic_fixture"):
@@ -298,6 +304,7 @@ def records_to_frame(records: list[RunRecord]) -> pd.DataFrame:
             "n_train_sessions": record.n_train_sessions,
             "n_test_sessions": record.n_test_sessions,
             "duration_s": record.duration_s,
+            "cpu_seconds": record.cpu_seconds,
         }
         for name in metric_names:
             row[name] = record.metrics.get(name)
@@ -446,6 +453,9 @@ def aggregate_records(
         )
     )
     summary["mean_duration_s"] = grouped["duration_s"].mean()
+    # DATA-52 runner schema: mean CPU time over the group so per-unit-CPU-
+    # second throughput and split-parallel speedup are directly checkable.
+    summary["mean_cpu_seconds"] = grouped["cpu_seconds"].mean()
     # AUROC is defined only on folds where every class is present, so the number
     # of runs that contributed to `auroc_mean` is reported next to it rather than
     # left for a reader to assume equals n_runs.
@@ -470,9 +480,12 @@ def aggregate_records(
         "n_distinct_specimens",
         "n_auroc_defined",
         "mean_duration_s",
+        "mean_cpu_seconds",
     ]
     summary = summary.reindex(columns=ordered)
     for column in expected:
+        summary[column] = summary[column].astype(float)
+    for column in ("mean_duration_s", "mean_cpu_seconds"):
         summary[column] = summary[column].astype(float)
     return summary
 

@@ -36,6 +36,7 @@ values declared in :data:`PINNED_KNOBS`. Neither path reads the test split.
 
 from __future__ import annotations
 
+import resource
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -688,6 +689,7 @@ def run_reservoir_benchmark(
                             )
 
                         started = time.perf_counter()
+                        cpu_started = resource.getrusage(resource.RUSAGE_SELF)
                         status = "ok"
                         failure_reason = ""
                         metrics: dict[str, Any] = {}
@@ -719,6 +721,19 @@ def run_reservoir_benchmark(
                             failure_reason = f"{type(exc).__name__}: {exc}"
                             metrics = {**NO_METRICS, "failure_reason": failure_reason}
                         duration = time.perf_counter() - started
+                        # CPU time consumed by the fit+predict window (user +
+                        # system, RUSAGE_SELF delta). Appended to the record as
+                        # cpu_seconds — a new-schema field that makes
+                        # per-unit-CPU-second throughput and split-parallel
+                        # speedup checkable from the record instead of
+                        # back-solving wallclock x CPU%. Old records load
+                        # fine because the field defaults to 0.0 and stays
+                        # out of REQUIRED_RECORD_FIELDS.
+                        cpu_usage = resource.getrusage(resource.RUSAGE_SELF)
+                        cpu_seconds = (
+                            (cpu_usage.ru_utime - cpu_started.ru_utime)
+                            + (cpu_usage.ru_stime - cpu_started.ru_stime)
+                        )
 
                         model_description = {
                             "model_id": model.model_id,
@@ -759,6 +774,7 @@ def run_reservoir_benchmark(
                             train_specimens=list(fold.train),
                             test_specimens=list(fold.test),
                             duration_s=duration,
+                            cpu_seconds=cpu_seconds,
                             environment=environment,
                             timestamp_utc=utc_now_iso(),
                             evidence_class=evidence_class,
