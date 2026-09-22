@@ -547,7 +547,7 @@ def run_benchmark(
                             )
                             if prior == run_config_hash:
                                 reason = "prior_ok_same_config"
-                            elif config.train_fraction is not None and prior_experiment and prior_experiment != config.experiment:
+                            elif prior_experiment and prior_experiment != config.experiment:
                                 # E3 (DATA-60): cross-experiment anchor.
                                 # The prior ok record belongs to a DIFFERENT
                                 # experiment label — either a prior full batch
