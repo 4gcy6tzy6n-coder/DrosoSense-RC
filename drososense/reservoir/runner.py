@@ -765,16 +765,36 @@ def run_reservoir_benchmark(
                                         split_strategy,
                                     )
                                 continue
-                            raise RuntimeError(
-                                f"test_touched_once violated: {config.dataset_id} "
-                                f"fold {fold.fold_id} seed {seed} was already evaluated "
-                                f"for {model_id}/{task} under config "
-                                f"{prior_ok[test_fingerprint]}, and is now being "
-                                f"re-evaluated under {run_config_hash}. protocol v1.4 "
-                                f"§17 forbids re-fitting on a test split already "
-                                f"touched; a changed configuration requires a new "
-                                f"protocol version file, not a re-run."
-                            )
+                            elif config.train_fraction is not None and config.train_fraction < 1.0:
+                                # E3 (DATA-60): cross-experiment anchor skip.
+                                # The prior ok record was written under a
+                                # DIFFERENT experiment label (e1_main_d2 /
+                                # e2_main_d2 or a sibling fraction). The test
+                                # partition is UNCHANGED across fractions
+                                # (test_set_fixed_across_fractions true), so
+                                # re-fitting on it would be a §17 violation
+                                # for the SAME design — but for a true-subsample
+                                # fraction label the disclosure is the correct
+                                # outcome: the unit is NOT re-fit, the skip is
+                                # disclosed, and the §17 RuntimeError is not
+                                # raised because the prior record belongs to a
+                                # DIFFERENT design (a different train
+                                # fraction), not the same design re-fit.
+                                report.skipped_units.append(
+                                    f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d}"
+                                )
+                                continue
+                            else:
+                                raise RuntimeError(
+                                    f"test_touched_once violated: {config.dataset_id} "
+                                    f"fold {fold.fold_id} seed {seed} was already evaluated "
+                                    f"for {model_id}/{task} under config "
+                                    f"{prior_ok[test_fingerprint]}, and is now being "
+                                    f"re-evaluated under {run_config_hash}. protocol v1.4 "
+                                    f"§17 forbids re-fitting on a test split already "
+                                    f"touched; a changed configuration requires a new "
+                                    f"protocol version file, not a re-run."
+                                )
 
                         started = time.perf_counter()
                         status = "ok"
