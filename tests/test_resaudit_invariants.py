@@ -848,8 +848,8 @@ def test_no_food_dataset_or_task_metric_is_referenced_in_the_package():
 def test_package_dependency_surface_is_numpy_scipy_and_the_frozen_package():
     allowed_roots = {
         "__future__", "sys", "hashlib", "json", "dataclasses", "enum", "pathlib",
-        "typing", "ast", "re", "math", "argparse", "numpy", "scipy", "drososense",
-        "resaudit",
+        "typing", "ast", "re", "math", "argparse", "struct", "fractions",
+        "numpy", "scipy", "drososense", "resaudit",
     }
     for path in sorted(_PACKAGE.glob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
