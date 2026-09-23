@@ -1,0 +1,329 @@
+{
+  "adjacency": {
+    "mean_out_degree": 119.40779482224102,
+    "n_node_ids": 124185,
+    "nnz": 14828657,
+    "shape": [
+      124185,
+      124185
+    ]
+  },
+  "criterion_inputs": {
+    "kc_available": 3594,
+    "mbon_dan_higher_order_available": 15357,
+    "note": "the populations C1.4 can draw from, before any subgraph selection: the PN set admissible for C1.5 is the ORN-RECIPIENT subset, not the whole PN class",
+    "orn_available": 2299,
+    "pn_available": 5363,
+    "pn_available_with_real_orn_edge": 2091
+  },
+  "edge_pairs": [
+    {
+      "edges": 9624436,
+      "source_class": "other",
+      "target_class": "other"
+    },
+    {
+      "edges": 806985,
+      "source_class": "other",
+      "target_class": "MBON"
+    },
+    {
+      "edges": 674904,
+      "source_class": "MBON",
+      "target_class": "MBON"
+    },
+    {
+      "edges": 672715,
+      "source_class": "MBON",
+      "target_class": "other"
+    },
+    {
+      "edges": 261698,
+      "source_class": "PN",
+      "target_class": "PN"
+    },
+    {
+      "edges": 177420,
+      "source_class": "other",
+      "target_class": "KC"
+    },
+    {
+      "edges": 176876,
+      "source_class": "PN",
+      "target_class": "other"
+    },
+    {
+      "edges": 164194,
+      "source_class": "KC",
+      "target_class": "MBON"
+    },
+    {
+      "edges": 160949,
+      "source_class": "other",
+      "target_class": "PN"
+    },
+    {
+      "edges": 158408,
+      "source_class": "KC",
+      "target_class": "other"
+    },
+    {
+      "edges": 134348,
+      "source_class": "MBON",
+      "target_class": "KC"
+    },
+    {
+      "edges": 124011,
+      "source_class": "PN",
+      "target_class": "higher_order"
+    },
+    {
+      "edges": 113597,
+      "source_class": "KC",
+      "target_class": "KC"
+    },
+    {
+      "edges": 111420,
+      "source_class": "other",
+      "target_class": "DAN"
+    },
+    {
+      "edges": 110392,
+      "source_class": "other",
+      "target_class": "higher_order"
+    },
+    {
+      "edges": 108951,
+      "source_class": "higher_order",
+      "target_class": "other"
+    },
+    {
+      "edges": 95139,
+      "source_class": "DAN",
+      "target_class": "other"
+    },
+    {
+      "edges": 91376,
+      "source_class": "higher_order",
+      "target_class": "higher_order"
+    },
+    {
+      "edges": 78445,
+      "source_class": "higher_order",
+      "target_class": "DAN"
+    },
+    {
+      "edges": 73278,
+      "source_class": "PN",
+      "target_class": "DAN"
+    },
+    {
+      "edges": 70208,
+      "source_class": "DAN",
+      "target_class": "KC"
+    },
+    {
+      "edges": 69290,
+      "source_class": "DAN",
+      "target_class": "DAN"
+    },
+    {
+      "edges": 66362,
+      "source_class": "higher_order",
+      "target_class": "PN"
+    },
+    {
+      "edges": 62457,
+      "source_class": "KC",
+      "target_class": "DAN"
+    },
+    {
+      "edges": 56469,
+      "source_class": "ORN",
+      "target_class": "other"
+    },
+    {
+      "edges": 55335,
+      "source_class": "ORN",
+      "target_class": "PN"
+    },
+    {
+      "edges": 53909,
+      "source_class": "DAN",
+      "target_class": "MBON"
+    },
+    {
+      "edges": 51191,
+      "source_class": "other",
+      "target_class": "ORN"
+    },
+    {
+      "edges": 48887,
+      "source_class": "MBON",
+      "target_class": "DAN"
+    },
+    {
+      "edges": 45823,
+      "source_class": "DAN",
+      "target_class": "higher_order"
+    },
+    {
+      "edges": 38508,
+      "source_class": "higher_order",
+      "target_class": "KC"
+    },
+    {
+      "edges": 36151,
+      "source_class": "PN",
+      "target_class": "ORN"
+    },
+    {
+      "edges": 33320,
+      "source_class": "PN",
+      "target_class": "MBON"
+    },
+    {
+      "edges": 32265,
+      "source_class": "higher_order",
+      "target_class": "MBON"
+    },
+    {
+      "edges": 31824,
+      "source_class": "DAN",
+      "target_class": "PN"
+    },
+    {
+      "edges": 26402,
+      "source_class": "PN",
+      "target_class": "KC"
+    },
+    {
+      "edges": 25903,
+      "source_class": "MBON",
+      "target_class": "higher_order"
+    },
+    {
+      "edges": 24199,
+      "source_class": "MBON",
+      "target_class": "PN"
+    },
+    {
+      "edges": 23672,
+      "source_class": "KC",
+      "target_class": "higher_order"
+    },
+    {
+      "edges": 13995,
+      "source_class": "KC",
+      "target_class": "PN"
+    },
+    {
+      "edges": 9944,
+      "source_class": "ORN",
+      "target_class": "ORN"
+    },
+    {
+      "edges": 8614,
+      "source_class": "ORN",
+      "target_class": "MBON"
+    },
+    {
+      "edges": 7398,
+      "source_class": "MBON",
+      "target_class": "ORN"
+    },
+    {
+      "edges": 3576,
+      "source_class": "ORN",
+      "target_class": "KC"
+    },
+    {
+      "edges": 3133,
+      "source_class": "ORN",
+      "target_class": "DAN"
+    },
+    {
+      "edges": 2887,
+      "source_class": "DAN",
+      "target_class": "ORN"
+    },
+    {
+      "edges": 2702,
+      "source_class": "higher_order",
+      "target_class": "ORN"
+    },
+    {
+      "edges": 2608,
+      "source_class": "KC",
+      "target_class": "ORN"
+    },
+    {
+      "edges": 2083,
+      "source_class": "ORN",
+      "target_class": "higher_order"
+    }
+  ],
+  "generated_at_utc": "2026-09-23T07:55:43Z",
+  "orn_to_pn": {
+    "edges": 55335,
+    "orn_edges_per_receiving_pn": {
+      "max": 1248,
+      "median": 1.0,
+      "min": 1
+    },
+    "pn_nodes_receiving_at_least_one_orn_edge": 2091,
+    "pn_population": 5363,
+    "pn_without_any_orn_edge": 3272
+  },
+  "out_edges_by_source_class": {
+    "DAN": 369080,
+    "KC": 538931,
+    "MBON": 1588354,
+    "ORN": 139154,
+    "PN": 731736,
+    "higher_order": 418609,
+    "other": 11042793
+  },
+  "population_in_adjacency": {
+    "<absent>": 0,
+    "DAN": 2563,
+    "KC": 3594,
+    "MBON": 9582,
+    "ORN": 2299,
+    "PN": 5363,
+    "higher_order": 3212,
+    "other": 97572
+  },
+  "provenance": {
+    "fits_no_model": true,
+    "git_head": "5ca299f688740061cea3c64aef7736e0e043b34a",
+    "note": "measures the DELIVERED annotation; it changes no data, no split, no endpoint and no record",
+    "touches_test_split": false,
+    "validation_only": true
+  },
+  "report_schema": "c1_annotation_probe/1",
+  "sources": {
+    "adjacency": "/root/autodl-tmp/drososense/data-root/connectome/adjacency/olfactory_v1.npz",
+    "cell_type_vocabulary": "/root/autodl-tmp/drososense/data-root/connectome/metadata/olfactory_v1_edge_meta_classified.csv",
+    "modality_ranking": "/root/autodl-tmp/drososense/data-root/connectome/raw/neuron_class_ranking_df_783-olfactory-10000.feather",
+    "modality_ranking_carries_class_labels": false,
+    "modality_ranking_columns": [
+      "node",
+      "layer_mean",
+      "root_id"
+    ]
+  },
+  "vocabulary": {
+    "class_conflicts_pre_vs_post": {},
+    "classes": [
+      "DAN",
+      "KC",
+      "MBON",
+      "ORN",
+      "PN",
+      "higher_order",
+      "other"
+    ],
+    "n_nodes_with_a_class": 124185
+  }
+}
