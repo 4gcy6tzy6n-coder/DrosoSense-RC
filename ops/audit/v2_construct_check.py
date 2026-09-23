@@ -40,6 +40,11 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from connectome.cell_types import DECLARED_CLASSES, load_node_classes  # noqa: E402
+from drososense.connectome_selection import (  # noqa: E402
+    expand_from_orns,
+    select_nodes,
+    subgraph_quality,
+)
 from drososense.reservoir.input_mapping import (  # noqa: E402
     INPUT_MAPPING_ORN_ALIGNED,
     ORN_DENSITY_LIMIT,
@@ -55,6 +60,7 @@ DEFAULT_DATA_ROOT = Path("/root/autodl-tmp/drososense/data-root")
 DEFAULT_SIZES = (250, 500, 1000, 2000, 4000)
 SELECTION_SEED = 20260920  # the runner's frozen selection seed (runner.py)
 REPORT_SCHEMA = "c1_input_mapping/1"
+REPORT_SCHEMA_C2 = "c2_subgraph/1"
 
 #: C1.4's thresholds, as signed. `Din` is the input channel count.
 C1_4_THRESHOLDS = {
@@ -401,6 +407,185 @@ def delivered_selection_digests() -> dict[int, str]:
     return out
 
 
+def _load_graph(adjacency_path: Path):
+    """The delivered adjacency as a CSR matrix plus its node ids."""
+    with np.load(adjacency_path, allow_pickle=True) as npz:
+        shape = tuple(int(v) for v in npz["adj_shape"])
+        node_ids = np.asarray(npz["node_ids"])
+        matrix = sp.csr_matrix(
+            (np.asarray(npz["adj_data"], dtype=float),
+             np.asarray(npz["adj_indices"]),
+             np.asarray(npz["adj_indptr"])),
+            shape=shape,
+        )
+    return matrix, node_ids
+
+
+def _declared_annotation(node_meta: Path) -> CellTypeAnnotation:
+    classes = load_node_classes(node_meta)
+    counts: dict[str, int] = {}
+    for value in classes.values():
+        counts[value] = counts.get(value, 0) + 1
+    return CellTypeAnnotation(classes=classes, source=str(node_meta), per_class_counts=counts)
+
+
+def measure_c2(
+    adjacency_path: Path,
+    node_meta: Path,
+    *,
+    din: int,
+    target_n: int,
+    normalization: str,
+    seed: int,
+) -> dict:
+    """C2.1-C2.6 on the delivered graph: expand from the ORNs, then measure.
+
+    The v1 selection is measured on the same graph and at the same N, so the two
+    selections are compared like for like -- that comparison IS the finding.
+    """
+    matrix, node_ids = _load_graph(adjacency_path)
+    annotation = _declared_annotation(node_meta)
+
+    expansion = expand_from_orns(matrix, node_ids, annotation, target_n, din=din, seed=seed)
+    quality = subgraph_quality(matrix, expansion.node_indices)
+
+    # E_kept: what the reservoir matrix actually carries, i.e. the same induced
+    # block after the declared DATA-3 normalization. If the normalization dropped
+    # wiring, retention < 1 and that is the point of the check.
+    from drososense.reservoir.connectome_reservoir import load_reservoir_topology_from_npz
+
+    topology = load_reservoir_topology_from_npz(
+        adjacency_path, normalization=normalization, node_indices=expansion.node_indices
+    )
+    built = topology.matrix.tocsr()
+    built_self_loops = int(np.asarray(built.diagonal() != 0).sum())
+    built_eligible = int(built.nnz - built_self_loops)
+    retention_after_build = (
+        built_eligible / quality["induced_eligible_edges"]
+        if quality["induced_eligible_edges"]
+        else float("nan")
+    )
+
+    v1 = select_nodes(adjacency_path, target_n=target_n, seed=SELECTION_SEED)
+    v1_quality = subgraph_quality(matrix, v1.node_indices)
+    v1_mapping_refusal = ""
+    try:
+        build_orn_aligned_mapping(
+            matrix[node_indices_or_all(matrix, v1.node_indices)],
+            node_ids[v1.node_indices],
+            annotation,
+            din,
+            seed=seed,
+        )
+    except InputMappingError as exc:
+        v1_mapping_refusal = str(exc)
+
+    rows = [
+        criterion(
+            "C2.1",
+            "input population present and typed in the selected subgraph",
+            dict(expansion.detail["layer_counts"]),
+            "see C1.4",
+            None,
+            f"{adjacency_path} + {node_meta}",
+            note=(
+                "the expansion draws its seeds from the declared ORN population and "
+                "never adds an untyped node; C1.4's thresholds are checked in the C1 "
+                "report against the same substrate populations"
+            ),
+        ),
+        criterion(
+            "C2.2",
+            "eligible-edge retention (denominator = induced eligible edges)",
+            {
+                "before_normalization": quality["eligible_edge_retention"],
+                "after_the_declared_normalization": retention_after_build,
+                "induced_eligible_edges": quality["induced_eligible_edges"],
+                "kept_eligible_edges": built_eligible,
+                "normalization": normalization,
+            },
+            ">= 0.90",
+            bool(retention_after_build >= 0.90),
+            f"{adjacency_path} + the built R0 matrix",
+            note=quality["eligible_edge_retention_denominator"],
+        ),
+        criterion(
+            "C2.3",
+            "largest weak component / N",
+            quality["largest_weak_component_fraction"],
+            ">= 0.90",
+            bool(quality["largest_weak_component_fraction"] >= 0.90),
+            "computed on the induced subgraph",
+        ),
+        criterion(
+            "C2.4",
+            "isolated fraction",
+            quality["isolated_fraction"],
+            "<= 0.02",
+            bool(quality["isolated_fraction"] <= 0.02),
+            "computed on the induced subgraph",
+            note=f"{quality['n_isolated']} isolated node(s)",
+        ),
+        criterion(
+            "C2.5",
+            "mean in-subgraph unweighted out-degree",
+            quality["mean_unweighted_out_degree"],
+            ">= 2.0",
+            bool(quality["mean_unweighted_out_degree"] >= 2.0),
+            "computed on the induced subgraph",
+            note=f"median {quality['median_unweighted_out_degree']}",
+        ),
+        criterion(
+            "C2.6",
+            "deterministic, declared selection with target_n, seed and sha256 on the record",
+            {
+                "method": expansion.method,
+                "target_n": int(expansion.target_n),
+                "sha256_sorted_root_ids": expansion.sha256[:16],
+                "consumes_randomness": expansion.detail["consumes_randomness"],
+            },
+            "declared + reproducible",
+            bool(expansion.detail["consumes_randomness"] is False and expansion.sha256),
+            "the NodeSelection's own describe()",
+        ),
+    ]
+
+    # determinism, measured rather than asserted
+    repeat = expand_from_orns(matrix, node_ids, annotation, target_n, din=din, seed=seed)
+    deterministic = bool(
+        np.array_equal(repeat.node_indices, expansion.node_indices)
+        and repeat.sha256 == expansion.sha256
+    )
+
+    return {
+        "report_schema": REPORT_SCHEMA_C2,
+        "settings": {
+            "target_n": int(target_n),
+            "din": int(din),
+            "normalization": normalization,
+            "selection_seed": SELECTION_SEED,
+            "mapping_seed": int(seed),
+        },
+        "expansion": {
+            "selection": expansion.describe(),
+            "quality": quality,
+            "retention_after_the_declared_normalization": retention_after_build,
+            "deterministic_on_repeat": deterministic,
+        },
+        "v1_selection_at_the_same_n": {
+            "selection": v1.describe(),
+            "quality": v1_quality,
+            "orn_aligned_mapping_refusal": v1_mapping_refusal,
+        },
+        "criteria": rows,
+    }
+
+
+def node_indices_or_all(matrix, indices):
+    """The rows of ``indices`` (identity when the selection is the whole graph)."""
+    return np.asarray(indices, dtype=np.int64)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--only", default="C1")
@@ -413,13 +598,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--classes-csv", default=None, help="classified edge metadata (cross-check)")
     parser.add_argument("--din", type=int, default=5, help="input channel count")
     parser.add_argument("--sizes", default=",".join(str(s) for s in DEFAULT_SIZES))
+    parser.add_argument("--target-n", type=int, default=1000, help="C2 substrate size")
+    parser.add_argument("--normalization", default="n1_pre_l1")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--input-scale", type=float, default=0.5)
     parser.add_argument("--out-dir", default=str(OUT_DIR))
     args = parser.parse_args(argv)
 
-    if "C1" not in args.only.upper():
-        raise SystemExit(f"--only {args.only!r}: this script implements C1 only")
+    wanted = {part.strip().upper() for part in str(args.only).split(",") if part.strip()}
+    unknown = wanted - {"C1", "C2"}
+    if unknown:
+        raise SystemExit(f"--only {args.only!r}: unknown section(s) {sorted(unknown)}")
 
     data_root = Path(args.data_root)
     adjacency = (
@@ -429,6 +618,47 @@ def main(argv: list[str] | None = None) -> int:
     )
     node_meta = Path(args.node_meta)
     sizes = tuple(int(v) for v in str(args.sizes).split(",") if v.strip())
+
+    if wanted == {"C2"}:
+        report = {
+            "report_schema": REPORT_SCHEMA_C2,
+            "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "provenance": {
+                "git_head": git_head(),
+                "validation_only": True,
+                "touches_test_split": False,
+                "fits_no_model": True,
+            },
+        }
+        if not adjacency.is_file():
+            raise SystemExit(f"--only C2 needs the adjacency; not found at {adjacency}")
+        report["C2"] = measure_c2(
+            adjacency,
+            node_meta,
+            din=args.din,
+            target_n=args.target_n,
+            normalization=args.normalization,
+            seed=args.seed,
+        )
+        out_dir = Path(args.out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        target = out_dir / "C2_subgraph.json"
+        target.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+        print(target)
+        for row in report["C2"]["criteria"]:
+            flag = {True: "PASS", False: "FAIL", None: "NOT MEASURED"}[row["pass"]]
+            print(f"  {row['criterion']:6s} {flag}  observed={str(row['observed'])[:100]}")
+        for key in ("expansion", "v1_selection_at_the_same_n"):
+            q = report["C2"][key]["quality"]
+            print(
+                f"  {key:28s} N={q['n_nodes']} edges={q['induced_eligible_edges']} "
+                f"retention={q['eligible_edge_retention']:.4f} "
+                f"wcc={q['largest_weak_component_fraction']:.4f} "
+                f"isolated={q['isolated_fraction']:.4f} "
+                f"mean_out_deg={q['mean_unweighted_out_degree']:.3f} "
+                f"enrichment={q['enrichment']:.2f}"
+            )
+        return 0
 
     report: dict = {
         "report_schema": REPORT_SCHEMA,
