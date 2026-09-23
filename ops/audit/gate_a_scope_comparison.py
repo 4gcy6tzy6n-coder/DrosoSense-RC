@@ -48,37 +48,23 @@ from drososense.utils.config import (  # noqa: E402
 from drososense.utils.paths import PROTOCOL_PATH, RESULTS_RAW_DIR  # noqa: E402
 
 
-def _evaluate(gate_id, expression, protocol, table, model_params, provenance=None):
-    from scripts.analyze import dataset_availability, evaluate_rules
+def _evaluate(gate_id, protocol, table, model_params, provenance=None):
+    """Evaluate the gate through the DELIVERED pipeline (analyze.evaluate_rules).
 
-    contrast_payload = table.attrs["contrasts"]
-    metrics = sorted(protocol_metric_properties(protocol))
-    evaluator = GateEvaluator(
-        contrasts=contrast_payload,
-        metrics=protocol_metric_properties(protocol),
-        model_params=model_params,
-        symbols=build_symbols(
-            protocol_model_symbols(protocol),
-            metrics,
-            [],
-            protocol_condition_symbols(protocol),
-            aliases=protocol_dataset_symbols(protocol),
-        ),
-        available_datasets=sorted(
-            d for d, e in dataset_availability(protocol).items() if e["available"]
-        ),
-        parameter_provenance=provenance,
-    )
-    try:
-        evaluation = evaluator.evaluate(gate_id, expression)
-        return {
-            "result": evaluation.result,
-            "reason": "",
-            "detail": evaluation.detail,
-            "exception": None,
-        }
-    except GateExpressionError as exc:
-        return {"result": "UNEVALUABLE", "reason": str(exc), "detail": {}, "exception": str(exc)}
+    Using the production entry point rather than a bespoke evaluator is the point
+    of the comparison: it shows what the shipped analysis reports under each
+    resolution, not what a hand-built evaluator would.
+    """
+    from scripts.analyze import evaluate_rules
+
+    audit = {"scopes": {gate_id: provenance}} if provenance else None
+    rules = evaluate_rules(table, protocol, None, model_params, audit)
+    entry = rules.get(gate_id, {})
+    return {
+        "result": entry.get("result"),
+        "reason": entry.get("reason", ""),
+        "detail": entry.get("detail", {}),
+    }
 
 
 def main() -> int:
@@ -122,7 +108,7 @@ def main() -> int:
     from scripts.analyze import model_parameter_counts
 
     pre_params = model_parameter_counts(records, protocol)
-    pre = _evaluate("Gate_A", expression, protocol, table, pre_params)
+    pre = _evaluate("Gate_A", protocol, table, pre_params)
 
     # ---------------- POST: the declared, scoped resolution ----------------
     declaration = load_parameter_scope_declaration()
@@ -130,9 +116,7 @@ def main() -> int:
         "Gate_A", records, protocol=protocol, declaration=declaration
     )
     post_params = scope.counts if scope.evaluable else {}
-    post = _evaluate(
-        "Gate_A", expression, protocol, table, post_params, scope.provenance()
-    )
+    post = _evaluate("Gate_A", protocol, table, post_params, scope.provenance())
 
     print("\n" + "=" * 78)
     print("PARAMETER VALUES")
