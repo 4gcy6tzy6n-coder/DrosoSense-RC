@@ -333,6 +333,18 @@ threshold or a fixed defect: per the project rule, "close" is not a pass, and no
 formal experiment will run on a construction that demonstrably cannot produce
 recurrent dynamics. The next decision is the construction, not the gate.
 
+**Amendment 2 (typed-aligned input) is measured** —
+[`docs/v2_amendment_2_measurement.md`](v2_amendment_2_measurement.md),
+`results/audit/v2_construct/C3_dynamics_amendment2.json`. Widening W_in's support from the
+ORN rows (243) to the typed union ORN+PN+KC (473, density 0.0946) moved **both** binding
+metrics in the direction M5 predicted — memory drop R0 −0.003 → **+0.036**, D_eff factor R0
+1.104 → **1.423**, R2 1.209 → **1.360** — and **C3 still FAILS** (gates 0.20 / 1.5). So the
+diagnosis is confirmed as a real, measured cause and is **not sufficient**. The remaining
+headroom is capped by C1.2: the density ceiling allows ≤ 500 support nodes at N=1000, Din=5,
+and the construction already uses 473 (fraction 1.00 → 592 is rejected at 0.1184). C1.5's
+amended rule is reported, not yet enforced: **7 of 379** direct-input PNs lack a real
+ORN→PN edge in the substrate. No threshold moved, no gate relaxed.
+
 **M5 - Structural Dynamics Audit** ([`docs/v2_construct_m5_structural_dynamics.md`](v2_construct_m5_structural_dynamics.md),
 [`results/audit/m5_structural_dynamics/M5_structural_dynamics.json`](../results/audit/m5_structural_dynamics/M5_structural_dynamics.json))
 separates the two structural causes the C3 failure leaves open:
