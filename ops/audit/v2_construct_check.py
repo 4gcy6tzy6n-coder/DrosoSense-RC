@@ -853,7 +853,7 @@ def measure_c3(
     length: int = 16,
     autocorrelation: float = 0.6,
     mapping_choice: str = "orn_aligned",
-    receiving_fraction: float = 0.85,
+    receiving_fraction: float = 0.80,
 ) -> dict:
     """C3.1-C3.3 on the C2 substrate, for the four reservoirs the owner asked for.
 
@@ -1130,7 +1130,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--receiving-fraction",
         type=float,
-        default=0.85,
+        default=0.80,
         help=(
             "amendment 2: each layer keeps this fraction of its typed nodes as input "
             "receivers, so density stays within C1.2's ceiling"

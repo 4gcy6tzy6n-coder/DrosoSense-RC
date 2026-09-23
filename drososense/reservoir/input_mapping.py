@@ -774,9 +774,11 @@ def build_typed_aligned_mapping(
             kept = candidates[np.argsort(-np.arange(candidates.size))[:n_keep]]
         support_per_layer[L] = np.sort(kept)
         win_lo, win_hi = layer_channel_windows[L]
-        ch = rng.permutation(np.arange(win_lo, win_hi)) % total_din
-        for row, c in zip(kept.tolist(), ch[: kept.size].tolist()):
-            receiving_rows.append((row, int(c)))
+        width = win_hi - win_lo
+        # ONE channel per receiving node, drawn from this layer's channel window
+        ch = (rng.permutation(kept.size) % width) + win_lo
+        for row, c in zip(kept.tolist(), ch.tolist()):
+            receiving_rows.append((int(row), int(c)))
 
     rows_arr = np.asarray([r for r, _ in receiving_rows], dtype=np.int64)
     cols_arr = np.asarray([c for _, c in receiving_rows], dtype=np.int64)
@@ -790,7 +792,7 @@ def build_typed_aligned_mapping(
         )
 
     weights = rng.uniform(float(weight_low), float(input_scale), size=nnz)
-    W = sp.csr_matrix(
+    W = sparse.csr_matrix(
         (weights.astype(np.float64), (rows_arr, cols_arr)),
         shape=(n_nodes, int(total_din)),
     )
@@ -799,10 +801,12 @@ def build_typed_aligned_mapping(
         w_in=W,
         n_nodes=n_nodes,
         n_channels=int(total_din),
+        root_ids=root_ids,
         support_rows=np.sort(rows_arr),
         orn_rows=np.sort(support_per_layer.get("ORN", np.array([], dtype=np.int64))),
         pn_rows=np.sort(support_per_layer.get("PN", np.array([], dtype=np.int64))),
-        orn_recipient_pn_rows=np.zeros(0, dtype=np.int64),  # not used here; ORN→PN edge check done in C1.5
+        orn_recipient_pn_rows=np.zeros(0, dtype=np.int64),
+        n_orn_to_pn_edges=0,  # the ORN->PN edge check is C1.5's, measured separately
         seed=int(seed),
         input_scale=float(input_scale),
         weight_low=float(weight_low),
