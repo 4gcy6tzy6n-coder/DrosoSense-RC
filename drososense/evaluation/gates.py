@@ -536,6 +536,18 @@ class GateEvaluator:
             # not resolve, that reason is the error — it is more specific than
             # "not recorded" and it names what would have to change.
             scope_reason = str(self.parameter_provenance.get("reason") or "")
+            if not scope_reason:
+                # The analysis pipeline hands the evaluator the aggregate audit
+                # shape ({"declaration", "scopes", "unevaluable", ...}) rather
+                # than one scope's provenance, so the gate's own entry has to be
+                # looked up. Without this the reason silently degraded to
+                # "no parameter evidence scope was declared" on the production
+                # path while the same scope resolved correctly in isolation.
+                scopes = self.parameter_provenance.get("scopes")
+                if isinstance(scopes, Mapping):
+                    gate_scope = scopes.get(gate_id) or {}
+                    if isinstance(gate_scope, Mapping):
+                        scope_reason = str(gate_scope.get("reason") or "")
             if scope_reason:
                 raise GateExpressionError(
                     f"{gate_id}: params({model}) is unevaluable under the declared parameter "

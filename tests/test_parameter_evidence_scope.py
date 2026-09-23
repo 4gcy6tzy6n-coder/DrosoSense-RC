@@ -253,13 +253,19 @@ def test_R5_conflicting_counts_in_one_scope_are_unevaluable(protocol, declaratio
         scope.counts  # no lazy resolution either
 
     # and the gate says so rather than resolving
-    evaluator = GateEvaluator(
-        contrasts={}, metrics={}, model_params={},
-        symbols=build_symbols(["R0", "GRU"], [], [], [], aliases={}),
-        parameter_provenance=scope.provenance(),
-    )
-    with pytest.raises(GateExpressionError, match="different trainable-parameter counts"):
-        evaluator.evaluate("Gate_A", "params(R0) < params(GRU)")
+    # both shapes must surface the conflict, not just the bare scope
+    for provenance in (
+        scope.provenance(),
+        {"declaration": "configs/protocol_v1.5.1.yaml",
+         "scopes": {"Gate_A": scope.provenance()}},
+    ):
+        evaluator = GateEvaluator(
+            contrasts={}, metrics={}, model_params={},
+            symbols=build_symbols(["R0", "GRU"], [], [], [], aliases={}),
+            parameter_provenance=provenance,
+        )
+        with pytest.raises(GateExpressionError, match="different trainable-parameter counts"):
+            evaluator.evaluate("Gate_A", "params(R0) < params(GRU)")
 
 
 @pytest.mark.unit

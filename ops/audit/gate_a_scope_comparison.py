@@ -57,7 +57,13 @@ def _evaluate(gate_id, protocol, table, model_params, provenance=None):
     """
     from scripts.analyze import evaluate_rules
 
-    audit = {"scopes": {gate_id: provenance}} if provenance else None
+    # The aggregate shape the production pipeline passes, not a bare scope, so
+    # the comparison exercises the same code path analyze.py does.
+    audit = (
+        {"declaration": "configs/protocol_v1.5.1.yaml", "scopes": {gate_id: provenance}}
+        if provenance
+        else None
+    )
     rules = evaluate_rules(table, protocol, None, model_params, audit)
     entry = rules.get(gate_id, {})
     return {
