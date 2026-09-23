@@ -308,7 +308,7 @@ def select_knobs(
     *,
     din: int,
     input_scale: float,
-    leak_values: tuple[float, ...] = (0.25, 0.5, 0.75, 1.0),
+    leak_values: tuple[float, ...] = (0.05, 0.1, 0.25, 0.5, 0.75, 1.0),
     gain_values: tuple[float, ...] = (0.5, 1.0, 2.0, 3.0, 5.0),
     rt_band: tuple[float, float] = RT_BAND,
     memory_drop_gate: float = MEMORY_DROP_GATE,

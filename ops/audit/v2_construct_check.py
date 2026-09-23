@@ -932,6 +932,12 @@ def measure_c3(
             "metrics_at_chosen": out.get("metrics_at_chosen"),
             "rho": float(spectral_radius(A.tocsr(), seed=0)),
         }
+        # record the closest-to-band point even on failure, so the report names it
+        if out["all_points_failed"] and out["trace"]:
+            trace = out["trace"]
+            centre = 0.5 * (0.20 + 1.00)
+            nearest = min(trace, key=lambda t: abs(t["R_t_median"] - centre))
+            results[name]["closest_to_band"] = nearest
         verdicts[name] = bool(out["chosen"] is not None)
 
     def cell_metrics(name: str) -> dict[str, Any]:
