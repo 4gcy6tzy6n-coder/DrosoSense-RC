@@ -159,11 +159,16 @@ def main() -> int:
     print("PARAMETER VALUES")
     print("=" * 78)
     for model in ("R0", "GRU"):
-        print(f"  {model:4s} prev1.5.1 (unscoped scan) = {pre_params.get(model)}")
-        ev = scope.evidence.get(model)
-        print(f"  {model:4s} post-v1.5.1 (scoped)      = "
-              f"{ev.parameter_count if ev and ev.resolved else 'UNRESOLVED'}  "
-              f"[{ev.status if ev else 'no term'}]")
+        print(f"  {model:4s} pre-v1.5.1 (unscoped scan) = {pre_params.get(model)}")
+        parts = []
+        for dataset, counts in sorted(scope.per_dataset.items()):
+            ev = counts.get(model)
+            parts.append(
+                f"{dataset}="
+                + (str(ev.parameter_count) if ev and ev.resolved
+                   else f"UNRESOLVED[{ev.status if ev else 'no term'}]")
+            )
+        print(f"  {model:4s} post-v1.5.2 (per dataset)  = " + "  ".join(parts))
 
     print("\n" + "=" * 78)
     print("GATE A TERMS  (the engine evaluates the frozen expression; nothing here is hand-written)")
