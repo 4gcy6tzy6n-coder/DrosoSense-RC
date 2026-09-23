@@ -841,6 +841,11 @@ class WiringCounterfactual:
     composition_scale: float
     rho_r0: float
     rho_r2: float
+    #: The same R2 pre-processed the OTHER way -- each graph rescaled to the target radius,
+    #: which is the family convention -- kept so the cost of that choice is measurable
+    #: rather than asserted.
+    r2_rho_matched: Any = None
+    rho_matched_scale: float = float("nan")
 
 
 def normalize_with_scale(matrix: sp.spmatrix, normalization: str, scale: float) -> sp.csr_matrix:
@@ -858,9 +863,13 @@ def normalize_with_scale(matrix: sp.spmatrix, normalization: str, scale: float) 
         )
     csr = matrix.tocsr()
     if normalization == "n1_pre_l1":
-        column = np.asarray(np.abs(csr).sum(axis=0)).ravel()
-        column[column == 0] = 1.0
-        normalized = sp.diags(1.0 / column) @ csr
+        # VERIFIED against the delivered block: ``norm_n1_pre_l1`` has ROW sums of exactly
+        # 1 (median 1.0, min 0.9999997) and column sums that vary (median 0.562), i.e. it
+        # is the PRESYNAPTIC (source) L1 normalization. Scaling the wrong axis would have
+        # silently produced a different matrix from the one the pipeline uses.
+        row = np.asarray(np.abs(csr).sum(axis=1)).ravel()
+        row[row == 0] = 1.0
+        normalized = sp.diags(1.0 / row) @ csr
     else:  # pragma: no cover - the other DATA-3 schemes are precomputed in the NPZ
         raise RewireError(
             f"amendment 1 requires a normalization that can be applied to a REWIRED graph; "
@@ -921,6 +930,15 @@ def build_wiring_counterfactual(
     scale = float(target_spectral_radius) / rho_unit if rho_unit > 0 else 1.0
     r0 = normalize_with_scale(raw_r0, normalization, scale)
     r2 = normalize_with_scale(raw_r2, normalization, scale)
+    # The family convention (protocol §17, and what every v1 control does) is to rescale a
+    # control to R0's spectral radius. That and a shared weight scale are mutually
+    # exclusive, so the signed amendment fixes the scale and this reports what the
+    # alternative would cost -- as a number the owner can decide on, not a hidden choice.
+    rho_r2_own = _spectral_radius(normalize_with_scale(raw_r2, normalization, 1.0))
+    rho_matched_scale = (
+        float(target_spectral_radius) / rho_r2_own if rho_r2_own > 0 else 1.0
+    )
+    r2_rho_matched = normalize_with_scale(raw_r2, normalization, rho_matched_scale)
 
     raw_coo, rew_coo = raw_r0.tocoo(), raw_r2.tocoo()
     out_a = np.bincount(raw_coo.row.astype(np.int64), minlength=raw_r0.shape[0])
@@ -955,6 +973,8 @@ def build_wiring_counterfactual(
         composition_scale=scale,
         rho_r0=_spectral_radius(r0),
         rho_r2=_spectral_radius(r2),
+        r2_rho_matched=r2_rho_matched,
+        rho_matched_scale=rho_matched_scale,
     )
 
 

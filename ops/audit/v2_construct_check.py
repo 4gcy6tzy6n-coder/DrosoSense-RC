@@ -694,6 +694,27 @@ def measure_c4(
     quality["normalized_pair"] = {
         "object": "declared normalization + R0's scale factor, applied to both graphs",
         "in_strength_median_relative_error": normalized_in_strength,
+        "out_strength_rows_identical": bool(
+            np.allclose(
+                np.asarray(counterfactual.r0.tocsr().sum(axis=1)).ravel(),
+                np.asarray(counterfactual.r2.tocsr().sum(axis=1)).ravel(),
+                rtol=1e-12, atol=1e-12,
+            )
+        ),
+        "rho_matched_alternative": {
+            "object": "each graph rescaled to the target radius (the family convention, §17)",
+            "in_strength_median_relative_error": _normalized_in_strength_error(
+                counterfactual.r0, counterfactual.r2_rho_matched
+            ),
+            "shared_scale_factor": counterfactual.rho_matched_scale,
+            "note": (
+                "the signed amendment fixes a SHARED weight scale, which leaves R2's "
+                "spectral radius at 1.152x R0's; the alternative matches the radius and "
+                "instead leaves the two graphs' total weight different. Both are reported "
+                "because the choice changes what the R0-vs-R2 dynamics comparison holds "
+                "fixed (recurrent gain, or weight scale)"
+            ),
+        },
         "spectral_radius_R0": counterfactual.rho_r0,
         "spectral_radius_R2": counterfactual.rho_r2,
         "spectral_radius_ratio": (
@@ -797,6 +818,7 @@ def measure_c4(
             ),
         },
         "quality": quality,
+        "raw_conservation": counterfactual.conservation_raw,
         "verdict": quality["verdict"],
         "deterministic_on_repeat": deterministic,
         "v1_r2_control": {

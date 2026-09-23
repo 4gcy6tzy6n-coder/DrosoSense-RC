@@ -4,15 +4,21 @@
       "n_edges": 80443,
       "n_nodes": 1000,
       "normalization": "n1_pre_l1",
+      "raw_n_edges": 80443,
       "spectral_radius": 0.8999999165534973
     },
     "R2": {
       "n_edges": 80443,
       "n_nodes": 1000,
-      "spectral_radius": 0.8594951635224296,
-      "spectral_radius_ratio_to_R0": 0.9549947146815541
+      "spectral_radius": 1.036655226075013,
+      "spectral_radius_ratio_to_R0": 1.1518392468799665
     },
-    "deterministic_on_repeat": false,
+    "deterministic_on_repeat": true,
+    "measurement_object": {
+      "amendment": "v2 amendment 1 (signed): C4.2/C4.3/C4.4/C4.6 measured on the raw object",
+      "criterion_object": "raw synapse-count graph of the selected substrate",
+      "preprocessing": "the declared normalization and R0's scale factor are applied identically to both graphs, so the pair differs in wiring only"
+    },
     "quality": {
       "C4.1_degree_sequences": {
         "observed": {
@@ -28,8 +34,8 @@
       },
       "C4.2_global_weight_multiset": {
         "observed": {
-          "multiset_hash_R0": "d5100019bd2df376a6de1b213d6403eaa9687dd8369d006c3789349d8f92772e",
-          "multiset_hash_R2": "d5100019bd2df376a6de1b213d6403eaa9687dd8369d006c3789349d8f92772e",
+          "multiset_hash_R0": "631be3f61f24e8ff25f82c684fbd46a6f3b2353d17f6658610d05f700a6cdf47",
+          "multiset_hash_R2": "631be3f61f24e8ff25f82c684fbd46a6f3b2353d17f6658610d05f700a6cdf47",
           "n_edges_R0": 80443,
           "n_edges_R2": 80443
         },
@@ -38,8 +44,8 @@
       },
       "C4.3_per_source_out_weight_multiset": {
         "observed": {
-          "per_source_hash_R0": "c4b6a45906da91b7cf03a42fd56a5c6ec653449cdcfe2f1337ca7ca0d88b0b91",
-          "per_source_hash_R2": "c4b6a45906da91b7cf03a42fd56a5c6ec653449cdcfe2f1337ca7ca0d88b0b91"
+          "per_source_hash_R0": "25db89745d6d83dc8bbf1bf0cf8225fc1d985c6670ca987ec3abb534ca459210",
+          "per_source_hash_R2": "25db89745d6d83dc8bbf1bf0cf8225fc1d985c6670ca987ec3abb534ca459210"
         },
         "pass": true,
         "threshold": "exact: equal per-source multiset hashes"
@@ -47,9 +53,9 @@
       "C4.4_in_strength_median_relative_error": {
         "note": "PRESERVED in distribution, not per node: a swap exchanges weights between two targets, so a target's in-strength moves while its in-degree does not. p90 and max are reported as DIAGNOSTICS and are not gates -- the signed criterion is the median. The chain draws the second edge from the same weight class, which makes the exchange move nothing at all whenever the class has a partner.",
         "observed": {
-          "max": 6.849683077957593e-07,
-          "median": 7.721503808909839e-08,
-          "p90": 2.1530508447393385e-07
+          "max": 0.0,
+          "median": 0.0,
+          "p90": 0.0
         },
         "pass": true,
         "threshold": "median <= 0.05"
@@ -66,18 +72,18 @@
         "threshold": "exact equality"
       },
       "C4.6_mixing_overlap": {
-        "note": "stopped_because='time_budget', 4345068 swap(s) accepted",
-        "observed": 0.8584587844809368,
-        "pass": false,
-        "threshold": "<= 0.2"
+        "note": "stopped_because='target_overlap', 574532 swap(s) accepted; threshold form max(absolute 0.20, 1.10 * E[overlap])",
+        "observed": 0.1999801101400992,
+        "pass": true,
+        "threshold": 0.22244603327343673
       },
       "C4.7_build_seconds": {
-        "observed": 600.0376722048968,
-        "pass": false,
+        "observed": 14.274860424920917,
+        "pass": true,
         "threshold": "<= 600.0"
       },
       "C4.8_report": {
-        "acceptance_rate": 0.29550242821664663,
+        "acceptance_rate": 0.9974496572054562,
         "allow_near_weights": false,
         "fraction_of_accepted_swaps_that_moved_a_weight": 0.0,
         "mixing_curve": [
@@ -87,82 +93,97 @@
           },
           {
             "accepted_swaps": 40222,
-            "edge_overlap": 0.8607585495319667
+            "edge_overlap": 0.43395944954812726
           },
           {
             "accepted_swaps": 80443,
-            "edge_overlap": 0.8598883681613068
+            "edge_overlap": 0.2710490657981428
           },
           {
             "accepted_swaps": 160886,
-            "edge_overlap": 0.8597143318871747
+            "edge_overlap": 0.20941536243054087
           },
           {
             "accepted_swaps": 402215,
-            "edge_overlap": 0.8605099262832068
+            "edge_overlap": 0.20651890158248698
           },
           {
-            "accepted_swaps": 804430,
-            "edge_overlap": 0.8592295165520928
-          },
-          {
-            "accepted_swaps": 4345068,
-            "edge_overlap": 0.8584587844809368
+            "accepted_swaps": 574532,
+            "edge_overlap": 0.1999801101400992
           }
         ],
         "mixing_overlap_limit": 0.2,
-        "mixing_reached": false,
+        "mixing_reached": true,
         "n_edges": 80443,
         "n_self_loops": 0,
-        "original_edge_retention": 0.8584587844809368,
-        "overlap_final": 0.8584587844809368,
+        "original_edge_retention": 0.1999801101400992,
+        "overlap_final": 0.1999801101400992,
         "overlap_initial": 1.0,
-        "seconds": 600.0376722048968,
-        "stopped_because": "time_budget",
-        "swaps_accepted": 4345068,
-        "swaps_accepted_exact_weight": 4345068,
+        "seconds": 14.274860424920917,
+        "stopped_because": "target_overlap",
+        "swaps_accepted": 574532,
+        "swaps_accepted_exact_weight": 574532,
         "swaps_accepted_near_weight": 0,
-        "swaps_attempted": 14704001,
-        "swaps_rejected_duplicate": 7732108,
-        "swaps_rejected_no_legal_partner": 8707756,
-        "swaps_rejected_no_weight_partner": 1650997,
-        "swaps_rejected_self_loop": 54684,
-        "swaps_rejected_shared_endpoint": 121420794,
-        "swaps_weight_matched_exact": 13052824,
+        "swaps_attempted": 576001,
+        "swaps_rejected_duplicate": 405344,
+        "swaps_rejected_no_legal_partner": 789,
+        "swaps_rejected_no_weight_partner": 673,
+        "swaps_rejected_self_loop": 4487,
+        "swaps_rejected_shared_endpoint": 5292,
+        "swaps_weight_matched_exact": 575321,
         "swaps_weight_matched_nearest": 0
       },
       "in_strength": {
-        "R0_total": 789.357830317691,
-        "R2_total": 789.3578647761569,
-        "median_relative_error": 7.721503808909839e-08,
-        "p90_relative_error": 2.1530508447393385e-07
+        "R0_total": 913413.0,
+        "R2_total": 913413.0,
+        "median_relative_error": 0.0,
+        "p90_relative_error": 0.0
+      },
+      "mixing_target": {
+        "absolute": 0.2,
+        "expected_overlap_configuration_model": 0.2022236666122152,
+        "factor": 1.1,
+        "floor_relative": 0.22244603327343673,
+        "form": "max(absolute 0.20, 1.10 * E[overlap])",
+        "measured_overlap": 0.1999801101400992,
+        "pass": true,
+        "threshold": 0.22244603327343673
+      },
+      "normalized_pair": {
+        "in_strength_median_relative_error": 0.52030638555859,
+        "note": "R2 is NOT rescaled to R0's radius: matching the radius and preserving one weight scale are mutually exclusive, so both radii are reported",
+        "object": "declared normalization + R0's scale factor, applied to both graphs",
+        "shared_scale_factor": 0.8454852700534501,
+        "spectral_radius_R0": 0.8999999165534989,
+        "spectral_radius_R2": 1.036655226075013,
+        "spectral_radius_ratio": 1.1518392468799645
       },
       "spectral_radius": {
-        "R0": 0.8999999165534973,
-        "R2": 0.8594951635224296,
+        "R0": 2682.819404895771,
+        "R2": 2371.6047576942433,
         "note": "NOT matched: preserving the global weight multiset (C4.2) and rescaling to a target radius are mutually exclusive. v1's rescale is exactly what made R2 a uniform-weight graph. Reported so the size of the difference is visible rather than hidden.",
-        "ratio": 0.9549947146815541
+        "ratio": 0.8839971685631897
       },
       "verdict": {
-        "C4": false,
+        "C4": true,
         "checks": {
-          "build_time": false,
+          "build_time": true,
           "degree_exact": true,
-          "edge_overlap": false,
+          "edge_overlap": true,
           "global_weights_exact": true,
           "input_population_same": true,
           "median_in_strength_err": true,
-          "mixing_declared": false,
+          "mixing_declared": true,
           "per_source_weights_exact": true
         },
         "lines": {
-          "build_time": 600.0376722048968,
+          "build_time": 14.274860424920917,
           "degree_exact": true,
-          "edge_overlap": 0.8584587844809368,
+          "edge_overlap": 0.1999801101400992,
           "global_weights_exact": true,
           "input_population_same": true,
-          "median_in_strength_err": 7.721503808909839e-08,
-          "mixing_declared": false,
+          "median_in_strength_err": 0.0,
+          "mixing_declared": true,
           "per_source_weights_exact": true
         },
         "thresholds": {
@@ -313,52 +334,52 @@
       },
       "R2": {
         "DAN": {
-          "DAN": 3091,
-          "KC": 1516,
-          "MBON": 613,
-          "ORN": 196,
-          "PN": 1624,
-          "higher_order": 2401
+          "DAN": 1061,
+          "KC": 558,
+          "MBON": 283,
+          "ORN": 1423,
+          "PN": 4954,
+          "higher_order": 1162
         },
         "KC": {
-          "DAN": 1406,
-          "KC": 1154,
-          "MBON": 770,
-          "ORN": 80,
-          "PN": 669,
-          "higher_order": 738
+          "DAN": 500,
+          "KC": 298,
+          "MBON": 166,
+          "ORN": 749,
+          "PN": 2509,
+          "higher_order": 595
         },
         "MBON": {
-          "DAN": 678,
-          "KC": 808,
-          "MBON": 669,
-          "ORN": 45,
-          "PN": 241,
-          "higher_order": 341
+          "DAN": 309,
+          "KC": 193,
+          "MBON": 84,
+          "ORN": 415,
+          "PN": 1461,
+          "higher_order": 320
         },
         "ORN": {
-          "DAN": 355,
-          "KC": 205,
-          "MBON": 93,
-          "ORN": 2550,
-          "PN": 13503,
-          "higher_order": 476
+          "DAN": 1902,
+          "KC": 1003,
+          "MBON": 542,
+          "ORN": 2891,
+          "PN": 8683,
+          "higher_order": 2161
         },
         "PN": {
-          "DAN": 1570,
-          "KC": 600,
-          "MBON": 254,
-          "ORN": 10041,
-          "PN": 20550,
-          "higher_order": 3986
+          "DAN": 4533,
+          "KC": 2512,
+          "MBON": 1307,
+          "ORN": 6168,
+          "PN": 17336,
+          "higher_order": 5145
         },
         "higher_order": {
-          "DAN": 2254,
-          "KC": 820,
-          "MBON": 273,
-          "ORN": 194,
-          "PN": 3089,
-          "higher_order": 2590
+          "DAN": 1049,
+          "KC": 539,
+          "MBON": 290,
+          "ORN": 1460,
+          "PN": 4733,
+          "higher_order": 1149
         }
       }
     },
@@ -368,25 +389,25 @@
       "note": "v1's make_degree_rewired writes np.ones(n_edges) and rescales, so its weight multiset is a constant and C4.2 fails -- the defect D6 repairs"
     },
     "verdict": {
-      "C4": false,
+      "C4": true,
       "checks": {
-        "build_time": false,
+        "build_time": true,
         "degree_exact": true,
-        "edge_overlap": false,
+        "edge_overlap": true,
         "global_weights_exact": true,
         "input_population_same": true,
         "median_in_strength_err": true,
-        "mixing_declared": false,
+        "mixing_declared": true,
         "per_source_weights_exact": true
       },
       "lines": {
-        "build_time": 600.0376722048968,
+        "build_time": 14.274860424920917,
         "degree_exact": true,
-        "edge_overlap": 0.8584587844809368,
+        "edge_overlap": 0.1999801101400992,
         "global_weights_exact": true,
         "input_population_same": true,
-        "median_in_strength_err": 7.721503808909839e-08,
-        "mixing_declared": false,
+        "median_in_strength_err": 0.0,
+        "mixing_declared": true,
         "per_source_weights_exact": true
       },
       "thresholds": {
@@ -396,10 +417,10 @@
       }
     }
   },
-  "generated_at_utc": "2026-09-23T09:54:13Z",
+  "generated_at_utc": "2026-09-23T10:22:15Z",
   "provenance": {
     "fits_no_model": true,
-    "git_head": "3526478e9068505bd118ee130c4a7f2789309316",
+    "git_head": "6348493d0a452177dc33c402bd5601981fdd428c",
     "touches_test_split": false,
     "validation_only": true
   },
