@@ -279,6 +279,42 @@ def evaluate_c3(
     }
 
 
+def probe_drives(
+    A: sp.spmatrix,
+    W_in: sp.spmatrix,
+    bias: np.ndarray,
+    X_val: np.ndarray,
+    *,
+    din: int,
+    points: Sequence[tuple[float, float]],
+) -> list[dict[str, Any]]:
+    """Diagnostic: drive ``points`` = ``[(gain, leak), ...]`` and return the metrics.
+
+    The output includes R_t (median, gain-free), memory (M, M_A=0, drop), D_eff_factor,
+    AND each criterion's pass, so the caller can see which gate binds.
+    """
+    out = []
+    for gain, leak in points:
+        r = evaluate_c3(A, W_in, bias, X_val, gain=gain, leak=leak, din=din)
+        m = r["R_t"]["gain_free"]
+        mem = r["memory"]
+        deff = r["effective_rank"]
+        out.append({
+            "gain": float(gain), "leak": float(leak),
+            "R_t_median": float(m["median"]),
+            "R_t_p10": float(m["p10"]), "R_t_p90": float(m["p90"]),
+            "memory_M": float(mem["M"]),
+            "memory_M_A0": float(mem["M_A_equals_0"]),
+            "memory_drop": float(mem["drop_fraction"]),
+            "D_eff": float(deff["D_eff"]),
+            "D_eff_factor": float(deff["D_eff_factor"]),
+            "C3_1_in_band": bool(r["verdict"]["C3_1_R_t_band"]),
+            "C3_2_memory_drop": bool(r["verdict"]["C3_2_memory_drop"]),
+            "C3_3_D_eff_factor": bool(r["verdict"]["C3.3_D_eff_factor"]),
+        })
+    return out
+
+
 __all__ = [
     "DynamicsResult",
     "MEMORY_LAGS",
