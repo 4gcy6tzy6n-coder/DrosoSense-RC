@@ -158,11 +158,15 @@ Wording that must be used for A2 (not the old single-value story):
 
 These are **not** closed by v1.x and must not be lost when v2 starts:
 
-1. **A9 — the decisive test clusters by the wrong unit.** 62 of 62 D3 `fold_id`s
-   map to a different specimen under each seed, so the cluster unit is a fold index,
-   not a specimen. A statistics-layer amendment (declare the cluster unit as the
-   **specimen**) is still owed; it needs no re-run. Recorded in the audit report's
-   disposition table and in §A9.
+1. **A9 — the decisive test clusters by the wrong unit.** The frozen protocol
+   declares the cluster to be the fold *because*, verbatim, "For LOSO a fold is a single specimen, so the fold bootstrap IS a specimen bootstrap" (`pairing.resample_unit_detail`), on the stated premise that the ten seeds share
+   **one specimen partition**. The implementation clusters by the fold **index**,
+   and under a seeded LOSO permutation each seed gets a *different* partition —
+   all **62 of 62** D3 `fold_id`s hold a different specimen under each of the 10
+   seeds — so the premise fails. The repair (signed as D7 in
+   [`v2_preregistration.md`](v2_preregistration.md) §5) is to declare the cluster
+   unit as the **specimen**. It is a statistics amendment, needs no re-run, and
+   must be frozen before any formal v2 evaluation.
 2. **Run-record field truthfulness** — `params.reservoir_size = 200` while
    `topology.n_nodes = 250`; node-selection provenance (`target_n`, seed, sha256)
    is not recorded; `class_coverage` lives only in the git-ignored raw records, so
