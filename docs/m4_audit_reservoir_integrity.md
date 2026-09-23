@@ -548,6 +548,32 @@ that — it only makes the next test possible to believe.
 
 
 
+## Locked wording: this is a construct-validity failure, not a negative result
+
+M4-v1.4's outcome must **not** be described as a negative result. The evidence is
+that the experiment did not test the hypothesis it was designed to test:
+
+| evidence | measurement |
+|---|---|
+| the substrate's input layer | **ORN = 0** at N <= 1000, 0.47 % at N=4000 (P1-3) |
+| the substrate's structure | 126 edges, **64.8 % isolated**, 0.09 % of out-edges retained (A8) |
+| whether the topology enters the computation | recurrent term = **3-5 %** of the drive; memory survives A := 0 bit-identically (A3) |
+| whether the state carries usable signal | **H worse than X** (0.374 vs 0.479), and X+real-H (0.392) worse than X+**shuffled**-H (0.490) (A4r) |
+| whether the input pathway is biological | denserandom `W_in` over every node; dynamics invariant to relabelling nodes (A6) |
+
+None of those is "the model did not win". Each is a failure to operationalise the
+construct — *a biologically organised olfactory substrate* — so the correct
+classification is:
+
+> **M4-v1.4 is an invalid test of the intended biological hypothesis
+> (construct-validity failure), not a negative result about it.**
+
+This distinction matters for how the v2 redesign is reported. v2 is **not**
+re-tuning after seeing a test result; it is repairing a construct-validity failure
+that an independent audit established from the implementation and the delivered
+records, before any v2 design decision was taken. That is the difference that has
+to survive into the TAFE methodology and development-history sections.
+
 ## What this does and does not licence
 
 **Does licence:** the statement that the delivered M4-v1.4 pipeline, at its
