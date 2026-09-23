@@ -1,5 +1,2 @@
-# The recovered raw per-run records (E2/E3/E9, ~38 MB) are evidence but are
-# "raw records" in the repository's own sense: summaries and the derived tables
-# are committed, the per-run JSON is not. They stay on disk, reachable by the
-# audit scripts, and out of Git.
 ev/
+*.tgz
