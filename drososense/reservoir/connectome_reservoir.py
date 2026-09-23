@@ -116,6 +116,18 @@ PRIMARY_CONTROL = "R2_degree_rewired"
 #: spectral-radius rescale. Avoiding division by zero on an empty matrix.
 SPECTRAL_RADIUS_EPS: float = 1.0e-12
 
+#: The input mapping this implementation actually uses: ONE dense random ``W_in``
+#: over every node of the substrate, with no input population, no cell-type
+#: gating and no layer assignment.
+#:
+#: Declared as a name — rather than left implicit in ``make_shared`` — because it
+#: is a component of the evidence-unit identity (protocol v1.5 §
+#: `evidence_unit_identity`). The v2 redesign replaces it with an ORN/PN-aligned
+#: population; without this field in the identity, a constrained-input run and a
+#: dense-random run would collide on the same split and repeat the identity
+#: defect that v1.5 exists to fix.
+INPUT_MAPPING_DENSE_RANDOM: str = "dense_random_all_nodes"
+
 #: Maximum double-edge swap attempts per edge in the degree-rewired control.
 #: 10 is enough for the configuration-model to converge on sparse graphs.
 DOUBLE_EDGE_SWAP_ATTEMPTS: int = 10
@@ -205,6 +217,7 @@ class ReservoirShared:
             "bias_sha256": _sha256(self.bias),
             "seed": int(self.seed),
             "input_scale": float(self.input_scale),
+            "input_mapping": INPUT_MAPPING_DENSE_RANDOM,
         }
 
 

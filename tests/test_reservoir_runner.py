@@ -67,11 +67,23 @@ def _fake_olfactory_npz(path: Path, n_nodes: int = 96, n_edges: int = 300) -> No
     rows[diagonal] = (rows[diagonal] + 1) % n_nodes
     values = rng.uniform(0.0, 10.0, size=n_edges)
     matrix = sp.csr_matrix((values, (rows, cols)), shape=(n_nodes, n_nodes)).tocsr()
+    # A second, genuinely different stored normalization, so a test can put two
+    # substrates of one unit side by side (protocol v1.5 §evidence_unit_identity:
+    # `normalization` is identity-bearing). Additive: the loader only requires
+    # the keys for the normalization it is asked for.
+    coo = matrix.tocoo()
+    binary = sp.csr_matrix(
+        (np.ones(coo.nnz), (coo.row, coo.col)), shape=(n_nodes, n_nodes)
+    ).tocsr()
     payload = {
         "norm_n1_pre_l1_data": matrix.data,
         "norm_n1_pre_l1_indices": matrix.indices,
         "norm_n1_pre_l1_indptr": matrix.indptr,
         "norm_n1_pre_l1_shape": np.array(matrix.shape, dtype=np.int64),
+        "norm_n5_binary_data": binary.data,
+        "norm_n5_binary_indices": binary.indices,
+        "norm_n5_binary_indptr": binary.indptr,
+        "norm_n5_binary_shape": np.array(binary.shape, dtype=np.int64),
         "node_ids": np.array([f"node{index:05d}" for index in range(n_nodes)]),
     }
     np.savez(str(path), **payload)
@@ -627,3 +639,110 @@ def test_selection_is_deterministic(
     second = select_nodes(reservoir_npz, target_n=48, seed=20260920)
     assert np.array_equal(first.node_indices, second.node_indices)
     assert first.sha256 == second.sha256
+
+
+# ---------------------------------------------------------------------------
+# Protocol v1.5 — the synthetic ledger test (the E9 defect, end to end)
+# ---------------------------------------------------------------------------
+def test_v1_5_ledger_separates_substrates_and_still_blocks_true_repeats(
+    fake_dataset: tuple[str, Path],
+    reservoir_npz: Path,
+    runner_dirs: tuple[Path, Path],
+) -> None:
+    """The E9 size study's failure mode, reproduced and fixed.
+
+    Under schema 1 the identity was (partition, window, model, task), so scoring
+    the same split at a different reservoir size or a different normalization
+    produced the SAME fingerprint under a different ``config_hash`` — which
+    §17's own report reads as a violation, and which
+    ``load_evidence_bundle`` refuses. The E9 size study did exactly that at five
+    sizes (70 violations), while the E3 low-data sweep was skipped in full.
+
+    This test drives the real runner on the synthetic fixture and asserts the
+    three things the fix has to deliver at once:
+
+      1. a different substrate (size, normalization, condition) is a NEW unit,
+         scored normally — not a violation and not a skip;
+      2. an identical re-run is still skipped (§17's protection is intact);
+      3. the units really do differ, i.e. the fix is not just the absence of a
+         crash.
+    """
+    dataset_id, _ = fake_dataset
+    raw_dir, tables_dir = runner_dirs
+
+    base = _config(dataset_id, reservoir_npz, raw_dir, tables_dir)
+
+    # 1. the first substrate
+    first = run_reservoir_benchmark(base, raw_dir=raw_dir, tables_dir=tables_dir)
+    assert first.ok_count > 0
+    assert first.skipped_units == []
+
+    # 2. an IDENTICAL re-run is still refused/skipped — §17 as v1.4 left it.
+    repeat = run_reservoir_benchmark(base, raw_dir=raw_dir, tables_dir=tables_dir)
+    assert repeat.ok_count == 0, "an identical re-run must not re-score anything"
+    assert len(repeat.skipped_units) == first.ok_count
+
+    # 3. a different RESERVOIR SIZE is a different unit, not a collision.
+    bigger = run_reservoir_benchmark(
+        _config(dataset_id, reservoir_npz, raw_dir, tables_dir, reservoir_size=96),
+        raw_dir=raw_dir,
+        tables_dir=tables_dir,
+    )
+    assert bigger.ok_count == first.ok_count, (
+        "a different reservoir size must be scored, not skipped as a prior touch "
+        "and not raised as a §17 violation"
+    )
+    assert bigger.skipped_units == []
+
+    # 4. a different NORMALIZATION is a different unit too.
+    other_norm = run_reservoir_benchmark(
+        _config(
+            dataset_id, reservoir_npz, raw_dir, tables_dir, normalization="n5_binary"
+        ),
+        raw_dir=raw_dir,
+        tables_dir=tables_dir,
+    )
+    assert other_norm.ok_count == first.ok_count
+    assert other_norm.skipped_units == []
+
+    # 5. a declared experimental CONDITION is a different unit as well — this is
+    #    the E3_lowdata axis (test split fixed across training fractions).
+    conditional = run_reservoir_benchmark(
+        _config(dataset_id, reservoir_npz, raw_dir, tables_dir, condition="train10pct"),
+        raw_dir=raw_dir,
+        tables_dir=tables_dir,
+    )
+    assert conditional.ok_count == first.ok_count
+    assert conditional.skipped_units == []
+
+    # 6. and the identities really are distinct, per unit, on disk.
+    records = [r for r in load_records(raw_dir) if r.status == "ok"]
+    identities = {r.evidence_unit["id"] for r in records}
+    assert len(identities) == 4 * first.ok_count, (
+        "four substrates x every ok unit must be four distinct evidence units"
+    )
+    assert all(r.evidence_unit["schema"] == "2" for r in records)
+
+    # 7. the schema-1 fingerprint those units would have shared, recorded so the
+    #    regression this test guards cannot be quietly reintroduced.
+    from drososense.evaluation.results import legacy_test_fingerprint
+
+    legacy = {
+        legacy_test_fingerprint(
+            r.fold_fingerprint, r.window_length, r.model, r.task
+        )
+        for r in records
+    }
+    assert len(legacy) == first.ok_count, (
+        "schema 1 collapsed these four substrates onto one fingerprint per unit; "
+        "that is the defect this amendment fixes"
+    )
+
+    # 8. the §17 report is clean under the new identity.
+    from drososense.evaluation.results import test_touched_once_report
+
+    report = test_touched_once_report(records)
+    assert report["n_violations"] == 0, (
+        f"the fixed identity must not report collisions: {report['violations'][:2]}"
+    )
+    assert report["n_distinct_test_fingerprints"] == len(identities)

@@ -47,6 +47,14 @@ PROTOCOL_V1_3_PATH: Path = CONFIGS_DIR / "protocol_v1.3.yaml"
 # its own independent review — v1.4 alone is a 6-key amendment record, not a
 # loadable protocol.
 PROTOCOL_V1_4_PATH: Path = CONFIGS_DIR / "protocol_v1.4.yaml"
+# v1.5 (M4-Audit) is the evidence-identity amendment: §17's unit of identity is
+# now a versioned named tuple that includes the substrate-defining fields
+# (reservoir_size, normalization, input_mapping, topology_variant, rewire_seed),
+# and the schema-1 fingerprint is retained as a lookup alias so a pre-v1.5 unit
+# stays protected. Like v1.4 it is an amendment RECORD layered on the loadable
+# v1.3 base: it changes the identity §17 enforces and nothing else — no model,
+# dataset, split, endpoint or statistical decision rule moves.
+PROTOCOL_V1_5_PATH: Path = CONFIGS_DIR / "protocol_v1.5.yaml"
 
 # The active protocol. Everything that reads "the protocol" reads this.
 #
@@ -66,6 +74,7 @@ PROTOCOL_V1_1_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.1.sha256"
 PROTOCOL_V1_2_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.2.sha256"
 PROTOCOL_V1_3_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.3.sha256"
 PROTOCOL_V1_4_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.4.sha256"
+PROTOCOL_V1_5_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.5.sha256"
 
 
 def protocol_version_paths(version: str) -> tuple[Path, Path]:

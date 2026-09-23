@@ -39,7 +39,9 @@ from drososense.evaluation.results import (
     capture_environment,
     load_records,
     make_run_id,
-    make_test_fingerprint,
+    build_prior_ledgers,
+    lookup_prior_unit,
+    make_evidence_unit,
     utc_now_iso,
     write_record,
     write_summary_csv,
@@ -55,7 +57,7 @@ from drososense.utils.env_report import compare_environments
 from drososense.utils.paths import RESULTS_RAW_DIR, RESULTS_TABLES_DIR, ensure_dir
 from drososense.utils.seeding import load_seed_policy
 
-PROTOCOL_VERSION = "1.4.0"
+PROTOCOL_VERSION = "1.5.0"
 
 # The metric fields a failed run still carries, so every run has the same
 # columns and a failed run cannot be mistaken for a missing one.
@@ -170,6 +172,8 @@ def _skip_disclosure_entry(
     reason: str,
     prior_run_id: str,
     prior_status: str,
+    legacy_test_fingerprint: str = "",
+    prior_identity: str = "",
 ) -> dict[str, Any]:
     """Build the disclosure entry for one skipped unit.
 
@@ -203,6 +207,8 @@ def _skip_disclosure_entry(
         "fold_id": fold_id,
         "window_length": window_length,
         "test_fingerprint": test_fingerprint,
+        "evidence_unit_legacy_id": legacy_test_fingerprint,
+        "prior_identity_matched": prior_identity,
         "reason": reason,
         "prior_config_hash": prior_config_hash,
         "run_config_hash": run_config_hash,
@@ -344,13 +350,20 @@ def run_benchmark(
     # record that owns each fingerprint, so a skip can be disclosed with the
     # full audit trail (which run, which status) rather than just a hash.
     prior_touch_meta: dict[str, tuple[str, str]] = {}
+    prior_legacy_touches: dict[str, str] = {}
     if config.enforce_test_touched_once:
-        for prior in load_records(raw_dir):
-            if prior.test_fingerprint and prior.status == "ok":
-                prior_touches.setdefault(prior.test_fingerprint, prior.config_hash)
-                prior_touch_meta.setdefault(
-                    prior.test_fingerprint, (prior.run_id, prior.status)
-                )
+        ok_records = [p for p in load_records(raw_dir) if p.status == "ok"]
+        current_ledger, prior_legacy_touches = build_prior_ledgers(ok_records)
+        for identity, cfg in current_ledger.items():
+            prior_touches.setdefault(identity, cfg)
+        for prior in ok_records:
+            for identity in (
+                list(current_ledger)
+                if (prior.evidence_unit or {}).get("id")
+                else [prior.test_fingerprint]
+            ):
+                if identity:
+                    prior_touch_meta.setdefault(identity, (prior.run_id, prior.status))
 
     # Skip disclosure (DATA-51): units whose test_fingerprint is already held by
     # a status == "ok" record are SKIPPED — never re-fit and never re-scored —
@@ -403,10 +416,24 @@ def run_benchmark(
                         continue
 
                     for task in config.tasks:
-                        test_fingerprint = make_test_fingerprint(
-                            fold.fingerprint, window_length, model_id, task
+                        # Protocol v1.5: the unit of identity is the evidence
+                        # unit. A baseline model has no reservoir, so every
+                        # substrate component is the explicit "n/a" marker —
+                        # which is a name, not a missing value, and therefore
+                        # cannot silently collide with a reservoir run's unit.
+                        evidence_unit = make_evidence_unit(
+                            dataset=config.dataset_id,
+                            task=task,
+                            fold_fingerprint=fold.fingerprint,
+                            model=model_id,
+                            window_length=window_length,
                         )
-                        prior = prior_touches.get(test_fingerprint)
+                        test_fingerprint = evidence_unit["id"]
+                        prior_hit = lookup_prior_unit(
+                            evidence_unit, prior_touches, prior_legacy_touches
+                        )
+                        prior_identity = prior_hit[0] if prior_hit else None
+                        prior = prior_hit[1] if prior_hit else None
                         if prior is not None:
                             # An ok record already occupies this (dataset, model,
                             # task, seed, fold) unit. Per §17 the split must not
@@ -415,7 +442,7 @@ def run_benchmark(
                             # than either aborting the batch (different config)
                             # or silently overwriting the record (same config).
                             prior_run_id, prior_status = prior_touch_meta.get(
-                                test_fingerprint, ("", "ok")
+                                prior_identity, ("", "ok")
                             )
                             if prior == run_config_hash:
                                 reason = "prior_ok_same_config"
@@ -430,6 +457,8 @@ def run_benchmark(
                                     fold_id=fold.fold_id,
                                     window_length=window_length,
                                     test_fingerprint=test_fingerprint,
+                                    legacy_test_fingerprint=evidence_unit["legacy_id"],
+                                    prior_identity=prior_identity,
                                     prior_config_hash=prior,
                                     run_config_hash=run_config_hash,
                                     reason=reason,
@@ -513,6 +542,7 @@ def run_benchmark(
                                 class_coverage=fold_tensors.class_coverage,
                                 config_hash=run_config_hash,
                                 test_fingerprint=test_fingerprint,
+                                evidence_unit=evidence_unit,
                                 empty_class_policy=EMPTY_CLASS_POLICY,
                                 n_train_sessions=fold_tensors.summarise()["n_train_sessions"],
                                 n_test_sessions=fold_tensors.summarise()["n_test_sessions"],

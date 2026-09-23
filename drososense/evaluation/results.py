@@ -31,6 +31,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from drososense.utils.config import DEFAULT_CONDITION
 from drososense.utils.paths import RESULTS_RAW_DIR, RESULTS_TABLES_DIR, ensure_dir
 from drososense.utils.seeding import SeedPolicy
 
@@ -102,6 +103,10 @@ class RunRecord:
             schema, default 0.0, so pre-DATA-52 records without the key still
             load; makes duration_s (wall) and CPU time separately auditable
             instead of back-solving one from the other via a CPU% sample.
+        evidence_unit: The evidence-unit identity of this run under protocol
+            v1.5 (schema 2): the components that define *which evaluation* was
+            scored, and their digest. Optional and defaulted so every record
+            written before v1.5 still loads unchanged.
     """
 
     run_id: str
@@ -136,6 +141,7 @@ class RunRecord:
     notes: str = ""
     selection: dict[str, Any] = field(default_factory=dict)
     cpu_seconds: float = 0.0
+    evidence_unit: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.evidence_class not in ("real", "synthetic_fixture"):
@@ -197,6 +203,16 @@ def record_path(record: RunRecord, base_dir: Path | None = None) -> Path:
     The task is part of the filename because one model on one fold produces a
     classification record AND a regression record, and they must not collide.
 
+    **The evidence unit is part of the filename too.** Two substrates of one unit
+    — a different reservoir size, normalization, input mapping, topology variant,
+    condition or rewiring seed — are distinct evidence under protocol v1.5, so
+    they must be distinct *files*. Without the suffix the second substrate
+    silently overwrote the first, which is why the pre-v1.5 size study had to
+    invent one experiment label per size (``e9_size_d2_n250`` …) and why its
+    records then collided on a single fingerprint. The suffix is derived from
+    ``evidence_unit.id``; a record with no unit keeps the old, unsuffixed name so
+    every pre-v1.5 tree still resolves.
+
     Args:
         record: The record.
         base_dir: Override for ``results/raw``.
@@ -205,12 +221,14 @@ def record_path(record: RunRecord, base_dir: Path | None = None) -> Path:
         Path to the JSON file.
     """
     base = Path(base_dir) if base_dir is not None else RESULTS_RAW_DIR
+    unit = (record.evidence_unit or {}).get("id") or ""
+    suffix = f"_{unit}" if unit else ""
     return (
         base
         / record.experiment
         / record.dataset
         / record.model
-        / f"{record.task}_seed{record.seed:02d}_fold{record.fold_id:02d}.json"
+        / f"{record.task}_seed{record.seed:02d}_fold{record.fold_id:02d}{suffix}.json"
     )
 
 
@@ -536,12 +554,18 @@ def make_run_id(dataset: str, model: str, task: str, seed: int, fold_id: int) ->
 def make_test_fingerprint(
     fold_fingerprint: str, window_length: int, model: str, task: str
 ) -> str:
-    """Build the identifier of one test-set evaluation.
+    """Build the identifier of one test-set evaluation under **schema 1**.
 
-    The fold fingerprint already identifies the exact partition, so combining it
-    with the window length, model and task identifies a single scored evaluation.
-    Two runs sharing this value have scored the same held-out data with the same
-    model and task, which protocol v1.1 §17 permits only once.
+    This is the pre-v1.5 definition and it is kept byte-for-byte: records on
+    disk carry the value it produced, and re-deriving them under a new
+    definition would silently rewrite history. New runs use
+    :func:`make_evidence_unit_id`; this function survives as
+    :func:`legacy_test_fingerprint`'s public name so that a re-run of an
+    already-scored legacy unit is still recognised and still refused.
+
+    Schema 1 identifies ``(partition, window length, model, task)`` and
+    therefore does **not** distinguish two different substrates evaluated on the
+    same split — which protocol v1.5 corrects.
 
     Args:
         fold_fingerprint: The fold's partition fingerprint.
@@ -552,8 +576,358 @@ def make_test_fingerprint(
     Returns:
         Short hex identifier.
     """
+    return legacy_test_fingerprint(fold_fingerprint, window_length, model, task)
+
+
+# ---------------------------------------------------------------------------
+# Evidence-unit identity (protocol v1.5, schema 2)
+# ---------------------------------------------------------------------------
+#
+# WHY THIS EXISTS. §17 forbids scoring a test split twice under two
+# configurations. Schema 1's fingerprint named only (partition, window length,
+# model, task), so two runs that differed in the *substrate* — reservoir size,
+# input normalization, the input mapping, the rewiring seed — collapsed onto one
+# identity. Measured consequences: an E9 size study at N = 250/500/1000/2000/4000
+# registered the same fingerprint under six configuration hashes (70 §17
+# violations by the project's own rule, and `load_evidence_bundle` refuses such a
+# bundle), while an E3 low-data sweep was skipped in full as
+# `prior_ok_cross_experiment_anchor` against an E1 baseline unit it does not
+# actually duplicate.
+#
+# Schema 2 makes the identity a *versioned, named* tuple: the components are
+# recorded in the run record alongside the digest, so the identity is
+# inspectable rather than opaque, and a future axis (v2's constrained input
+# population) only has to be added to EVIDENCE_UNIT_COMPONENTS.
+
+#: Version tag of the current identity definition. Bump only with a new
+#: protocol amendment, and never silently: the tag is inside the digest.
+EVIDENCE_UNIT_SCHEMA_VERSION = "2"
+
+#: Record key holding the identity components + digest.
+EVIDENCE_UNIT_FIELD = "evidence_unit"
+
+#: The components that define one evidence unit under schema 2. Order is
+#: documentation only — the digest sorts keys.
+EVIDENCE_UNIT_COMPONENTS: tuple[str, ...] = (
+    "dataset",
+    "task",
+    "fold_fingerprint",
+    "model",
+    "window_length",
+    "condition",
+    "reservoir_size",
+    "normalization",
+    "input_mapping",
+    "topology_variant",
+    "rewire_seed",
+)
+
+#: Components schema 1 did not carry — kept for the legacy reconstruction note.
+EVIDENCE_UNIT_V1_ONLY_NOTE = (
+    "schema 1 carried dataset/task/fold/model/window only; `condition` and every "
+    "substrate component are unknown for a legacy record and are never guessed"
+)
+
+#: Components schema 1 did not carry. When a legacy record's identity is
+#: reconstructed they are unknown by construction, and they must NOT be
+#: guessed: see :func:`legacy_test_fingerprint`.
+EVIDENCE_UNIT_V2_ONLY_COMPONENTS: tuple[str, ...] = (
+    "condition",
+    "reservoir_size",
+    "normalization",
+    "input_mapping",
+    "topology_variant",
+    "rewire_seed",
+)
+
+#: Marker for a component that genuinely does not apply (a baseline has no
+#: reservoir) as opposed to one that was not recorded.
+COMPONENT_NOT_APPLICABLE = "n/a"
+
+
+def _component(value: Any) -> Any:
+    """Normalise one identity component to a stable JSON scalar."""
+    if value is None:
+        return COMPONENT_NOT_APPLICABLE
+    if isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, (int, float, str)):
+        return value
+    return str(value)
+
+
+def evidence_unit_components(
+    *,
+    dataset: str,
+    task: str,
+    fold_fingerprint: str,
+    model: str,
+    window_length: int,
+    condition: Any = DEFAULT_CONDITION,
+    reservoir_size: Any = None,
+    normalization: Any = None,
+    input_mapping: Any = None,
+    topology_variant: Any = None,
+    rewire_seed: Any = None,
+) -> dict[str, Any]:
+    """Build the named component tuple of one evidence unit (schema 2).
+
+    ``condition`` is the protocol's own experiment-condition axis
+    (``full`` / ``train10pct`` / ``dropout_p0.3`` / ``noise_s0.1`` …) — the same
+    label the multiplicity families are keyed on. It is part of the identity
+    because the E3 low-data experiment declares that the test split stays fixed
+    across training fractions: without the axis, its four fractions are either
+    skipped as a prior touch or recorded as §17 violations, and neither is what
+    the protocol declares.
+
+    Returns:
+        Mapping of every name in :data:`EVIDENCE_UNIT_COMPONENTS`.
+    """
+    return {
+        "dataset": _component(dataset),
+        "task": _component(task),
+        "fold_fingerprint": _component(fold_fingerprint),
+        "model": _component(model),
+        "window_length": _component(window_length),
+        "condition": _component(condition),
+        "reservoir_size": _component(reservoir_size),
+        "normalization": _component(normalization),
+        "input_mapping": _component(input_mapping),
+        "topology_variant": _component(topology_variant),
+        "rewire_seed": _component(rewire_seed),
+    }
+
+
+def make_evidence_unit_id(**components: Any) -> str:
+    """Digest an evidence unit's schema-2 identity.
+
+    Args:
+        **components: Keyword arguments accepted by
+            :func:`evidence_unit_components`.
+
+    Returns:
+        Short hex identifier, distinct from a schema-1 fingerprint even for the
+        same partition and model, because the schema tag is inside the digest.
+    """
+    payload = json.dumps(
+        {
+            "schema": EVIDENCE_UNIT_SCHEMA_VERSION,
+            "components": evidence_unit_components(**components),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def legacy_test_fingerprint(
+    fold_fingerprint: str, window_length: int, model: str, task: str
+) -> str:
+    """The schema-1 identity, frozen.
+
+    Kept because old records' stored ``test_fingerprint`` values were produced
+    by exactly this expression; computing it again for a *new* unit is how the
+    ledger keeps an already-scored legacy unit protected after the definition
+    changed. Without this alias a v1.5 run would happily re-score a split that
+    schema 1 had already scored — turning a false collision into a real
+    violation.
+
+    Returns:
+        Short hex identifier.
+    """
     payload = f"{fold_fingerprint}|w{window_length}|{model}|{task}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def make_evidence_unit(
+    *,
+    dataset: str,
+    task: str,
+    fold_fingerprint: str,
+    model: str,
+    window_length: int,
+    condition: Any = DEFAULT_CONDITION,
+    reservoir_size: Any = None,
+    normalization: Any = None,
+    input_mapping: Any = None,
+    topology_variant: Any = None,
+    rewire_seed: Any = None,
+) -> dict[str, Any]:
+    """The record payload describing one evidence unit.
+
+    Returns:
+        Mapping with the schema tag, every component, the schema-2 ``id``, and
+        the schema-1 ``legacy_id`` so a reader can match the unit against
+        records written before v1.5 without re-deriving either.
+    """
+    components = evidence_unit_components(
+        dataset=dataset,
+        task=task,
+        fold_fingerprint=fold_fingerprint,
+        model=model,
+        window_length=window_length,
+        condition=condition,
+        reservoir_size=reservoir_size,
+        normalization=normalization,
+        input_mapping=input_mapping,
+        topology_variant=topology_variant,
+        rewire_seed=rewire_seed,
+    )
+    return {
+        "schema": EVIDENCE_UNIT_SCHEMA_VERSION,
+        "components": components,
+        "id": make_evidence_unit_id(**components),
+        "legacy_id": legacy_test_fingerprint(
+            fold_fingerprint, window_length, model, task
+        ),
+    }
+
+
+def evidence_unit_aliases(
+    *, fold_fingerprint: str, window_length: int, model: str, task: str, **components: Any
+) -> tuple[str, ...]:
+    """Every identifier this unit could be filed under.
+
+    The ledger is keyed by identity, and identities changed in v1.5, so a lookup
+    has to consider both. Returns the schema-2 id first, then the schema-1
+    fingerprint.
+
+    Returns:
+        Tuple of identifiers, schema-2 first.
+    """
+    return (
+        make_evidence_unit_id(
+            fold_fingerprint=fold_fingerprint,
+            window_length=window_length,
+            model=model,
+            task=task,
+            **components,
+        ),
+        legacy_test_fingerprint(fold_fingerprint, window_length, model, task),
+    )
+
+
+def build_prior_ledgers(
+    records: list["RunRecord"],
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Split prior ok records into the two ledgers §17 v1.5 needs.
+
+    The alias has to be **asymmetric**, and the reason is the whole point of the
+    amendment. A schema-1 fingerprint names only
+    ``(partition, window, model, task)``, so if a v1.5 run also registered under
+    it, two v1.5 substrates of the same unit would collide again — the fix would
+    have changed nothing. But a record written *before* v1.5 has no schema-2 id,
+    so its schema-1 fingerprint is the only name it has.
+
+    Therefore:
+
+    * **current** — keyed by the schema-2 evidence-unit id, populated only from
+      records that carry one (v1.5 records);
+    * **legacy** — keyed by the schema-1 fingerprint, populated only from
+      records that do NOT carry one (pre-v1.5 records).
+
+    A lookup consults *current* first and *legacy* only as a fallback.
+
+    Args:
+        records: Prior run records, any status.
+
+    Returns:
+        ``(current_ledger, legacy_ledger)``, each mapping identity -> config_hash.
+    """
+    current: dict[str, str] = {}
+    legacy: dict[str, str] = {}
+    for record in records:
+        if record.status != "ok":
+            continue
+        unit = record.evidence_unit or {}
+        unit_id = unit.get("id")
+        if unit_id:
+            current.setdefault(unit_id, record.config_hash)
+            if record.test_fingerprint:
+                current.setdefault(record.test_fingerprint, record.config_hash)
+            continue
+        name = record.test_fingerprint
+        if not name and record.fold_fingerprint:
+            name = legacy_test_fingerprint(
+                record.fold_fingerprint, record.window_length, record.model, record.task
+            )
+        if name:
+            legacy.setdefault(name, record.config_hash)
+        # A pre-v1.5 record may also have been filed under its recomputed
+        # schema-1 fingerprint when its stored value came from elsewhere.
+        if record.fold_fingerprint and record.model and record.task:
+            legacy.setdefault(
+                legacy_test_fingerprint(
+                    record.fold_fingerprint, record.window_length, record.model, record.task
+                ),
+                record.config_hash,
+            )
+    return current, legacy
+
+
+def lookup_prior_unit(
+    unit: dict[str, Any],
+    current: dict[str, str],
+    legacy: dict[str, str],
+) -> tuple[str, str] | None:
+    """Find the prior touch occupying an evidence unit, identity-first.
+
+    The schema-2 id is authoritative; the schema-1 alias is a fallback that
+    exists solely so a pre-v1.5 record — whose substrate components are unknown
+    and must not be guessed — cannot be silently re-scored. A v1.5 record for a
+    *different* substrate does not occupy this unit, so it must not be found
+    through the shared alias.
+
+    Returns:
+        ``(identity, prior_config_hash)``, or ``None`` when the unit is free.
+    """
+    unit_id = unit.get("id")
+    if unit_id and unit_id in current:
+        return unit_id, current[unit_id]
+    legacy_id = unit.get("legacy_id")
+    if legacy_id and legacy_id in legacy:
+        return legacy_id, legacy[legacy_id]
+    return None
+
+
+def record_evidence_unit_aliases(record: "RunRecord") -> tuple[str, ...]:
+    """Every identifier a *stored* record could be filed under (diagnostic).
+
+    NOTE: this is the union, for reporting. The §17 lookup must NOT use the
+    union — see :func:`build_prior_ledgers` / :func:`lookup_prior_unit` for the
+    asymmetric rule that keeps two v1.5 substrates of one unit distinct.
+
+    A record written under v1.5 carries its components, so its schema-2 id is
+    recomputable. A record written under schema 1 does not, and its v2-only
+    components are unknown — so only its stored fingerprint and its recomputed
+    schema-1 fingerprint are returned. Nothing is guessed.
+
+    Returns:
+        Tuple of identifiers, newest first, without duplicates.
+    """
+    out: list[str] = []
+    if record.test_fingerprint:
+        out.append(record.test_fingerprint)
+    unit = record.evidence_unit or {}
+    components = unit.get("components")
+    if components:
+        try:
+            out.append(make_evidence_unit_id(**components))
+        except TypeError:
+            pass
+    if record.fold_fingerprint and record.model and record.task:
+        out.append(
+            legacy_test_fingerprint(
+                record.fold_fingerprint, record.window_length, record.model, record.task
+            )
+        )
+    seen: set[str] = set()
+    unique: list[str] = []
+    for value in out:
+        if value and value not in seen:
+            seen.add(value)
+            unique.append(value)
+    return tuple(unique)
 
 
 # The per-run fields that make protocol v1.1 §17's `test_touched_once` rule
@@ -731,6 +1105,36 @@ def test_touched_once_report(records: list[RunRecord]) -> dict[str, Any]:
     repeats = sorted(
         fingerprint for fingerprint, entry in by_fingerprint.items() if entry["runs"] > 1
     )
+    # v1.5 diagnostics. The violation rule above is deliberately UNCHANGED: a
+    # bundle written under schema 1 must keep reporting the collisions schema 1
+    # actually has, and re-labelling them here would destroy the evidence that
+    # the identity bug existed. What is added is only the ability to tell, from
+    # the report, which identity definition produced each record.
+    schema_counts: dict[str, int] = {}
+    n_with_unit = 0
+    for record in records:
+        unit = record.evidence_unit or {}
+        if unit.get("id"):
+            n_with_unit += 1
+            tag = f"schema_{unit.get('schema', '?')}"
+        else:
+            tag = "schema_1_legacy"
+        schema_counts[tag] = schema_counts.get(tag, 0) + 1
+    collisions_under_current_identity = 0
+    for record in records:
+        if not record.evidence_unit or record.status != "ok":
+            continue
+        unit_id = record.evidence_unit.get("id")
+        if not unit_id:
+            continue
+        peers = {
+            other.config_hash
+            for other in records
+            if other.status == "ok"
+            and (other.evidence_unit or {}).get("id") == unit_id
+        }
+        if len(peers) > 1:
+            collisions_under_current_identity += 1
     return {
         "n_records": len(records),
         "n_with_fingerprint": sum(1 for r in records if r.test_fingerprint and r.status == "ok"),
@@ -739,10 +1143,16 @@ def test_touched_once_report(records: list[RunRecord]) -> dict[str, Any]:
         "repeated_test_fingerprints": repeats,
         "n_violations": len(violations),
         "violations": violations,
+        "identity_schema_counts": schema_counts,
+        "n_records_with_evidence_unit": n_with_unit,
+        "n_records_with_colliding_evidence_unit_id": collisions_under_current_identity,
         "rule": (
             "protocol §17: a second record with the same test_fingerprint and a different "
             "config_hash is a protocol violation. A repeat with the SAME config_hash is a "
-            "re-computation and is reported but is not a violation."
+            "re-computation and is reported but is not a violation. Under protocol v1.5 the "
+            "identity is the schema-2 evidence-unit id; records written before v1.5 are "
+            "counted under 'schema_1_legacy' and keep the collisions their own definition "
+            "produced."
         ),
     }
 

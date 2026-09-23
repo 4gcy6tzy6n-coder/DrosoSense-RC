@@ -142,8 +142,15 @@ def test_a_crashed_run_does_not_register_test_touched_once(
     assert failed.test_fingerprint
 
     # The benchmark run sees the failed record but does NOT block on its
-    # fingerprint; the run finishes and lands an ok record at the same
-    # run_id (overwriting the failed one in place).
+    # fingerprint; the run finishes and lands its own ok record.
+    #
+    # Protocol v1.5 changed the on-disk consequence, deliberately. A record's
+    # path is now addressable by evidence unit, and this hand-written crashed
+    # record carries none (it is a pre-v1.5 shape), so the ok record no longer
+    # overwrites it in place: a *failed* record is not evidence, and silently
+    # clobbering it with a different unit's record was the old behaviour's side
+    # effect, not a requirement. §17's rule is about the quota, not the file, and
+    # is asserted below.
     run_benchmark(
         BenchmarkConfig(
             dataset_id=dataset_id,
@@ -159,12 +166,29 @@ def test_a_crashed_run_does_not_register_test_touched_once(
         tables_dir=tables_dir,
     )
 
-    [final] = load_records(raw_dir)
-    assert final.status == "ok", (
+    after = load_records(raw_dir)
+    ok_records = [r for r in after if r.status == "ok"]
+    failed_records = [r for r in after if r.status == "failed"]
+    assert len(ok_records) == 1, (
         "the real run scored the split; it is not blocked by the failed "
         "record that already shared its (dataset, model, task, seed, fold) "
         "fingerprint"
     )
+    assert ok_records[0].status == "ok"
+    assert ok_records[0].evidence_unit.get("schema") == "2"
+
+    # The crashed record is preserved rather than clobbered, and it still
+    # occupies nothing: §17 counts ok records only.
+    assert len(failed_records) == 1
+    assert failed_records[0].evidence_unit == {}, (
+        "the hand-written crashed record is a pre-v1.5 shape and keeps its "
+        "unsuffixed legacy path"
+    )
+    from drososense.evaluation.results import test_touched_once_report
+
+    report = test_touched_once_report(after)
+    assert report["n_with_fingerprint"] == 1
+    assert report["n_violations"] == 0
 
 
 @pytest.mark.integration
@@ -351,19 +375,22 @@ def test_protocol_v1_4_is_a_frozen_sibling_with_a_matching_sidecar():
 
 
 @pytest.mark.unit
-def test_runner_constant_protocol_version_is_v1_4_0():
-    """The runner's PROTOCOL_VERSION label moved with the fix.
+def test_runner_constant_protocol_version_is_v1_5_0():
+    """The runner's PROTOCOL_VERSION label moved with the amendment.
 
-    New runs produced under v1.4 carry ``protocol_version = 1.4.0`` so that
-    the previously-failed (pre-fix) ``1.1.0`` rows and the freshly-run
-    ``1.4.0`` rows are distinguishable in the contact log and in any
-    results aggregation.
+    The label tracks the newest frozen amendment, so each generation of rows is
+    distinguishable in the contact log and in any aggregation: ``1.1.0``
+    (pre-§17-clarification), ``1.4.0`` (crashed runs do not consume the quota),
+    and ``1.5.0`` (evidence-unit identity schema 2). v1.5 changes identity only —
+    it is not a licence to re-read any earlier row.
     """
     import drososense
     import drososense.evaluation.runner as runner_module
+    import drososense.reservoir.runner as reservoir_runner_module
 
-    assert drososense.PROTOCOL_VERSION == "1.4.0"
-    assert runner_module.PROTOCOL_VERSION == "1.4.0"
+    assert drososense.PROTOCOL_VERSION == "1.5.0"
+    assert runner_module.PROTOCOL_VERSION == "1.5.0"
+    assert reservoir_runner_module.PROTOCOL_VERSION == "1.5.0"
 
 
 # ---------------------------------------------------------------------------
@@ -642,7 +669,7 @@ def test_skip_does_not_disturb_the_ok_record_set_on_a_mixed_batch(
     assert disclosure["model"] == "svm_rbf"
     assert disclosure["task"] == "classification"
     assert disclosure["reason"] == "prior_ok_different_config"
-    assert disclosure["protocol_version"] == "1.4.0", (
+    assert disclosure["protocol_version"] == "1.5.0", (
         "the disclosure carries the active protocol version label so it is "
         "auditable without a live session"
     )

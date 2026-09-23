@@ -60,8 +60,10 @@ from drososense.evaluation.results import (
     aggregate_records,
     capture_environment,
     load_records,
+    build_prior_ledgers,
+    lookup_prior_unit,
+    make_evidence_unit,
     make_run_id,
-    make_test_fingerprint,
     record_path,
     utc_now_iso,
     write_record,
@@ -77,18 +79,19 @@ from drososense.evaluation.selection import (
 from drososense.reservoir.connectome_reservoir import (
     ALLOWED_NORMALIZATIONS,
     DEFAULT_RESERVOIR_PARAMS,
+    INPUT_MAPPING_DENSE_RANDOM,
     ReservoirShared,
     TOPOLOGY_FAMILY_IDS,
     build_topology_family,
     make_shared,
 )
-from drososense.utils.config import config_hash, load_yaml
+from drososense.utils.config import DEFAULT_CONDITION, config_hash, load_yaml
 from drososense.utils.env_report import compare_environments
 from drososense.utils.paths import RESULTS_RAW_DIR, RESULTS_TABLES_DIR, ensure_dir
 from drososense.utils.seeding import load_seed_policy
 
 #: The protocol runner records under the clarified §17 semantics.
-PROTOCOL_VERSION = "1.4.0"
+PROTOCOL_VERSION = "1.5.0"
 
 #: Registry id -> protocol id. The frozen contrasts and gates name the
 #: reservoirs R0..R6; records carry the protocol id and keep the registry id
@@ -192,6 +195,13 @@ class ReservoirConfig:
     gain: float = PINNED_KNOBS["gain"]
     input_scale: float = PINNED_KNOBS["input_scale"]
     ridge_lambda: float | None = None
+    #: The protocol's experiment-condition label (``full`` for E1/E2;
+    #: ``train10pct``/``train25pct``/... for E3_lowdata; ``dropout_p0.3`` /
+    #: ``noise_s0.1`` for the robustness batches). Part of the evidence-unit
+    #: identity AND of ``config_hash``: a condition is a declared, pre-registered
+    #: variation, so two conditions are two units, while an *undeclared* change
+    #: of anything else still trips §17.
+    condition: str = DEFAULT_CONDITION
     family_ids: tuple[str, ...] = TOPOLOGY_FAMILY_IDS
     select_hyperparameters: bool = False
     enforce_test_touched_once: bool = True
@@ -237,6 +247,7 @@ class ReservoirConfig:
             "gain": self.gain,
             "input_scale": self.input_scale,
             "ridge_lambda": self.ridge_lambda,
+            "condition": self.condition,
             "family_ids": list(self.family_ids),
             "select_hyperparameters": self.select_hyperparameters,
             "base_model_params": self.base_model_params,
@@ -303,7 +314,13 @@ def _family_builder(family: dict[str, Any]):
 
 
 def _record_exists_for(
-    config: ReservoirConfig, model_id: str, task: str, seed: int, fold_id: int, raw_dir: Path | None
+    config: ReservoirConfig,
+    model_id: str,
+    task: str,
+    seed: int,
+    fold_id: int,
+    raw_dir: Path | None,
+    evidence_unit: dict[str, Any] | None = None,
 ) -> bool:
     """Whether the canonical record file for this unit already exists.
 
@@ -329,6 +346,7 @@ def _record_exists_for(
         duration_s=0.0,
         environment={},
         timestamp_utc="",
+        evidence_unit=evidence_unit or {},
     )
     return record_path(probe, raw_dir).is_file()
 
@@ -354,6 +372,7 @@ def _write_skipped_record(
     test_fingerprint: str,
     raw_dir: Path | None,
     split_strategy: str,
+    evidence_unit: dict[str, Any] | None = None,
 ) -> None:
     """Persist the skip so the (unit, config) ledger stays complete."""
     model = family[fid]
@@ -393,6 +412,7 @@ def _write_skipped_record(
         test_fingerprint=test_fingerprint,
         empty_class_policy=EMPTY_CLASS_POLICY,
         notes=notes,
+        evidence_unit=evidence_unit or {},
     )
     write_record(record, raw_dir)
     report.records.append(record)
@@ -488,23 +508,25 @@ def run_reservoir_benchmark(
     run_config_hash = config_hash(config.as_dict())
 
     # §17's ledger: only OK records count as test touches (v1.4 semantics).
-    # The fingerprint identifies the (dataset, model, task, seed, fold,
-    # window) unit; the config_hash distinguishes "this run re-scores a
-    # unit it scored" from "this run re-scores a unit ANOTHER config
-    # scored". Failed and skipped records carry fingerprints too — a
-    # failed one must not occupy the quota (§17), a skipped one is the
-    # runner's own continuation marker and must not block a later same-
-    # config re-touch check.
+    # The identity is now the v1.5 evidence unit — (dataset, task, fold, model,
+    # window, reservoir_size, normalization, input_mapping, topology_variant,
+    # rewire_seed) — so two substrates evaluated on the same split are two units,
+    # not one collision. Every prior record is ALSO registered under its schema-1
+    # fingerprint (recomputed from the record's own fields), because a record
+    # written before v1.5 carries only that. Without the alias, a v1.5 re-run of
+    # an already-scored legacy unit would match nothing and become a REAL §17
+    # violation instead of today's false collision.
     prior_ok: dict[str, str] = {}
+    prior_legacy_ok: dict[str, str] = {}
     if config.enforce_test_touched_once:
-        for prior in load_records(raw_dir):
-            if (
-                prior.dataset == config.dataset_id
-                and prior.experiment == config.experiment
-                and prior.test_fingerprint
-                and prior.status == "ok"
-            ):
-                prior_ok.setdefault(prior.test_fingerprint, prior.config_hash)
+        relevant = [
+            prior
+            for prior in load_records(raw_dir)
+            if prior.dataset == config.dataset_id
+            and prior.experiment == config.experiment
+            and prior.status == "ok"
+        ]
+        prior_ok, prior_legacy_ok = build_prior_ledgers(relevant)
 
     report = RunReport(config_hash=run_config_hash)
     environment = capture_environment()
@@ -620,12 +642,32 @@ def run_reservoir_benchmark(
 
                     for fid in [f for f in TOPOLOGY_FAMILY_IDS if f in config.family_ids]:
                         model_id = PROTOCOL_ID_BY_FAMILY[fid]
-                        test_fingerprint = make_test_fingerprint(
-                            fold.fingerprint, window_length, model_id, task
+                        # Protocol v1.5: the unit of identity is the evidence
+                        # unit, which includes the substrate. `n_nodes` is read
+                        # from the topology the family actually built, and the
+                        # rewiring seed is the run seed — the reservoir runner
+                        # pins it there, so the two cannot drift apart silently.
+                        evidence_unit = make_evidence_unit(
+                            dataset=config.dataset_id,
+                            task=task,
+                            fold_fingerprint=fold.fingerprint,
+                            model=model_id,
+                            window_length=window_length,
+                            condition=config.condition,
+                            reservoir_size=int(family[fid]._topology.n_nodes),
+                            normalization=config.normalization,
+                            input_mapping=INPUT_MAPPING_DENSE_RANDOM,
+                            topology_variant=fid,
+                            rewire_seed=seed,
                         )
+                        test_fingerprint = evidence_unit["id"]
+                        prior_hit = lookup_prior_unit(
+                            evidence_unit, prior_ok, prior_legacy_ok
+                        )
+                        prior_identity = prior_hit[0] if prior_hit else None
 
-                        if test_fingerprint in prior_ok:
-                            if prior_ok[test_fingerprint] == run_config_hash:
+                        if prior_hit is not None:
+                            if prior_hit[1] == run_config_hash:
                                 # §17 skip-existing: this unit already has an ok
                                 # record under the same config. The existing
                                 # file IS the ledger entry — re-writing a
@@ -640,7 +682,13 @@ def run_reservoir_benchmark(
                                     f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d}"
                                 )
                                 if not _record_exists_for(
-                                    config, model_id, task, seed, fold.fold_id, raw_dir
+                                    config,
+                                    model_id,
+                                    task,
+                                    seed,
+                                    fold.fold_id,
+                                    raw_dir,
+                                    evidence_unit=evidence_unit,
                                 ):
                                     _write_skipped_record(
                                         report,
@@ -663,17 +711,20 @@ def run_reservoir_benchmark(
                                         test_fingerprint,
                                         raw_dir,
                                         split_strategy,
+                                        evidence_unit=evidence_unit,
                                     )
                                 continue
                             raise RuntimeError(
                                 f"test_touched_once violated: {config.dataset_id} "
                                 f"fold {fold.fold_id} seed {seed} was already evaluated "
                                 f"for {model_id}/{task} under config "
-                                f"{prior_ok[test_fingerprint]}, and is now being "
-                                f"re-evaluated under {run_config_hash}. protocol v1.4 "
+                                f"{prior_hit[1]}, and is now being "
+                                f"re-evaluated under {run_config_hash}. protocol v1.5 "
                                 f"§17 forbids re-fitting on a test split already "
                                 f"touched; a changed configuration requires a new "
-                                f"protocol version file, not a re-run."
+                                f"protocol version file, not a re-run. "
+                                f"(identity={prior_identity}, "
+                                f"schema={evidence_unit['schema']})"
                             )
 
                         started = time.perf_counter()
@@ -779,15 +830,22 @@ def run_reservoir_benchmark(
                             n_test_sessions=int(fold_tensors.summarise()["n_test_sessions"]),
                             notes=notes,
                             selection=selection_payload,
+                            evidence_unit=evidence_unit,
                         )
                         records.append(record)
                         write_record(record, raw_dir)
                         report.records.append(record)
                         if status == "ok":
-                            # Register this unit's touch in the ledger a later
-                            # invocation (and the §17 re-touch check below)
-                            # reads. Skipped units keep their existing entry.
-                            prior_ok[test_fingerprint] = run_config_hash
+                            # Register this unit's touch under BOTH identities:
+                            # the schema-2 id and the schema-1 fingerprint. A
+                            # later v1.5 invocation looks up both, and so does a
+                            # still-running pre-v1.5 process reading this ledger
+                            # through `record_evidence_unit_aliases`. Skipped
+                            # units keep their existing entry.
+                            # A v1.5 record registers ONLY its schema-2 id: the
+                            # schema-1 alias is reserved for pre-v1.5 records,
+                            # so that two substrates of one unit stay distinct.
+                            prior_ok[evidence_unit["id"]] = run_config_hash
 
     if records:
         record_contact(

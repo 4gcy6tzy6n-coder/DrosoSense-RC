@@ -1,0 +1,4 @@
+# SHA-256 of the frozen protocol file named below.
+# Regenerate ONLY when authoring a new protocol version, never to silence
+# a failing freeze check.
+c220a54fabcb1e042d526224c2004d3a72241e8bf7b04057739431d0b9c63ae2  protocol_v1.5.yaml

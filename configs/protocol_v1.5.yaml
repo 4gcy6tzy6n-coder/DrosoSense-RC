@@ -1,0 +1,242 @@
+# =============================================================================
+# DrosoSense-RC — FROZEN PROTOCOL AMENDMENT v1.5
+# =============================================================================
+# Project : DrosoSense-RC (Drosophila Sensory Connectome Reservoir Computing)
+# Version : 1.5.0
+# Frozen  : 2026-09-23T00:00:00Z
+# Owner   : M4-Audit (Reservoir Integrity Audit) — evidence identity layer
+# Supersedes: v1.4.0 (configs/protocol_v1.4.yaml, kept unchanged on disk)
+#
+# SCOPE. v1.5 changes evidence-unit identity only; no model, dataset, split,
+# endpoint, or statistical decision rule is altered.
+#
+# WHY THIS FILE EXISTS. §17 forbids scoring a test split twice under two
+# configurations, and defines a test evaluation by its `test_fingerprint`. The
+# v1.1–v1.4 definition of that fingerprint is
+#
+#     sha256(f"{fold_fingerprint}|w{window_length}|{model}|{task}")[:16]
+#
+# which names the partition, the window length, the model and the task — and
+# nothing about the substrate the model was built from. Two runs that differ in
+# reservoir size, input normalization, input mapping or rewiring seed therefore
+# share one identity. The measured consequences, from the recovered GPU-box
+# records (results/audit/m4_audit/server_evidence/):
+#
+#   * the E9 size study evaluated the same splits at N = 250, 500, 1000, 2000 and
+#     4000. All 70 units registered ONE fingerprint under SIX configuration
+#     hashes, i.e. 70 violations by §17's own rule
+#     (`drososense.evaluation.results.test_touched_once_report` reports
+#     n_violations = 70 over the 420 E9 records), and
+#     `drososense.evaluation.analysis.load_evidence_bundle` refuses any bundle
+#     whose report carries a non-zero violation count. The size study is
+#     simultaneously legitimate science and unloadable by the project's own
+#     pipeline.
+#
+#   * the E3 low-data sweep produced no results at all: 5 fractions x 20 units
+#     were skipped in full as `prior_ok_cross_experiment_anchor`, anchored to an
+#     E1 baseline unit (prior_config_hash c84d501b1a72) that it does not in fact
+#     duplicate.
+#
+# Those are not experiment failures. They are one identity-definition error, and
+# the DATA-60 "cross-experiment anchor skip" rule written to work around the E3
+# symptom is downstream of it.
+#
+# WHAT v1.5 CHANGES. The evidence unit's identity becomes an explicit, versioned,
+# NAMED tuple, whose components are recorded in the run record next to the
+# digest so the identity can be inspected instead of only trusted:
+#
+#     schema          "2"
+#     components      dataset, task, fold_fingerprint, model, window_length,
+#                     reservoir_size, normalization, input_mapping,
+#                     topology_variant, rewire_seed
+#     id              sha256(canonical_json({schema, components}))[:16]
+#     legacy_id       the schema-1 fingerprint, recorded beside it
+#
+# `input_mapping` and `topology_variant` are included NOW even though only one
+# input mapping exists today (`dense_random_all_nodes`), because the v2 redesign
+# will constrain the input population to ORN/PN-aligned nodes: without the field
+# in the identity, a constrained-input run and a dense-random run would collide
+# on the same split and repeat this defect.
+#
+# `rewire_seed` is included because it determines the actual control graph. The
+# reservoir runner pins it to the run seed (the seed already drives the split
+# through `fold_fingerprint`); it is in the identity so that any future
+# decoupling is visible rather than silent.
+#
+# THE LEGACY ALIAS IS PART OF THE FIX, NOT AN OPTION. A record written before
+# v1.5 stores a schema-1 fingerprint and carries no schema-2 components. If the
+# ledger simply switched definitions, a re-run of an already-scored legacy unit
+# would no longer match any prior touch — converting today's FALSE collision into
+# tomorrow's REAL violation. The runner therefore registers, for every prior ok
+# record, the stored fingerprint AND the schema-1 fingerprint recomputed from the
+# record's own fields, and a new unit is looked up under BOTH its schema-2 id and
+# its schema-1 fingerprint. Nothing is guessed for a legacy record: its v2-only
+# components are unknown by construction and are not invented.
+#
+# `make_test_fingerprint` keeps its schema-1 behaviour byte-for-byte, because
+# records on disk carry the value it produced.
+#
+# WHAT v1.5 DOES NOT CHANGE. The loadable base protocol remains v1.3
+# (`drososense/utils/paths.py: PROTOCOL_PATH`), exactly as v1.4 layered on it.
+# Alpha, the decisive cluster-level sign test, the descriptive Wilcoxon, the
+# bootstrap and its resampling unit, the equivalence margins, the multiplicity
+# method and its families, the gate expressions, the narrative rules N1..N5, the
+# datasets and their DOIs, the split strategies and units, the metrics and their
+# directions, the AUROC empty-class policy, the failure and stopping rules, the
+# seed set and the RNG hierarchy — none of these move. This is a pipeline
+# amendment, not a model amendment: it repairs what the project can record, and
+# it is explicitly NOT a licence to re-read any existing result.
+
+protocol_version: "1.5.0"
+frozen: true
+frozen_at: "2026-09-23T00:00:00Z"
+supersedes: "1.4.0"
+owner: "M4-Audit (Reservoir Integrity Audit) — evidence identity layer"
+
+scope_statement: >
+  v1.5 changes evidence-unit identity only; no model, dataset, split, endpoint,
+  or statistical decision rule is altered.
+
+evidence_unit_identity:
+  schema_version: "2"
+  previous_schema_version: "1"
+  replaces: >
+    sha256(f"{fold_fingerprint}|w{window_length}|{model}|{task}")[:16]
+  definition: >
+    sha256(canonical_json({"schema": "2", "components": <components>}))[:16],
+    where components is the named tuple below, each value normalised to a JSON
+    scalar and "n/a" where the component does not apply (a baseline has no
+    reservoir). Keys are sorted before hashing, so the identity does not depend
+    on argument order.
+  components:
+    - dataset
+    - task
+    - fold_fingerprint
+    - model
+    - window_length
+    - condition
+    - reservoir_size
+    - normalization
+    - input_mapping
+    - topology_variant
+    - rewire_seed
+  included_for_future_axes:
+    condition: >
+      The protocol's own experiment-condition axis (full / train10pct /
+      train25pct / dropout_p0.3 / noise_s0.1 ...), the same label the
+      multiplicity families are keyed on. It is part of the identity because
+      E3_lowdata DECLARES that the test split stays fixed across training
+      fractions: without the axis its four fractions are either skipped as a
+      prior touch (what the DATA-60 anchor rule ended up doing, producing zero
+      E3 records) or recorded as §17 violations. Neither is what the protocol
+      declares. 'full' is the default and covers E1/E2.
+    input_mapping: >
+      Declared now although only "dense_random_all_nodes" exists today: the v2
+      redesign constrains the input population to ORN/PN-aligned nodes, and an
+      identity that cannot separate those two runs would reproduce this defect.
+    topology_variant: >
+      The reservoir family (R0_real_fly .. R6_dense_random). Currently a function
+      of `model`, carried explicitly so the identity stays self-describing.
+    rewire_seed: >
+      Determines the actual control graph. Pinned to the run seed by the
+      reservoir runner; carried so any future decoupling is visible.
+  legacy_alias:
+    required: true
+    rule: >
+      A new unit is looked up under BOTH its schema-2 id and its schema-1
+      fingerprint. For every prior ok record the ledger registers the stored
+      test_fingerprint AND the schema-1 fingerprint recomputed from the record's
+      own fields. A legacy record's v2-only components are unknown and are never
+      guessed.
+    why: >
+      Without the alias, a v1.5 re-run of an already-scored pre-v1.5 unit would
+      match no prior touch — converting today's false collision into a real §17
+      violation.
+  record_payload: >
+    Every v1.5 run record carries an `evidence_unit` object: {"schema",
+    "components", "id", "legacy_id"}. `test_fingerprint` continues to be written
+    (equal to the schema-2 id for v1.5 runs) so pre-v1.5 readers keep working.
+
+test_touched_once:
+  enabled: true
+  identity: evidence_unit_identity
+  definition: >
+    For each (dataset, seed, fold) the test split is evaluated exactly once per
+    (model, task, substrate). A test evaluation is the act of scoring a model on
+    that split. Re-scoring the saved predictions for a different metric is not a
+    new touch; re-running the model with different hyperparameters, a different
+    reservoir size, a different input normalization, a different input mapping or
+    a different rewiring seed is, and is forbidden.
+  enforcement: >
+    The runner records the evidence-unit id per (dataset, seed, fold, model,
+    task, substrate). A second record with the same id and a different
+    config_hash is a violation. A repeat with the same config_hash is a
+    re-computation, reported but not a violation.
+  status_semantics: >
+    Unchanged from v1.4: a run only registers its identity when it actually
+    scored the split (status == "ok"). A crashed or errored run is recorded with
+    its full configuration but does not occupy the quota.
+
+change_log:
+  - item: E1
+    change: >
+      Evidence-unit identity is now a versioned named tuple (schema 2) that
+      includes the substrate-defining fields reservoir_size, normalization,
+      input_mapping, topology_variant and rewire_seed. The schema tag is inside
+      the digest, so no schema-2 id can ever equal a schema-1 fingerprint.
+  - item: E2
+    change: >
+      The schema-1 definition is preserved verbatim as `legacy_test_fingerprint`
+      and is used as an alias on every ledger lookup, so pre-v1.5 units remain
+      protected against a re-touch after the definition changed.
+  - item: E3
+    change: >
+      `test_touched_once_report` is unchanged in its violation rule and gains
+      only diagnostics: identity_schema_counts,
+      n_records_with_evidence_unit, n_records_with_colliding_evidence_unit_id.
+      A schema-1 bundle keeps reporting the collisions schema 1 actually has,
+      because that is the evidence the defect existed.
+  - item: E4
+    change: >
+      RunRecord gains an optional `evidence_unit` field, defaulted, so every
+      record written before v1.5 loads unchanged.
+  - item: E5
+    change: >
+      The `condition` axis (the protocol's own experiment-condition vocabulary,
+      default "full") is part of the identity, so a declared within-split
+      condition — E3_lowdata's train10pct/train25pct/... — is a distinct unit
+      rather than a collision or a forced skip. The DATA-60
+      `prior_ok_cross_experiment_anchor` rule exists because this axis was
+      missing; with it, that rule has nothing left to paper over.
+  - item: E6
+    change: >
+      The runner label moves to PROTOCOL_VERSION = "1.5.0" so that v1.5 rows are
+      distinguishable in the contact log, in the summary tables and in the
+      skip-disclosure receipts. The loadable base protocol is still
+      configs/protocol_v1.3.yaml.
+
+non_changes:
+  - "datasets, their DOIs, manifests and acquisition"
+  - "split strategies, split unit (specimen), session boundary, fold counts"
+  - "seeds and the RNG hierarchy"
+  - "window lengths, stride, label rule, train-only standardisation"
+  - "primary and secondary metrics and their directions"
+  - "AUROC empty-class policy (require_all_classes)"
+  - "alpha, the decisive cluster-level sign test, the descriptive Wilcoxon"
+  - "the fold-cluster bootstrap and its resampling unit"
+  - "equivalence margins and the TOST-by-inclusion rule"
+  - "multiplicity method (Holm), its families and the family rule"
+  - "the gate expressions and the narrative rules N1..N5"
+  - "failure handling, stopping rules, excluded-specimen criteria"
+  - "the reservoir families R0..R6, their hyperparameters and the readout"
+  - "the M4-v1.4 records already on disk: they are NOT re-indexed, NOT
+     re-labelled, and NOT promoted to valid evidence by this amendment"
+
+what_this_does_not_license: >
+  v1.5 repairs the evidence system. It does not make any existing E9 or E3
+  record admissible: those must first be classified per run by the
+  evidence-ledger repair audit as either 'valid but unreadable under the old
+  identity' (a fingerprint collision) or 'invalid experimental evidence' (a true
+  repeated test evaluation), according to whether the run actually scored the
+  test split. v1.5 is a pipeline fix, not a model fix, and it does not touch the
+  finding that M4-v1.4 is not a valid olfactory-connectome test.
