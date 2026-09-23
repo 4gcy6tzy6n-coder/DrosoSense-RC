@@ -84,6 +84,59 @@ missing.
    aside, or renamed and renamed back in a command whose failure mode is "nothing
    happens".
 
+## Correction to the recovery claim: the loss was larger than 7 records
+
+The first recovery pass checked **only `results/raw`** and concluded "recovered in
+full except 7 `e2_smoke` records". That claim was too narrow. A whole-`results/`
+comparison against the backup taken at 10:27 found **five more files missing from
+`results/tables/`**:
+
+    e2_main_d2_summary.csv
+    e2_main_d3_summary.csv
+    e2_main_d3_skip_disclosure.json
+    e2_smoke_summary.csv
+    e9_size_d2_skip_disclosure.json
+
+All five survived in the audit's own evidence copy
+(`results/audit/m4_audit/server_evidence/ev/tables/`) and in the on-box staging
+directory `/tmp/ev/tables/`; their sha256 matched between those two copies
+(808ce88a…, a340e8cf…, 12f2d745…, bbe6bd7d…, cf39637f…), and they have been
+restored to the server and committed to the delivery line together with the other
+eleven server-only E2/E3/E9 tables.
+
+The whole-`results/` check is now closed rather than narrowed: the tree holds
+23,319 files against the backup's 23,312, and the only differences are eight
+additions — the five restored tables plus three `scaler.pkl` artefacts written by
+running the test suite on the server — and one empty line, which is an artefact of
+the tar listing and not a file. **Nothing is missing.**
+
+**Revised residual loss: the 7 `e2_smoke` per-run JSON records.** Their derived
+summary survives, so no reported number depends on them.
+
+## `e2_smoke` was NOT synthetic — do not "reconstruct" it by re-running
+
+The follow-up plan proposed re-running the 7 `e2_smoke` records on the grounds
+that the experiment was synthetic, touched no test split, and fed no reported
+number. **The first two are false**, and the evidence is unambiguous:
+
+* `results/tables/e2_smoke_summary.csv` records all seven rows as
+  `dataset=d2_beef_uncontrolled`, **`evidence_class=real`**,
+  `protocol_compliant=True`, `status=ok`, `protocol_version=1.4.0`, one specimen
+  evaluation each;
+* `results/tables/data_contact_log.json` carries an `e2_smoke` entry with
+  `evidence_class: real`, `dataset: d2_beef_uncontrolled`, `split_strategy: loso`,
+  `n_models: 7` and **`counts_as_first_test_evaluation: true`** — i.e. the project
+  itself counted these runs as a real D2 test touch.
+
+So re-running them would **re-score a real D2 test split**, which is exactly what
+§17 exists to prevent and what the standing instruction forbids. The derived
+summary is the surviving evidence of that touch, and it is now committed.
+
+If a synthetic smoke test is wanted for the CI/reproducibility loop, it must be a
+**new** experiment label on synthetic data (for example `e2_smoke_ci`) that is
+explicitly *not* a reconstruction of the lost runs — never the same label, and
+never on D2.
+
 ## Follow-on: the local connectome data was moved to the server, deliberately
 
 Separately from this incident, the user asked to free local disk space by
