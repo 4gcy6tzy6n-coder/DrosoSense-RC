@@ -1,0 +1,100 @@
+{
+  "artifact": "server data verification before deleting the local copies",
+  "entries": [
+    {
+      "bytes": 9492998242,
+      "manifest_match": true,
+      "manifest_sha256": "b597601805b31a04f3a90730ae3b6319f89e9f1c2795dd132e4c3f87fb32f44c",
+      "path_on_server": "data-root/connectome/raw/flywire_synapses_783 (1).feather",
+      "server_match": true,
+      "sha256_local": "b597601805b31a04f3a90730ae3b6319f89e9f1c2795dd132e4c3f87fb32f44c",
+      "sha256_server": "b597601805b31a04f3a90730ae3b6319f89e9f1c2795dd132e4c3f87fb32f44c"
+    },
+    {
+      "bytes": 1482018,
+      "manifest_match": true,
+      "manifest_sha256": "1226fc1a7ea8c86dee7b73b6f59ce2dd0711b1ea227a418c03eccd0075157fa3",
+      "path_on_server": "data-root/connectome/raw/neuron_class_ranking_df_783-olfactory-10000.feather",
+      "server_match": true,
+      "sha256_local": "1226fc1a7ea8c86dee7b73b6f59ce2dd0711b1ea227a418c03eccd0075157fa3",
+      "sha256_server": "1226fc1a7ea8c86dee7b73b6f59ce2dd0711b1ea227a418c03eccd0075157fa3"
+    },
+    {
+      "bytes": 233843050,
+      "manifest_match": true,
+      "manifest_sha256": "e2418f4794fe47984bb4bc15ffc194003ea8e349a428551f30af94947d85d712",
+      "path_on_server": "data-root/connectome/raw/per_neuron_neuropil_count_post_783.feather",
+      "server_match": true,
+      "sha256_local": "e2418f4794fe47984bb4bc15ffc194003ea8e349a428551f30af94947d85d712",
+      "sha256_server": "e2418f4794fe47984bb4bc15ffc194003ea8e349a428551f30af94947d85d712"
+    },
+    {
+      "bytes": 16853770,
+      "manifest_match": true,
+      "manifest_sha256": "35442a46f076892dff91bd6e55fa1489b3acc64fda1d35cee7dbbbbc509a3dff",
+      "path_on_server": "data-root/connectome/raw/per_neuron_neuropil_count_pre_783.feather",
+      "server_match": true,
+      "sha256_local": "35442a46f076892dff91bd6e55fa1489b3acc64fda1d35cee7dbbbbc509a3dff",
+      "sha256_server": "35442a46f076892dff91bd6e55fa1489b3acc64fda1d35cee7dbbbbc509a3dff"
+    },
+    {
+      "bytes": 852022274,
+      "manifest_match": true,
+      "manifest_sha256": "24f960ae3e7d4f8cd30db3b62e99fb5179cc3d1e76d8c155bfb441e9737d3faf",
+      "path_on_server": "data-root/connectome/raw/proofread_connections_783.feather",
+      "server_match": true,
+      "sha256_local": "24f960ae3e7d4f8cd30db3b62e99fb5179cc3d1e76d8c155bfb441e9737d3faf",
+      "sha256_server": "24f960ae3e7d4f8cd30db3b62e99fb5179cc3d1e76d8c155bfb441e9737d3faf"
+    },
+    {
+      "bytes": 1114168,
+      "manifest_match": true,
+      "manifest_sha256": "7c7b7e818e9232e5ab64793d52ba20574dbe9da3a6509fbc74193b0f259a01be",
+      "path_on_server": "data-root/connectome/raw/proofread_root_ids_783.npy",
+      "server_match": true,
+      "sha256_local": "7c7b7e818e9232e5ab64793d52ba20574dbe9da3a6509fbc74193b0f259a01be",
+      "sha256_server": "7c7b7e818e9232e5ab64793d52ba20574dbe9da3a6509fbc74193b0f259a01be"
+    },
+    {
+      "bytes": 594203480,
+      "hash_recorded_here_for_the_first_time": true,
+      "manifest_match": null,
+      "manifest_sha256": null,
+      "path_on_server": "data-root/connectome/metadata/olfactory_v1_edge_meta.csv",
+      "server_match": true,
+      "sha256_local": "f4035f8ea853f8717cd5cf5929c7158a0dea38fa7b0d0dc5253b9db8647d520c",
+      "sha256_server": "f4035f8ea853f8717cd5cf5929c7158a0dea38fa7b0d0dc5253b9db8647d520c"
+    },
+    {
+      "bytes": 858391927,
+      "hash_recorded_here_for_the_first_time": true,
+      "manifest_match": null,
+      "manifest_sha256": null,
+      "path_on_server": "data-root/connectome/metadata/olfactory_v1_edge_meta_classified.csv",
+      "server_match": true,
+      "sha256_local": "85c5d3260ab540342396a5354f83f78475cbd544fee8005590bb6f5f082786ce",
+      "sha256_server": "85c5d3260ab540342396a5354f83f78475cbd544fee8005590bb6f5f082786ce"
+    },
+    {
+      "bytes": 775202503,
+      "manifest_match": null,
+      "manifest_sha256": null,
+      "note": "the npz_sha256 (ae86cbb9...) the delivered E2 records and the deploy gate reference",
+      "path_on_server": "data-root/connectome/adjacency/olfactory_v1.npz  (second copy at data/connectome/olfactory_v1.npz)",
+      "server_match": true,
+      "sha256_local": "ae86cbb9f848d39916136467405cab11225682c252228fd0752b8368f5049f8a",
+      "sha256_server": "ae86cbb9f848d39916136467405cab11225682c252228fd0752b8368f5049f8a"
+    }
+  ],
+  "method": "1) the six raw inputs were sha256-compared against the hashes committed in connectome/metadata/olfactory_v1_meta.json -- all six match on BOTH sides; 2) the two edge CSVs have no hash recorded anywhere in the repository, so their sha256 was computed independently on both sides and compared -- both match, and the hashes are recorded here for the first time; 3) the adjacency npz was compared on both sides; 4) the 16 neuron_class_ranking tables were compared hash-by-hash: 16/16 identical.",
+  "server": "root@connect.nmb2.seetacloud.com:31651  /root/autodl-tmp/drososense/data-root/connectome/",
+  "summary": {
+    "all_manifest_match": true,
+    "all_server_match": true,
+    "n_entries": 9,
+    "n_manifest_verifiable": 6,
+    "n_ranking_tables_identical": 16
+  },
+  "verified_at_utc": "2026-09-23T04:27:58.244959+00:00",
+  "why_this_matters": "The local data-root/connectome tree (~12 GB) held the ONLY copy of these inputs. A whole-filesystem search on the server found none of them, and the repository records no download URL, so they are not re-acquirable from anything committed. They were pushed to the server, verified, and only then were the local copies removed."
+}

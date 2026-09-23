@@ -84,6 +84,31 @@ missing.
    aside, or renamed and renamed back in a command whose failure mode is "nothing
    happens".
 
+## Follow-on: the local connectome data was moved to the server, deliberately
+
+Separately from this incident, the user asked to free local disk space by
+removing the ~12 GB `data-root/connectome` tree. It was first established that the
+server held **none** of it — a whole-filesystem search found no `flywire_synapses_783`,
+no `proofread_connections_783`, no edge CSVs — and that the repository records no
+download URL, so those bytes are not re-acquirable from anything committed. The
+tree was therefore pushed to
+`/root/autodl-tmp/drososense/data-root/connectome/` and **verified before
+deletion**: the six raw inputs were sha256-compared against the hashes committed
+in `connectome/metadata/olfactory_v1_meta.json` (6/6 match on both sides), the two
+edge CSVs — which had **no hash recorded anywhere** — were hashed independently on
+both sides and matched, the adjacency npz matched (`ae86cbb9…`), and the 16
+neuron-class-ranking tables matched 16/16. Only then were the local copies
+removed; 12.2 GB was freed (the disk had been at 98 %).
+
+The full per-file evidence, including the two edge-CSV hashes now recorded for
+the first time, is `results/audit/m4_audit/server_data_verification.json`.
+
+One consequence, stated rather than discovered later: two real-NPZ guard tests in
+`tests/test_reservoir_topology.py` now **skip** locally with the reason
+"olfactory_v1.npz not provisioned in this environment" (the local suite is 515
+passed / 8 skipped instead of 517 / 6). They run on the server, where the NPZ
+lives.
+
 ## The test failure that prompted it — separate, real, and not fixed here
 
 The failure was
