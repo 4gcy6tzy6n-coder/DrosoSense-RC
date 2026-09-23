@@ -524,14 +524,27 @@ def test_the_gate_outcome_does_not_depend_on_the_git_ignored_run_records(protoco
     finally:
         monkeypatch_target.RESULTS_RAW_DIR = original
 
-    assert with_results == without_results
-    # The scope's own provenance agrees model for model between the two trees.
-    assert with_scope.provenance()["terms"].keys() == without_scope.provenance()["terms"].keys()
+    # The VERDICT must not depend on whether results/raw is present. The
+    # provenance legitimately does: with the records present an unevaluable scope
+    # says "conflicting values, here they are", and with the tree absent it says
+    # "no rows in the declared scope". Both are UNEVALUABLE, and diagnosing them
+    # identically would be the wrong kind of stable.
+    assert {k: v["result"] for k, v in with_results.items()} == {
+        k: v["result"] for k, v in without_results.items()
+    }, "a verdict must not depend on the git-ignored records"
+    for rule_id, entry in with_results.items():
+        if entry["result"] == "UNEVALUABLE":
+            assert entry["reason"], rule_id
+            assert without_results[rule_id]["reason"], rule_id
+
+    # The scope's own counts agree model for model between the two trees: absent
+    # the rows there is no count at all, never a substituted one.
     for model in with_scope.provenance()["terms"]:
         assert (
             with_scope.provenance()["terms"][model]["parameter_count"]
             == without_scope.provenance()["terms"][model]["parameter_count"]
         ), model
+    assert set(with_scope.provenance()["terms"]) == set(without_scope.provenance()["terms"])
 
 
 @pytest.mark.integration
