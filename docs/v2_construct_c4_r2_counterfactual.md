@@ -1,7 +1,11 @@
 # v2 construct phase — C4, R2 as a wiring-only counterfactual
 
-**Status: IMPLEMENTED, MEASURED, GATE FAILS — AND THE FAILURE IS A SPECIFICATION
-PROBLEM THAT NEEDS AN OWNER DECISION, NOT A CODE FIX.**
+**Status: IMPLEMENTED AND MEASURED — AND C4 NOW PASSES, UNDER
+[AMENDMENT 1](v2_preregistration_amendment_1.md) (signed by the owner).**
+
+The first measurement FAILED, and the failure was a specification problem rather than an
+algorithm defect: §2–§4 below are that diagnosis, kept because it is what produced the
+amendment. §1 states the final, passing result.
 
 The conservations hold exactly. What fails is **mixing** (C4.6 + C4.7), and the cause is
 now measured precisely: the weight multiset R0 carries is the **normalized and rescaled**
@@ -17,9 +21,37 @@ No model was fitted, no test split was read, no formal inference ran.
 
 ---
 
-## 1. The gate run, verbatim
+## 1. The final gate result (after amendment 1)
 
 `ops/audit/v2_construct_check.py --only C4 --din 5 --target-n 1000 --c4-time-budget 600`:
+
+```
+degree_exact                 True      PASS
+global_weights_exact         True      PASS
+per_source_weights_exact     True      PASS
+input_population_same        True      PASS
+median_in_strength_err       0.0       PASS     (<= 0.05)
+edge_overlap                 0.19998   PASS     (<= 0.2224 = 1.10 x E[overlap])
+build_time                   13.95 s   PASS     (<= 600 s)
+mixing_declared              True      PASS
+C4                           PASS
+swaps accepted=574,532 attempted=576,001 overlap=0.2000 seconds=13.95 stopped=target_overlap
+```
+
+Mixing curve (accepted swaps → overlap): `1.0000 → 0.4340 → 0.2710 → 0.2094 → 0.2065 →
+0.2000` — a monotone approach to the target, against the **flat** `0.8585` line the first
+design produced (§2). Acceptance rate **0.997**; deterministic on repeat.
+
+The amended measurement object is the **raw synapse-count graph** of the selected
+substrate, with the declared normalization and R0's scale applied identically to both
+graphs (amendment 1, A1.1). Disclosed with it: the normalized **in**-strength profile
+differs by 0.455 (median) between R0 and R2 — the wiring's own signature, since normalizing
+by each source's outgoing mass turns "how much arrives" into "what share of each source's
+output arrives" — and R2's spectral radius is 0.933× R0's, because a shared weight scale
+and a matched radius are mutually exclusive (the alternative is measured beside it at 0.453
+in-strength difference). The normalized per-**source** out-strength is **exact**.
+
+The pre-amendment failure, kept for the record:
 
 ```
 degree_exact                    True      PASS
@@ -114,7 +146,7 @@ graphs, so the two share a scale — the normalized in-strength is preserved exa
 cost of R2's spectral radius differing from R0's (which design A already reports: ratio
 0.955).
 
-## 4. The decision (owner)
+## 4. The decision (owner) — RESOLVED
 
 The signed rule is that a failed criterion is reported, never relaxed, and that relaxing
 one after seeing a result is a **protocol amendment**. So this is put to the owner. The
@@ -133,6 +165,11 @@ matrix, and normalization is a function of the wiring.**
   in-strength, mixing 0.200 in 14.4 s. The price is a disclosure: the *normalized*
   per-source weight multisets differ, because the columns are wired differently.
 
+**Signed by the owner: Reading R2**, together with the floor-relative C4.6. The amendment
+that records it, with its measured consequences and its two required disclosures, is
+[`docs/v2_preregistration_amendment_1.md`](v2_preregistration_amendment_1.md). The analysis
+that produced it follows.
+
 **Recommendation: Reading R2, declared as a measurement-object clarification.** It matches
 D6's own words ("same directed degree sequence / same global weight multiset / same
 per-source outgoing weight multiset" — the graph's weights, not a derivative of them),
@@ -140,7 +177,7 @@ and it matches the defect D6 repairs (`np.ones(n_edges)`: the weights destroyed 
 source*). It is also the only reading under which a counterfactual that satisfies all of
 C4.1–C4.7 exists at all, and it comes with a checkable disclosure rather than a caveat.
 
-**A second, separable question.** C4.6's absolute 0.20 is below the C2 substrate's own
+**A second, separable question — also resolved (floor-relative C4.6).** C4.6's absolute 0.20 is below the C2 substrate's own
 mixing floor (0.2022). Even with design C, a future denser substrate would hit this again.
 Making C4.6 floor-relative — `O ≤ min(0.20, 1.10 × E[overlap])`, with `E[overlap]` computed
 by the declared estimator above — would keep the criterion's intent (*has the chain

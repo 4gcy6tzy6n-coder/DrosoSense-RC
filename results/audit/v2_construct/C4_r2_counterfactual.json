@@ -10,8 +10,8 @@
     "R2": {
       "n_edges": 80443,
       "n_nodes": 1000,
-      "spectral_radius": 1.036655226075013,
-      "spectral_radius_ratio_to_R0": 1.1518392468799665
+      "spectral_radius": 0.839723476197324,
+      "spectral_radius_ratio_to_R0": 0.9330261711723277
     },
     "deterministic_on_repeat": true,
     "measurement_object": {
@@ -78,7 +78,7 @@
         "threshold": 0.22244603327343673
       },
       "C4.7_build_seconds": {
-        "observed": 14.274860424920917,
+        "observed": 13.951927994843572,
         "pass": true,
         "threshold": "<= 600.0"
       },
@@ -119,7 +119,7 @@
         "original_edge_retention": 0.1999801101400992,
         "overlap_final": 0.1999801101400992,
         "overlap_initial": 1.0,
-        "seconds": 14.274860424920917,
+        "seconds": 13.951927994843572,
         "stopped_because": "target_overlap",
         "swaps_accepted": 574532,
         "swaps_accepted_exact_weight": 574532,
@@ -150,13 +150,20 @@
         "threshold": 0.22244603327343673
       },
       "normalized_pair": {
-        "in_strength_median_relative_error": 0.52030638555859,
+        "in_strength_median_relative_error": 0.4550211099581772,
         "note": "R2 is NOT rescaled to R0's radius: matching the radius and preserving one weight scale are mutually exclusive, so both radii are reported",
         "object": "declared normalization + R0's scale factor, applied to both graphs",
-        "shared_scale_factor": 0.8454852700534501,
-        "spectral_radius_R0": 0.8999999165534989,
-        "spectral_radius_R2": 1.036655226075013,
-        "spectral_radius_ratio": 1.1518392468799645
+        "out_strength_rows_identical": true,
+        "rho_matched_alternative": {
+          "in_strength_median_relative_error": 0.45296756528076454,
+          "note": "the signed amendment fixes a SHARED weight scale, which leaves R2's spectral radius at 1.152x R0's; the alternative matches the radius and instead leaves the two graphs' total weight different. Both are reported because the choice changes what the R0-vs-R2 dynamics comparison holds fixed (recurrent gain, or weight scale)",
+          "object": "each graph rescaled to the target radius (the family convention, \u00a717)",
+          "shared_scale_factor": 0.8438279648131065
+        },
+        "shared_scale_factor": 0.7873135751377103,
+        "spectral_radius_R0": 0.8999999165534994,
+        "spectral_radius_R2": 0.839723476197324,
+        "spectral_radius_ratio": 0.9330261711723254
       },
       "spectral_radius": {
         "R0": 2682.819404895771,
@@ -177,7 +184,7 @@
           "per_source_weights_exact": true
         },
         "lines": {
-          "build_time": 14.274860424920917,
+          "build_time": 13.951927994843572,
           "degree_exact": true,
           "edge_overlap": 0.1999801101400992,
           "global_weights_exact": true,
@@ -192,6 +199,20 @@
           "median_in_strength_err": 0.05
         }
       }
+    },
+    "raw_conservation": {
+      "degrees_exact": true,
+      "in_degree_hash_R0": "e0d1c0ee0fe4aa5a606277f0598f4a8c65a5cb38397e26a7c93f55489264879a",
+      "in_degree_hash_R2": "e0d1c0ee0fe4aa5a606277f0598f4a8c65a5cb38397e26a7c93f55489264879a",
+      "max_abs_in_degree_delta": 0,
+      "max_abs_out_degree_delta": 0,
+      "object": "raw synapse-count graph of the selected substrate",
+      "out_degree_hash_R0": "0ec9427a7fe6a7b7448a661d9cf12623a55f4e1d86858c06ed9e10155e3df1cf",
+      "out_degree_hash_R2": "0ec9427a7fe6a7b7448a661d9cf12623a55f4e1d86858c06ed9e10155e3df1cf",
+      "per_source_hash_R0": "25db89745d6d83dc8bbf1bf0cf8225fc1d985c6670ca987ec3abb534ca459210",
+      "per_source_hash_R2": "25db89745d6d83dc8bbf1bf0cf8225fc1d985c6670ca987ec3abb534ca459210",
+      "weight_multiset_hash_R0": "631be3f61f24e8ff25f82c684fbd46a6f3b2353d17f6658610d05f700a6cdf47",
+      "weight_multiset_hash_R2": "631be3f61f24e8ff25f82c684fbd46a6f3b2353d17f6658610d05f700a6cdf47"
     },
     "report_schema": "c4_r2_counterfactual/1",
     "settings": {
@@ -401,7 +422,7 @@
         "per_source_weights_exact": true
       },
       "lines": {
-        "build_time": 14.274860424920917,
+        "build_time": 13.951927994843572,
         "degree_exact": true,
         "edge_overlap": 0.1999801101400992,
         "global_weights_exact": true,
@@ -417,10 +438,10 @@
       }
     }
   },
-  "generated_at_utc": "2026-09-23T10:22:15Z",
+  "generated_at_utc": "2026-09-23T10:24:30Z",
   "provenance": {
     "fits_no_model": true,
-    "git_head": "6348493d0a452177dc33c402bd5601981fdd428c",
+    "git_head": "7081968ab9547077062784dfb2a20601567e5331",
     "touches_test_split": false,
     "validation_only": true
   },

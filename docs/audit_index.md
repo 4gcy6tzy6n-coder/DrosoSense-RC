@@ -307,6 +307,41 @@ Enrichment 2.29× vs **78.71×**. Three things are recorded rather than glossed:
   point. The composition (24.3 % ORNs against the connectome's 1.83 %) is a declared
   allocation, not a biological ratio.
 
+**C4 is implemented and measured, and the gate PASSES under AMENDMENT 1** —
+[`docs/v2_preregistration_amendment_1.md`](v2_preregistration_amendment_1.md),
+[`docs/v2_construct_c4_r2_counterfactual.md`](v2_construct_c4_r2_counterfactual.md),
+`results/audit/v2_construct/C4_r2_counterfactual.json`. The four conservations are exact
+(degree hashes, weight multiset hashes, per-source hashes, input pathway identical) and
+overlap is 0.19998 in 13.95 s — but the amendment had to be signed first, and the failure
+that produced it is preserved in the record because it is what made the owner decide the
+amendment should exist.
+
+The pre-amendment failure was a specification problem, not an algorithm defect:
+
+- the counterfactual was built on R0's **normalized** matrix and asked to preserve its
+  weight multiset exactly; but `n1_pre_l1` is the presynaptic L1 normalization (rows),
+  measured against the delivered block, so the normalized weights are a function of the
+  wiring and the swap space collapses to ~5 edges per weight class — overlap stalls **flat
+  at 0.858** over 4.3 M swaps;
+- C4.6's fully-mixed expectation is substrate-dependent: 0.0570 on the v1 substrate it
+  was calibrated on, **0.2022** on the C2 substrate — i.e. AT the absolute 0.20 threshold.
+
+**Amendment 1 declares** that C4.2/C4.3/C4.4/C4.6 are measured on the **raw** synapse-count
+graph (the biological object) with the declared normalization applied identically to both
+graphs under R0's scale factor, and that C4.6 is floor-relative (`overlap ≤ max(0.20, 1.10 ·
+E[overlap])`). The amended result passes every line. Two disclosures on every R2 line: the
+normalized in-strength profile differs by 0.455 (median) — the wiring's own signature,
+not gated — and R2's spectral radius differs by ~6.7 % (the family convention matches
+radius; the alternative is measured beside it at 0.453 in-strength difference).
+
+**What the first run caught** — was that C4.6 was doing exactly its job. The earlier
+description remains the record of how the finding came about.
+
+**What C4 passing does and does not licence.** It says a fair wiring-only counterfactual
+exists and is measurable. It says nothing about biology, and no formal inference has run.
+C3 (`R_t`, memory benefit, effective rank) may now start — it needs a valid R0 AND a valid
+R2, which is exactly what amendment 1 closes.
+
 **C4 is implemented and measured, and the gate FAILS on mixing** —
 [`docs/v2_construct_c4_r2_counterfactual.md`](v2_construct_c4_r2_counterfactual.md),
 `results/audit/v2_construct/C4_r2_counterfactual.json`. The four conservations hold
