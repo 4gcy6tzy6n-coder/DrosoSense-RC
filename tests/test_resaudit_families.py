@@ -419,3 +419,83 @@ def test_spectral_radius_is_correct_on_a_union_of_cycles():
         rho = spectral_radius_of(A, seed=seed)
         assert rho == pytest.approx(1.0, abs=1e-6), seed
         assert rho > 0
+
+
+# ---------------------------------------------------------------------------
+# Measurement-layer revalidation (spectral-radius defect)
+# ---------------------------------------------------------------------------
+
+
+def test_spectral_radius_matches_dense_truth_on_known_spectra():
+    """Independent oracle: dense eigendecomposition, exact on the cases tested.
+
+    This replaces the earlier regression which only asserted ``rho > 0``. A solver is not
+    validated by failing to return a negative number; it is validated against a spectrum
+    that is known independently.
+    """
+    for lengths in ((4,), (2,), (5, 7, 11), (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37),
+                    (95, 109, 113, 127, 131, 137, 139, 149)):
+        n = sum(lengths)
+        rows: list[int] = []
+        cols: list[int] = []
+        offset = 0
+        for L in lengths:
+            for i in range(L):
+                rows.append(offset + (i + 1) % L)
+                cols.append(offset + i)
+            offset += L
+        A = sp.csr_matrix((np.ones(len(rows)), (rows, cols)), shape=(n, n))
+        truth = float(np.abs(np.linalg.eigvals(A.toarray())).max())
+        assert spectral_radius_of(A) == pytest.approx(truth, abs=1e-9), lengths
+
+
+def test_spectral_radius_is_exact_on_dense_graphs():
+    for n, density, seed in ((60, 0.05, 1), (120, 0.03, 3), (200, 0.02, 4)):
+        rng = np.random.default_rng(seed)
+        m = int(density * n * n)
+        a = rng.integers(0, n, m)
+        b = rng.integers(0, n, m)
+        keep = a != b
+        A = sp.csr_matrix(
+            (rng.uniform(0.1, 1.0, int(keep.sum())), (a[keep], b[keep])), shape=(n, n)
+        )
+        truth = float(np.abs(np.linalg.eigvals(A.toarray())).max())
+        assert spectral_radius_of(A) == pytest.approx(truth, rel=1e-9)
+
+
+def test_scaling_property_holds_not_merely_non_negativity():
+    """The property that matters downstream: rho(alpha*A) == target, on degenerate spectra."""
+    lengths = (95, 109, 113, 127, 131, 137, 139, 149)
+    n = sum(lengths)
+    rows: list[int] = []
+    cols: list[int] = []
+    offset = 0
+    for L in lengths:
+        for i in range(L):
+            rows.append(offset + (i + 1) % L)
+            cols.append(offset + i)
+        offset += L
+    A = sp.csr_matrix((np.ones(len(rows)), (rows, cols)), shape=(n, n))
+    for target in (0.5, 0.95, 2.0):
+        scaled = scale_to_spectral_radius(A, target)
+        assert spectral_radius_of(scaled) == pytest.approx(target, rel=1e-9)
+        truth = float(np.abs(np.linalg.eigvals(scaled.toarray())).max())
+        assert truth == pytest.approx(target, rel=1e-9)
+
+
+def test_the_frozen_layer_estimator_is_not_used_by_resaudit():
+    """The frozen `spectral_radius` uses eigsh (a SYMMETRIC solver) on directed graphs and
+    is wrong by 1.4-26.8% on realistic ones. resaudit must not delegate to it."""
+    import ast
+    from pathlib import Path as _P
+
+    pkg = _P(spectral_radius_of.__module__.replace(".", "/")).parent
+    for path in sorted(pkg.glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                if "connectome_reservoir" in node.module:
+                    names = {a.name for a in node.names}
+                    assert "spectral_radius" not in names, (
+                        f"{path.name} imports the frozen eigsh-based estimator"
+                    )

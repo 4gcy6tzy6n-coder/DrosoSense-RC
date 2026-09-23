@@ -1,0 +1,43 @@
+{
+  "verdict": "REPRODUCED",
+  "dataset": "F1 (frozen S0 substrate)",
+  "raw_connectome_sha256": "243aa18fe7ad838a9f6df1df5e3f46b7d579ffdf5ee839572ff6cbb37998998b",
+  "raw_connectome_layout": "scipy_csr_layout",
+  "selection_rule_version": "v2 substrate: ORN-seeded deterministic expansion over ORN -> PN -> KC/higher_order -> MBON/DAN, frontier by cumulative synapse mass with ties by root id, induced edges kept",
+  "selection_settings": {
+    "din": 5,
+    "target_n": 1000,
+    "seed": 0,
+    "rho_target": 0.9
+  },
+  "node_list_sha256": "77ec9bfd90d6ec7216f642e1860c815ca972fd7638f1bb464766b9053faccb1e",
+  "edge_list_sha256": "a840f45bd5c96ce654f8ff9c5957b0ec3eb158527a417ff635b462e03815740a",
+  "A_sha256_observed": "3aa95745aea38ea85b4750c51c5262bd3d79c64e3450cca9a07fa8ecb33dac20",
+  "A_sha256_frozen_NOT_AN_IDENTITY": "3aa95745aea38ea85b4750c51c5262bd3d79c64e3450cca9a07fa8ecb33dac20",
+  "A_hash_defect": "amendment 5: score_matrix normalises with an unseeded eigsh estimate, so this digest is not reproducible; the wiring-level hashes are the reproduction criterion",
+  "N": 1000,
+  "M": 80443,
+  "B5_sha256_historical": "3bd78eaca10cad865749a6bb1d04871d83a48af48b83ee5d1000e9ca39e7d968",
+  "B_sha256": {},
+  "B_blocked_din": {
+    "6": "InputMappingError: din_per_layer must sum to total_din=6 for the declared layers ['ORN', 'PN', 'KC'], got {'ORN': 2, 'PN': 2, 'KC': 1}",
+    "8": "InputMappingError: din_per_layer must sum to total_din=8 for the declared layers ['ORN', 'PN', 'KC'], got {'ORN': 2, 'PN': 2, 'KC': 1}"
+  },
+  "B_blocker_reason": "DEFAULT_TYPED_ALIGNED_DIN_PER_LAYER = {ORN:2, PN:2, KC:1} sums to 5 and build_typed_aligned_mapping requires the allocation to sum to total_din. The rule declares no allocation for any other width, so Din=6 (FD1/FD3) and Din=8 (FD2) cannot be instantiated without inventing one. No allocation was improvised; this awaits an operator decision.",
+  "status": "PARTIAL: F1 wiring verified; B at Din=5 verified; B at Din=6/8 blocked",
+  "dataset_din": {
+    "FD1": 6,
+    "FD3": 6,
+    "FD2": 8
+  },
+  "input_mapping_rule": "amended-2/3 typed-aligned mapping, receiving_fraction=0.80, density_limit=0.16",
+  "nested_property_B6_is_B8_prefix": null,
+  "din_affects_wiring": true,
+  "din_wiring_note": "expand_from_orns is Din-parameterized (ORN seed budget, class/group floors, ORN_FLOOR(din)), so S0 generated at Din=6/8 is a different substrate. Amendment 4 requires A byte-identical across widths, so the wiring is materialized once in the frozen Din=5 selection context and only B is re-instantiated.",
+  "protocol_amendment_hashes": {
+    "amendment_3": "655acc84effa19f6e9eb3dfab8ca9389485155aa96cd1826e5b6fdb24988dd11",
+    "amendment_4": "9992d79f4ed524da0b13babd62345a6c2452b03c4b7f9ca9c0eb9bdc18ed9ac1"
+  },
+  "git_head": "71cecb090d95f78d5caccedb45b970763ef24cc5",
+  "generated_utc": "2026-09-23T16:40:57.861418+00:00"
+}

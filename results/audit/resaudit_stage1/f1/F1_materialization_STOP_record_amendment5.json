@@ -1,0 +1,26 @@
+{
+  "verdict": "PROVENANCE_FAILURE",
+  "reproduced": {
+    "n_nodes": 1000,
+    "n_edges": 80443,
+    "A_hash": "d3ae4a4dcde2f394cd7f99d75b4364b0c276780a622f0a8956710a50b5c1aafc",
+    "B_hash": "3bd78eaca10cad865749a6bb1d04871d83a48af48b83ee5d1000e9ca39e7d968"
+  },
+  "expected": {
+    "n_nodes": 1000,
+    "n_edges": 80443,
+    "din": 5,
+    "A_hash": "3aa95745aea38ea85b4750c51c5262bd3d79c64e3450cca9a07fa8ecb33dac20",
+    "B_hash": "3bd78eaca10cad865749a6bb1d04871d83a48af48b83ee5d1000e9ca39e7d968"
+  },
+  "checks": {
+    "n_nodes": true,
+    "n_edges": true,
+    "A_hash": false,
+    "B_hash": true
+  },
+  "raw_connectome_sha256": "243aa18fe7ad838a9f6df1df5e3f46b7d579ffdf5ee839572ff6cbb37998998b",
+  "raw_layout": "scipy_csr_layout",
+  "git_head": "71cecb090d95f78d5caccedb45b970763ef24cc5",
+  "generated_utc": "2026-09-23T16:39:28.838407+00:00"
+}

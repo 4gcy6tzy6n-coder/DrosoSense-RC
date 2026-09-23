@@ -1,0 +1,350 @@
+{
+  "blast_radius": {
+    "artifacts": [
+      {
+        "artifact": "A3 Krylov score",
+        "d_eff_scaled_to_frozen_convention": 25.215278147351633,
+        "d_eff_unscaled": 25.435954172281726,
+        "note": "krylov_score never rescales A; A3 is scale-SENSITIVE but not scale-COMPUTED. The estimator cannot corrupt it except by supplying a wrong scale to the caller.",
+        "passes_through_spectral_radius": false,
+        "status": "UNAFFECTED"
+      },
+      {
+        "artifact": "A4 construct-validity ladder",
+        "note": "a4_validity.audit_family_direction scales A to each rung with scale_to_spectral_radius, so every rung's realized rho was suspect.",
+        "passes_through_spectral_radius": true,
+        "status": "RECOMPUTED_BELOW"
+      },
+      {
+        "artifact": "stage1_calibration",
+        "note": "uses spectral_radius_of directly",
+        "passes_through_spectral_radius": true,
+        "status": "RECOMPUTED_BELOW"
+      },
+      {
+        "artifact": "f2_f3_f5_generators",
+        "note": "uses spectral_radius_of directly",
+        "passes_through_spectral_radius": true,
+        "status": "RECOMPUTED_BELOW"
+      },
+      {
+        "artifact": "f4_feasibility",
+        "note": "imports no spectral-radius function; unaffected by construction",
+        "passes_through_spectral_radius": false,
+        "status": "UNAFFECTED"
+      }
+    ]
+  },
+  "conclusion_survival": {
+    "families": [
+      {
+        "directional": false,
+        "family": "C1",
+        "ladder": [
+          {
+            "M_recurrent_mean": 0.00983146527008651,
+            "observable_mean": 0.0,
+            "rho": 0.0,
+            "rho_realised": 0.0
+          },
+          {
+            "M_recurrent_mean": 0.010537397721018412,
+            "observable_mean": 0.06726270694693122,
+            "rho": 0.25,
+            "rho_realised": 0.2499999999999994
+          },
+          {
+            "M_recurrent_mean": 0.011111510230108736,
+            "observable_mean": 0.10471913051101145,
+            "rho": 0.5,
+            "rho_realised": 0.4999999999999988
+          },
+          {
+            "M_recurrent_mean": 0.011199713272582004,
+            "observable_mean": 0.07695287167611939,
+            "rho": 0.75,
+            "rho_realised": 0.7499999999999997
+          },
+          {
+            "M_recurrent_mean": 0.009864061316164274,
+            "observable_mean": -0.12369343837428222,
+            "rho": 0.95,
+            "rho_realised": 0.9499999999999996
+          }
+        ],
+        "monotone_nondecreasing": false,
+        "observable_at_operating": -0.12369343837428222
+      },
+      {
+        "directional": false,
+        "family": "C2",
+        "ladder": [
+          {
+            "M_recurrent_mean": 0.009391810620839505,
+            "observable_mean": 0.0,
+            "rho": 0.0,
+            "rho_realised": 0.0
+          },
+          {
+            "M_recurrent_mean": 0.00996081436403041,
+            "observable_mean": 0.05950301491088814,
+            "rho": 0.25,
+            "rho_realised": 0.2500000000000001
+          },
+          {
+            "M_recurrent_mean": 0.010887359002110858,
+            "observable_mean": 0.13244285488094698,
+            "rho": 0.5,
+            "rho_realised": 0.5000000000000002
+          },
+          {
+            "M_recurrent_mean": 0.011279903921044276,
+            "observable_mean": 0.14816003757707802,
+            "rho": 0.75,
+            "rho_realised": 0.7499999999999999
+          },
+          {
+            "M_recurrent_mean": 0.010320641865155668,
+            "observable_mean": 0.049345183445480355,
+            "rho": 0.95,
+            "rho_realised": 0.9499999999999995
+          }
+        ],
+        "monotone_nondecreasing": false,
+        "observable_at_operating": 0.049345183445480355
+      },
+      {
+        "directional": false,
+        "family": "C3",
+        "ladder": [
+          {
+            "M_recurrent_mean": 0.01637624384497951,
+            "observable_mean": 0.0,
+            "rho": 0.0,
+            "rho_realised": 0.0
+          },
+          {
+            "M_recurrent_mean": 0.017024742551719804,
+            "observable_mean": 0.023390552130977522,
+            "rho": 0.25,
+            "rho_realised": 0.25
+          },
+          {
+            "M_recurrent_mean": 0.016286856268751544,
+            "observable_mean": -0.03439167181595652,
+            "rho": 0.5,
+            "rho_realised": 0.5000000000000001
+          },
+          {
+            "M_recurrent_mean": 0.015051465062673866,
+            "observable_mean": -0.15207902106018426,
+            "rho": 0.75,
+            "rho_realised": 0.7500000000000002
+          },
+          {
+            "M_recurrent_mean": 0.014917031478611804,
+            "observable_mean": -0.16100706409318796,
+            "rho": 0.95,
+            "rho_realised": 0.9500000000000002
+          }
+        ],
+        "monotone_nondecreasing": false,
+        "observable_at_operating": -0.16100706409318796
+      },
+      {
+        "directional": false,
+        "family": "C6",
+        "ladder": [
+          {
+            "M_recurrent_mean": 0.01637624384497952,
+            "observable_mean": 0.0,
+            "rho": 0.0,
+            "rho_realised": 0.0
+          },
+          {
+            "M_recurrent_mean": 0.017007456086880885,
+            "observable_mean": 0.021159630126096375,
+            "rho": 0.25,
+            "rho_realised": 0.24999999999999997
+          },
+          {
+            "M_recurrent_mean": 0.016235212637396575,
+            "observable_mean": -0.04820677085982162,
+            "rho": 0.5,
+            "rho_realised": 0.49999999999999994
+          },
+          {
+            "M_recurrent_mean": 0.015194907570737905,
+            "observable_mean": -0.1767012422450318,
+            "rho": 0.75,
+            "rho_realised": 0.7499999999999993
+          },
+          {
+            "M_recurrent_mean": 0.010852452052896751,
+            "observable_mean": -1.0235401633160814,
+            "rho": 0.95,
+            "rho_realised": 0.9499999999999995
+          }
+        ],
+        "monotone_nondecreasing": false,
+        "observable_at_operating": -1.0235401633160814
+      }
+    ],
+    "n_directional": 0,
+    "n_families": 4,
+    "note": "Recomputed with the corrected solver. The A4 observable is a memory metric evaluated on the driven state, so a change of realized rho can move it; the verdict is therefore re-derived rather than assumed.",
+    "verdict": "NOT_DIRECTIONAL"
+  },
+  "historical_artifacts": [
+    {
+      "exists": true,
+      "path": "results/audit/resaudit_a4_validity/A4_construct_validity.json",
+      "superseded_by": "results/audit/resaudit_rho_impact/rho_impact_audit.json",
+      "why_in_scope": "A4 ladder rungs were scaled through the pre-fix estimator"
+    },
+    {
+      "exists": true,
+      "path": "results/audit/resaudit_stage1/ResAudit_stage1.json",
+      "superseded_by": "results/audit/resaudit_rho_impact/rho_impact_audit.json",
+      "why_in_scope": "C1/C2 toylike families scaled through the pre-fix estimator"
+    },
+    {
+      "exists": true,
+      "path": "results/audit/v3_selection/V3_substrate_selection.json",
+      "superseded_by": "results/audit/resaudit_rho_impact/rho_impact_audit.json",
+      "why_in_scope": "FROZEN project: rho_target scaling; uses eigsh, a separate defect"
+    },
+    {
+      "exists": true,
+      "path": "results/audit/m5_structural_dynamics/M5_structural_dynamics.json",
+      "superseded_by": "results/audit/resaudit_rho_impact/rho_impact_audit.json",
+      "why_in_scope": "FROZEN project: mirrors rescale_to_spectral_radius"
+    },
+    {
+      "exists": true,
+      "path": "results/audit/m4_audit/ledger_repair_E9.json",
+      "superseded_by": "results/audit/resaudit_rho_impact/rho_impact_audit.json",
+      "why_in_scope": "FROZEN project: ledger repair over rho-scaled topologies"
+    }
+  ],
+  "policy": "historical outputs are never overwritten; a suspect artifact is marked INVALIDATED_BY_MEASUREMENT_BUG and superseded by this report",
+  "report": "measurement-layer impact audit: spectral-radius defect",
+  "solver_validation": {
+    "dense_eigenspectrum_cases": [
+      {
+        "abs_err": 0.0,
+        "candidate_subspace": 1.511144873000251,
+        "density": 0.05,
+        "frozen_eigsh": 1.9699157218960386,
+        "n": 60,
+        "oracle_dense": 1.511144873000251
+      },
+      {
+        "abs_err": 0.0,
+        "candidate_subspace": 4.481490636063735,
+        "density": 0.1,
+        "frozen_eigsh": 4.897117778127079,
+        "n": 80,
+        "oracle_dense": 4.481490636063735
+      },
+      {
+        "abs_err": 0.0,
+        "candidate_subspace": 1.815578903460033,
+        "density": 0.03,
+        "frozen_eigsh": 2.4797699178220087,
+        "n": 120,
+        "oracle_dense": 1.815578903460033
+      },
+      {
+        "abs_err": 0.0,
+        "candidate_subspace": 2.207041331343975,
+        "density": 0.02,
+        "frozen_eigsh": 2.843346568701552,
+        "n": 200,
+        "oracle_dense": 2.207041331343975
+      }
+    ],
+    "known_spectrum_cases": [
+      {
+        "candidate_abs_err": 0.0,
+        "candidate_subspace": 1.0000000000000004,
+        "case": "4-cycle (n=4, rho=1)",
+        "frozen_eigsh": 1.5908594582243407,
+        "n": 4,
+        "oracle_arnoldi_LM": 1.0000000000000002,
+        "oracle_dense": 1.0000000000000004,
+        "pre_fix_power": 1.0000000000000004
+      },
+      {
+        "candidate_abs_err": 0.0,
+        "candidate_subspace": 1.0,
+        "case": "single 2-cycle",
+        "frozen_eigsh": 1.0,
+        "n": 2,
+        "oracle_arnoldi_LM": NaN,
+        "oracle_dense": 1.0,
+        "pre_fix_power": 1.0
+      },
+      {
+        "candidate_abs_err": 0.0,
+        "candidate_subspace": 1.000000000000001,
+        "case": "3 coprime cycles (n=23)",
+        "frozen_eigsh": 1.9167973371628293,
+        "n": 23,
+        "oracle_arnoldi_LM": 0.9999999999999986,
+        "oracle_dense": 1.000000000000001,
+        "pre_fix_power": 1.000000000000001
+      },
+      {
+        "candidate_abs_err": 1.1324274851176597e-14,
+        "candidate_subspace": 1.0000000000000007,
+        "case": "8 disjoint cycles (n=1000, degenerate)",
+        "frozen_eigsh": 1.9807631238919727,
+        "n": 1000,
+        "oracle_arnoldi_LM": NaN,
+        "oracle_dense": 1.000000000000012,
+        "pre_fix_power": 0.006292436535678464
+      },
+      {
+        "candidate_abs_err": 0.0,
+        "candidate_subspace": 1.000000000000003,
+        "case": "12 coprime cycles (n=197)",
+        "frozen_eigsh": 1.978929634103756,
+        "n": 197,
+        "oracle_arnoldi_LM": NaN,
+        "oracle_dense": 1.000000000000003,
+        "pre_fix_power": 1.000000000000003
+      }
+    ],
+    "scaling_property": [
+      {
+        "abs_err_vs_target": 0.0,
+        "case": "4-cycle (n=4, rho=1)",
+        "oracle_after_scaling": 0.95,
+        "rho_after_scaling": 0.95
+      },
+      {
+        "abs_err_vs_target": 2.220446049250313e-16,
+        "case": "single 2-cycle",
+        "oracle_after_scaling": 0.9500000000000002,
+        "rho_after_scaling": 0.9500000000000002
+      },
+      {
+        "abs_err_vs_target": 4.440892098500626e-16,
+        "case": "3 coprime cycles (n=23)",
+        "oracle_after_scaling": 0.9499999999999995,
+        "rho_after_scaling": 0.9499999999999995
+      },
+      {
+        "abs_err_vs_target": 6.328271240363392e-15,
+        "case": "8 disjoint cycles (n=1000, degenerate)",
+        "oracle_after_scaling": 0.9500000000000063,
+        "rho_after_scaling": 0.95
+      }
+    ],
+    "validated": true,
+    "worst_abs_error_after_scaling": 6.328271240363392e-15,
+    "worst_abs_error_degenerate": 1.1324274851176597e-14,
+    "worst_abs_error_dense": 0.0
+  }
+}
