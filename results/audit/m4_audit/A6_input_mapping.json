@@ -1,0 +1,57 @@
+{
+  "audit": "A6",
+  "per_size": {
+    "1000": {
+      "N": 1000,
+      "W_in_input_scale": 0.1,
+      "W_in_is_dense": true,
+      "W_in_n_zeros": 0,
+      "W_in_shape": [
+        1000,
+        5
+      ],
+      "W_in_uniform_range": [
+        -0.09996199967853131,
+        0.09991318352107609
+      ],
+      "corr_between_node_degree_and_input_weight_mass": 0.06733595855047916,
+      "every_node_receives_input": true,
+      "input_population_structure": "none \u2014 a single dense random W_in covers ALL nodes uniformly; no ORN/PN input population, no cell-type gating, no layer assignment",
+      "n_nodes_receiving_input": 1000,
+      "relabelling_invariance_max_abs_state_diff": 0.0,
+      "relabelling_leaves_dynamics_unchanged": true,
+      "target_n": 1000
+    },
+    "250": {
+      "N": 250,
+      "W_in_input_scale": 0.1,
+      "W_in_is_dense": true,
+      "W_in_n_zeros": 0,
+      "W_in_shape": [
+        250,
+        5
+      ],
+      "W_in_uniform_range": [
+        -0.09996199967853131,
+        0.09990027045140537
+      ],
+      "corr_between_node_degree_and_input_weight_mass": 0.07256073330957495,
+      "every_node_receives_input": true,
+      "input_population_structure": "none \u2014 a single dense random W_in covers ALL nodes uniformly; no ORN/PN input population, no cell-type gating, no layer assignment",
+      "n_nodes_receiving_input": 250,
+      "relabelling_invariance_max_abs_state_diff": 0.0,
+      "relabelling_leaves_dynamics_unchanged": true,
+      "target_n": 250
+    }
+  },
+  "regime": {
+    "gain": 0.5,
+    "input_scale": 0.1,
+    "leak": 0.1,
+    "readout": "ridge",
+    "ridge_lambda": 0.001,
+    "spectral_radius": 0.9,
+    "state_pooling": "last",
+    "washout": 10
+  }
+}

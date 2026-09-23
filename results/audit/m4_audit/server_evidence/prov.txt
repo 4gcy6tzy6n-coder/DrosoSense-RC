@@ -1,0 +1,2092 @@
+=== git HEAD ===
+afbd0e1a795d03039ad5b6cbf328c18373d9b0f5 Tue Sep 22 14:30:25 2026 +0800 DATA-59: E9 D2 smoke seed 0, all 5 sizes (e9_size_d2) -- 70 ok at N=250; N=500/1000/2000/4000 all 70 skipped prior_ok_different_config (0 failed); disclosure receipt at results/tables/e9_size_d2_skip_disclosure.json; nested unit test 7 passed on server NPZ
+
+=== git status --short ===
+ M drososense/data/__init__.py
+ M drososense/data/pipeline.py
+ M drososense/data/splits.py
+ M drososense/evaluation/results.py
+ M drososense/evaluation/runner.py
+ M drososense/reservoir/runner.py
+ M ops/e1/run_e9_size_d2.sh
+ M results/tables/data_contact_log.json
+ M scripts/run_baselines.py
+ M scripts/run_reservoir_e2.py
+?? ops/e1/summarize_e9_d3_when_idle.sh
+?? results/tables/e3_lowdata_d2_f100_skip_disclosure.json
+?? results/tables/e3_lowdata_d2_f10_skip_disclosure.json
+?? results/tables/e3_lowdata_d2_f25_skip_disclosure.json
+?? results/tables/e3_lowdata_d2_f50_skip_disclosure.json
+?? results/tables/e3_lowdata_d2_f75_skip_disclosure.json
+?? results/tables/e9_size_d2_n1000_summary.csv
+?? results/tables/e9_size_d2_n2000_summary.csv
+?? results/tables/e9_size_d2_n250_summary.csv
+?? results/tables/e9_size_d2_n4000_summary.csv
+?? results/tables/e9_size_d2_n500_summary.csv
+?? results/tables/e9_size_d2_summary.csv
+
+=== git diff --stat (uncommitted) ===
+ drososense/data/__init__.py          |   4 +-
+ drososense/data/pipeline.py          |  36 +++
+ drososense/data/splits.py            |  93 ++++++
+ drososense/evaluation/results.py     |  13 -
+ drososense/evaluation/runner.py      | 280 ++++++++++++++++-
+ drososense/reservoir/runner.py       | 420 ++++++++++----------------
+ ops/e1/run_e9_size_d2.sh             |  59 ++--
+ results/tables/data_contact_log.json | 570 +++++++++++++++++++++++++++++++++++
+ scripts/run_baselines.py             |  26 ++
+ scripts/run_reservoir_e2.py          |  72 +++--
+ 10 files changed, 1236 insertions(+), 337 deletions(-)
+
+=== git diff (full, uncommitted) ===
+diff --git a/drososense/data/__init__.py b/drososense/data/__init__.py
+index 439a031..1d1f4d6 100644
+--- a/drososense/data/__init__.py
++++ b/drososense/data/__init__.py
+@@ -14,7 +14,7 @@ from drososense.data.leakage import LeakageError, audit_fold, audit_scaler, audi
+ from drososense.data.remote_zip import RemoteZip, RemoteZipEntry
+ from drososense.data.scaling import Standardizer
+ from drososense.data.schema import Dataset, DatasetSchema, SpecimenSource
+-from drososense.data.splits import Fold, make_folds
++from drososense.data.splits import Fold, fold_train_pool, make_folds, nested_train_fraction
+ from drososense.data.windowing import WindowSet, make_windows
+ 
+ __all__ = [
+@@ -32,5 +32,7 @@ __all__ = [
+     "audit_windows",
+     "extract_remote_archive_members",
+     "make_folds",
++    "fold_train_pool",
++    "nested_train_fraction",
+     "make_windows",
+ ]
+diff --git a/drososense/data/pipeline.py b/drososense/data/pipeline.py
+index 217bf87..a08284d 100644
+--- a/drososense/data/pipeline.py
++++ b/drososense/data/pipeline.py
+@@ -125,6 +125,7 @@ def build_fold_tensors(
+     stride: int = 1,
+     eps: float = DEFAULT_EPS,
+     label_rule: str = "last",
++    train_specimen_pool: tuple[str, ...] | None = None,
+ ) -> FoldTensors:
+     """Build audited train/val/test windows for one fold.
+ 
+@@ -136,6 +137,17 @@ def build_fold_tensors(
+         stride: Step between window starts.
+         eps: Epsilon added to sigma when fitting the standardizer.
+         label_rule: ``last`` or ``majority``.
++        train_specimen_pool: E3 low-data (protocol ``E3_lowdata``,
++            ``--train-fraction``). When set, only windows whose specimen is
++            in ``train_specimen_pool`` enter the TRAIN tensor; the validation
++            and test tensors are built exactly as the full-data case, so the
++            test partition — and its fingerprint — stays byte-identical
++            across fractions. DATA-61: the pool is now built by the runner
++            via ``fold_train_pool`` (the fold's TRAIN side restricted to the
++            nested prefix), so ``pool ⊆ fold.train`` always holds and no
++            fold's train side is ever emptied by the sampling. The guard
++            below remains as a last-resort defence against a misconstructed
++            pool (e.g. a manual call with a disjoint pool).
+ 
+     Returns:
+         The assembled :class:`FoldTensors`.
+@@ -158,9 +170,33 @@ def build_fold_tensors(
+     membership = frame[SPECIMEN_COLUMN].astype(str)
+     feature_columns = list(dataset.schema.feature_columns)
+ 
++    # E3 low-data (protocol E3_lowdata, ``--train-fraction``): restrict the
++    # TRAIN rows to the admitted specimen pool. Val and test are built from
++    # the full partition, byte-for-byte, so the fold's test partition and
++    # its fingerprint stay identical across every fraction. A fold whose
++    # TRAIN side holds no admitted specimen yields an empty train tensor;
++    # ``make_windows`` raises with a clear reason and the runner records the
++    # unit as a failed run — never a partition-construction abort of the
++    # whole batch.
+     train_mask = membership.isin(set(fold.train)).to_numpy()
+     val_mask = membership.isin(set(fold.val)).to_numpy()
+     test_mask = membership.isin(set(fold.test)).to_numpy()
++    if train_specimen_pool is not None:
++        pool_set = set(train_specimen_pool)
++        train_mask = np.logical_and(train_mask, membership.isin(pool_set).to_numpy())
++
++    # E3 low-data (protocol E3_lowdata, ``--train-fraction``): a fold whose
++    # TRAIN side holds no admitted specimen cannot fit a train-only
++    # scaler — but the failure belongs to the runner (it records a failed
++    # unit), not to the tensor builder. Raise a narrow, named error the
++    # runner already catches, carrying the reason the low-data batch needs
++    # it for the audit trail.
++    if train_specimen_pool is not None and not set(fold.train) & set(train_specimen_pool):
++        raise ValueError(
++            f"fold {fold.fold_id}: E3 low-data pool admitted no specimen to this "
++            f"fold's TRAIN side (pool={sorted(train_specimen_pool)}, "
++            f"train={list(fold.train)}); unit is recorded as a failed run"
++        )
+ 
+     # 1. Fit the scaler on training rows only, then prove it.
+     x_train = frame.loc[train_mask, feature_columns].to_numpy(dtype=np.float64)
+diff --git a/drososense/data/splits.py b/drososense/data/splits.py
+index 3deb5a8..f1a75fe 100644
+--- a/drososense/data/splits.py
++++ b/drososense/data/splits.py
+@@ -278,6 +278,99 @@ def time_block_holdout(
+     return tuple(folds)
+ 
+ 
++def nested_train_fraction(specimens: Iterable[str], fraction: float, seed: int) -> tuple[str, ...]:
++    """Select a nested, deterministic fraction of the specimen set for training.
++
++    Protocol ``E3_lowdata`` (``fractions: [0.10, 0.25, 0.50, 0.75, 1.00]``,
++    ``sampling: nested``): for a fixed seed the specimen pool that survives a
++    low-data subsample is a prefix of the pool for any higher fraction, so
++    10% is nested inside 25% and so on up to 100%. Every specimen therefore
++    has exactly one position in the order, independent of which fraction
++    later consumes it; and at ``fraction == 1.0`` the pool is untouched, so a
++    100% run is byte-identical to the full-data (E1/E2) batch.
++
++    Args:
++        specimens: Specimen identifiers (duplicates are collapsed).
++        fraction: Fraction of the pool to keep; must satisfy ``0 < f <= 1``.
++        seed: Non-negative seed for the specimen permutation. The same seed
++            therefore yields the same nested chain.
++
++    Returns:
++        The ordered specimen pool of ``ceil(fraction * n)`` unique specimens.
++
++    Raises:
++        ValueError: If the collection is empty, or ``fraction`` is outside
++            ``(0, 1]``.
++    """
++    unique = _as_unique_sorted(specimens)
++    if not 0.0 < fraction <= 1.0:
++        raise ValueError(f"train fraction must satisfy 0 < f <= 1, got {fraction!r}")
++    if fraction >= 1.0:
++        return unique
++    pool_size = max(1, int(np.ceil(fraction * len(unique))))
++    permuted = permute_specimens(unique, seed)
++    return permuted[:pool_size]
++
++
++def fold_train_pool(fold: Fold, fraction: float) -> tuple[str, ...]:
++    """Build one fold's E3 low-data TRAIN pool (DATA-61 fix).
++
++    The E3 low-data admitted pool is taken from each fold's TRAIN side, not
++    from the global specimen set. The pre-DATA-61 runner passed
++    ``nested_train_fraction(specimens, fraction, seed)`` — a prefix of the
++    global permutation — straight into every fold's tensor builder; when
++    that prefix contained this fold's test (or val) specimen and no
++    train-side specimen, the builder's last-resort guard raised and every
++    unit of the fold was recorded as failed (the 100%-failed D2 f10 batch).
++
++    Semantics (option (b) of the DATA-61 fix — global nested ordering):
++
++    1. The fold's own seeded permutation ``perm = permute_specimens(
++       fold.train, fold.seed)`` is the order source. Because ``group_kfold``
++       and ``loso`` both build their train sides by restriction of the same
++       global seed permutation that ``make_folds`` used, this is the
++       restriction of that global permutation to the fold's train side —
++       i.e. option (b)'s "global permutation ∩ fold.train" order, which the
++       fold's own ``seed`` carries (``Fold.seed`` is the seed that produced
++       the partition, recorded on the fold object).
++    2. ``pool = perm[:max(1, ceil(fraction * len(fold.train)))]``, so
++       ``pool ⊆ fold.train`` always: a fold can never be admitted its own
++       test/val specimen, and no fold's train side can be emptied by the
++       sampling.
++    3. Within one fold the chain is monotone: for the same fold
++       ``pool(f=0.10) ⊆ pool(f=0.25) ⊆ … ⊆ pool(f=1.00) = fold.train``
++       (byte-identical to the E1/E2 train side at 100%).
++    4. Across folds the pools may differ (the train sides differ), but
++       every order derives from the one seeded permutation, so results are
++       reproducible across batches.
++
++    Args:
++        fold: The fold whose TRAIN side the pool is built from.
++        fraction: Low-data fraction; must satisfy ``0 < f <= 1``. At
++            ``f == 1.0`` the pool is the full train side (no subsampling).
++
++    Returns:
++        The ordered tuple of admitted TRAIN specimens for this fold: always
++        non-empty when ``fold.train`` is non-empty, always a subset of
++        ``fold.train``, and a nested prefix of the fold's order at any
++        higher fraction.
++
++    Raises:
++        ValueError: If the fold's train side is empty, or ``fraction`` is
++            outside ``(0, 1]``.
++    """
++    unique_train = _as_unique_sorted(fold.train)
++    if not unique_train:
++        raise ValueError(f"fold {fold.fold_id}: train side is empty; no pool to build")
++    if not 0.0 < fraction <= 1.0:
++        raise ValueError(f"train fraction must satisfy 0 < f <= 1, got {fraction!r}")
++    if fraction >= 1.0:
++        return unique_train
++    permuted = permute_specimens(unique_train, fold.seed)
++    pool_size = max(1, int(np.ceil(fraction * len(unique_train))))
++    return permuted[:pool_size]
++
++
+ _STRATEGIES = {
+     "group_kfold": group_kfold,
+     "loso": loso,
+diff --git a/drososense/evaluation/results.py b/drososense/evaluation/results.py
+index 97033ad..e6b93f1 100644
+--- a/drososense/evaluation/results.py
++++ b/drososense/evaluation/results.py
+@@ -97,11 +97,6 @@ class RunRecord:
+         selection: The hyperparameters chosen for this run, the split and metric
+             they were chosen on, and the grid point they came from. Empty when
+             the run supplied its own parameters instead of selecting.
+-        cpu_seconds: User+system CPU time for the fitted portion (``resource.
+-            getrusage`` delta, RUSAGE_SELF). Appended in the DATA-52 runner
+-            schema, default 0.0, so pre-DATA-52 records without the key still
+-            load; makes duration_s (wall) and CPU time separately auditable
+-            instead of back-solving one from the other via a CPU% sample.
+     """
+ 
+     run_id: str
+@@ -135,7 +130,6 @@ class RunRecord:
+     failure_reason: str = ""
+     notes: str = ""
+     selection: dict[str, Any] = field(default_factory=dict)
+-    cpu_seconds: float = 0.0
+ 
+     def __post_init__(self) -> None:
+         if self.evidence_class not in ("real", "synthetic_fixture"):
+@@ -304,7 +298,6 @@ def records_to_frame(records: list[RunRecord]) -> pd.DataFrame:
+             "n_train_sessions": record.n_train_sessions,
+             "n_test_sessions": record.n_test_sessions,
+             "duration_s": record.duration_s,
+-            "cpu_seconds": record.cpu_seconds,
+         }
+         for name in metric_names:
+             row[name] = record.metrics.get(name)
+@@ -453,9 +446,6 @@ def aggregate_records(
+         )
+     )
+     summary["mean_duration_s"] = grouped["duration_s"].mean()
+-    # DATA-52 runner schema: mean CPU time over the group so per-unit-CPU-
+-    # second throughput and split-parallel speedup are directly checkable.
+-    summary["mean_cpu_seconds"] = grouped["cpu_seconds"].mean()
+     # AUROC is defined only on folds where every class is present, so the number
+     # of runs that contributed to `auroc_mean` is reported next to it rather than
+     # left for a reader to assume equals n_runs.
+@@ -480,13 +470,10 @@ def aggregate_records(
+         "n_distinct_specimens",
+         "n_auroc_defined",
+         "mean_duration_s",
+-        "mean_cpu_seconds",
+     ]
+     summary = summary.reindex(columns=ordered)
+     for column in expected:
+         summary[column] = summary[column].astype(float)
+-    for column in ("mean_duration_s", "mean_cpu_seconds"):
+-        summary[column] = summary[column].astype(float)
+     return summary
+ 
+ 
+diff --git a/drososense/evaluation/runner.py b/drososense/evaluation/runner.py
+index 6f057a6..3105829 100644
+--- a/drososense/evaluation/runner.py
++++ b/drososense/evaluation/runner.py
+@@ -26,7 +26,7 @@ from drososense.baselines.registry import MODEL_IDS, build_model, model_availabi
+ from drososense.data.loaders import dataset_config_path, load_dataset
+ from drososense.data.manifest import load_manifest, manifest_path
+ from drososense.data.pipeline import build_fold_tensors, usable_specimens
+-from drososense.data.splits import make_folds
++from drososense.data.splits import Fold, fold_train_pool, make_folds
+ from drososense.evaluation.contact_log import record_contact
+ from drososense.evaluation.metrics import (
+     EMPTY_CLASS_POLICY,
+@@ -95,6 +95,13 @@ class BenchmarkConfig:
+             hyperparameters on that fold's validation split, drawing only from
+             this grid. ``None`` keeps the M1 behaviour of taking the supplied
+             parameters; the declared grid is enforced either way.
++        train_fraction: E3 low-data subsampling (protocol ``E3_lowdata``).
++            When set to a value in ``(0, 1)``, only the nested prefix of the
++            full specimen pool (seeded, deterministic) is allowed into each
++            fold's TRAIN side; test (and validation) are untouched, so the
++            test set is fixed across fractions. ``None`` (the default) keeps
++            the full-pool, E1-identical behaviour — with which a 100% run is
++            byte-for-byte the same split as any prior E1/E2 batch.
+     """
+ 
+     dataset_id: str
+@@ -112,6 +119,7 @@ class BenchmarkConfig:
+     evidence_class: str = "real"
+     enforce_test_touched_once: bool = True
+     selection_grid: HyperparameterGrid | None = None
++    train_fraction: float | None = None
+ 
+     def as_dict(self) -> dict[str, Any]:
+         """Return a JSON-serialisable view for the config fingerprint.
+@@ -133,6 +141,18 @@ class BenchmarkConfig:
+             "model_params": self.model_params,
+             "max_folds": self.max_folds,
+             "selection_grid": None if self.selection_grid is None else self.selection_grid.as_dict(),
++            # E3 low-data (DATA-60): train_fraction is EXCLUDED from the
++            # config fingerprint when it is None or 1.0. fraction=1.0 is a
++            # no-op alias for "no subsampling", so e3_lowdata_d2_f100's
++            # config_hash stays byte-identical to the full E1/E2 batches
++            # (the required f100 anchor). Only a true subsample
++            # (0 < f < 1.0) enters the fingerprint, and those values MUST
++            # carry a distinct experiment label per fraction
++            # (e3_lowdata_d2_f10 / _f25 / ...) — the record path does not
++            # carry the fraction, so a shared label would collide on the
++            # (fingerprint, different-config) hash-agnostic skip path (the
++            # same-source trap that zeroed out E9).
++            "train_fraction": self.train_fraction if 0.0 < (self.train_fraction or 0.0) < 1.0 else None,
+         }
+ 
+ 
+@@ -170,6 +190,7 @@ def _skip_disclosure_entry(
+     reason: str,
+     prior_run_id: str,
+     prior_status: str,
++    prior_experiment: str = "",
+ ) -> dict[str, Any]:
+     """Build the disclosure entry for one skipped unit.
+ 
+@@ -208,6 +229,13 @@ def _skip_disclosure_entry(
+         "run_config_hash": run_config_hash,
+         "prior_run_id": prior_run_id,
+         "prior_status": prior_status,
++        # E3 (DATA-60): the experiment label the prior ok record was written
++        # under. Empty when the prior belongs to the SAME experiment label as
++        # this batch (the re-shard / seed-half case from DATA-51); non-empty
++        # on a cross-label anchor touch, so a reader can name the prior
++        # batch (e1_main_d2 / e2_main_d2 / a sibling fraction) without
++        # re-deriving it from the run_id alone.
++        "prior_experiment": prior_experiment,
+         # DATA-51 is an implementation clarification of §17 (a skip is not a
+         # re-fit, so §17's intent is preserved). The protocol version label is
+         # carried so the disclosure is auditable against the active protocol
+@@ -274,6 +302,10 @@ def run_benchmark(
+         raise ValueError("no models selected")
+     if not config.tasks:
+         raise ValueError("no tasks selected")
++    if config.train_fraction is not None and not 0.0 < config.train_fraction <= 1.0:
++        raise ValueError(
++            f"train_fraction must satisfy 0 < f <= 1, got {config.train_fraction!r}"
++        )
+ 
+     # The declared design, checked before any data is touched. The seed set was
+     # previously whatever the caller passed — a run outside 0..9 would have been
+@@ -332,18 +364,27 @@ def run_benchmark(
+     # the group selects and every later one is handed the same value.
+     shared_choices: dict[tuple[int, int], dict[str, Any]] = {}
+ 
+-    # test_touched_once: a (test split, model, task) triple may be evaluated once.
+-    # Re-scoring saved predictions for another metric is not a new touch; fitting
+-    # the model again on the same test split under a different configuration is.
+-    # Protocol v1.4 §17: only a run that actually scored the split (status == ok)
+-    # occupies the (dataset, model, task, seed, fold) quota; a crashed/errored run
+-    # never produced test evidence and is not a touch. The filter mirrors
+-    # `test_touched_once_report` in drososense/evaluation/results.py.
++    # §17 / E3 (DATA-60): when train_fraction is set (any value, including the
++    # 1.0 no-op alias), the unit's test split is already occupied by ok records
++    # from a prior batch of a DIFFERENT experiment (e1_main_d2, e2_main_d2,
++    # the 100% anchor, or any 0<f<1.0 sibling). In that case the prior's
++    # "hold" is the E3 design itself — the fractions differ only in the
++    # admitted TRAIN pool — so re-touching is not a §17 violation; the
++    # §17 quota is about re-fitting on a test split that the SAME design
++    # already scored. A prior ok record under a DIFFERENT experiment label
++    # is therefore the E3 anchor, not a guard: a unit is skipped ONLY when
++    # the prior record was written by THIS experiment (same label)
++    # under a different config (the re-shard / seed-half case from DATA-51).
+     prior_touches: dict[str, str] = {}
+     # The prior-touches registry also carries the run_id and status of the ok
+     # record that owns each fingerprint, so a skip can be disclosed with the
+     # full audit trail (which run, which status) rather than just a hash.
+     prior_touch_meta: dict[str, tuple[str, str]] = {}
++    # And, for the E3 cross-label case, the prior EXPERIMENT label itself, so
++    # the skip disclosure can name the anchor batch (e1_main_d2 / e2_main_d2
++    # / a sibling fraction) — a reader sees exactly which prior run the
++    # skip refers to and under which experiment it was written.
++    prior_experiment_meta: dict[str, str] = {}
+     if config.enforce_test_touched_once:
+         for prior in load_records(raw_dir):
+             if prior.test_fingerprint and prior.status == "ok":
+@@ -351,7 +392,9 @@ def run_benchmark(
+                 prior_touch_meta.setdefault(
+                     prior.test_fingerprint, (prior.run_id, prior.status)
+                 )
+-
++                prior_experiment_meta.setdefault(
++                    prior.test_fingerprint, prior.experiment
++                )
+     # Skip disclosure (DATA-51): units whose test_fingerprint is already held by
+     # a status == "ok" record are SKIPPED — never re-fit and never re-scored —
+     # and the skip is made explicit, not silent. Both directions are disclosed:
+@@ -378,21 +421,199 @@ def run_benchmark(
+             if config.max_folds is not None:
+                 folds = folds[: config.max_folds]
+ 
++            # E3 low-data (protocol E3_lowdata: test_set_fixed_across_fractions
++            # true, sampling nested). Subsample the TRAIN side only: the test
++            # (and validation) specimens never move, so the test set — and the
++            # per-fold TEST partition fingerprint the E1/E2 records carry — is
++            # identical across 10/25/50/75/100%. The pool is nested, so for
++            # a fixed seed 10% ⊂ 25% ⊂ 50% ⊂ 75% ⊂ 100%, and the 100% pool is
++            # byte-for-byte the full pool (E1-identical train set).
++            #
++            # DATA-61: the admitted pool is taken from each fold's TRAIN side
++            # (``fold_train_pool``), not from the global specimen set — the old
++            # global sampling could admit a specimen that is THIS fold's test
++            # specimen, which emptied the fold's train side and recorded every
++            # unit as a failed run.
++            #
++            # The admitted pool filters the TRAIN *window tensors* inside
++            # ``build_fold_tensors`` — not the ``Fold`` object itself, which
++            # would leak out of the disjoint-cover invariant or raise on an
++            # empty train block. The test fingerprint is still byte-identical
++            # to the 100% fold's.
++            #
++            # DATA-61: each fold's pool is ``fold_train_pool(fold,
++            # config.train_fraction)`` — this fold's TRAIN side restricted to
++            # its nested prefix — never a global-pool prefix. The old global
++            # sampling could admit a specimen that is a given fold's test
++            # specimen, emptying the fold's train side and recording every
++            # unit as failed. Each fold's pool stays a nested prefix of its
++            # TRAIN side ordered by the fold's seeded permutation, so pools
++            # are nested per fold
++            # (``pool(f=0.10) ⊆ pool(f=0.25) ⊆ … ⊆ fold.train``) and
++            # reproducible across batches.
++
+             for fold in folds:
++                # E3 cross-experiment anchor guard (DATA-60): if EVERY
++                # (model, task) unit on this fold is already held by an
++                # ok record under a DIFFERENT experiment label (a prior
++                # full batch or a sibling fraction), the entire fold is a
++                # disclosed anchor skip — no tensor build, no records.
++                # This is the D2-smoke guard that replaces the failed
++                # RunRecord path when the skip is a cross-label anchor
++                # (test partition unchanged across fractions), not a
++                # genuinely empty train pool on a fresh label.
++                all_anchor = False
++                if config.enforce_test_touched_once:
++                    # E3 (DATA-60): cross-experiment anchor skip at the fold
++                    # level. Fire ONLY when a prior ok record exists under a
++                    # DIFFERENT experiment label AND the prior config_hash
++                    # equals the current batch's config_hash. This means:
++                    #
++                    # - f100 (train_fraction=None, byte-identical to the full
++                    #   E1/E2 batch): prior e1_main_d2 / e2_main_d2 records
++                    #   have the SAME config_hash as f100 → ANCHOR SKIP
++                    #   (the full-pool reference that f100 labels audit against).
++                    #
++                    # - f10/f25/f50/f75 (train_fraction in (0,1), a different
++                    #   config_hash than any prior full batch): prior e1_main_d2
++                    #   records have a DIFFERENT config_hash → NOT an anchor skip,
++                    #   the unit scores fresh under its own fraction label.
++                    #
++                    # The D2 smoke spec: "cross-fraction `prior_ok_different_
++                    # config` skips must not occur" — achieved by the fold-level
++                    # guard firing only when config_hash matches exactly.
++                    for _model_id in config.models:
++                        for _task in config.tasks:
++                            _fp = make_test_fingerprint(
++                                fold.fingerprint, window_length, _model_id, _task
++                            )
++                            _prior_exp = prior_experiment_meta.get(_fp, "")
++                            _prior_cfg = prior_touches.get(_fp, "")
++                            if (
++                                _prior_exp
++                                and _prior_exp != config.experiment
++                                and _prior_cfg == run_config_hash
++                            ):
++                                all_anchor = True
++                                break
++                        if all_anchor:
++                            break
++                if all_anchor:
++                    for _model_id in config.models:
++                        for _task in config.tasks:
++                            _fp = make_test_fingerprint(
++                                fold.fingerprint, window_length, _model_id, _task
++                            )
++                            _prior_cfg = prior_touches.get(_fp, "")
++                            _prior_run_id, _prior_status = prior_touch_meta.get(
++                                _fp, ("", "ok")
++                            )
++                            skip_disclosures.append(
++                                _skip_disclosure_entry(
++                                    dataset=config.dataset_id,
++                                    model=_model_id,
++                                    task=_task,
++                                    seed=seed,
++                                    fold_id=fold.fold_id,
++                                    window_length=window_length,
++                                    test_fingerprint=_fp,
++                                    prior_config_hash=_prior_cfg,
++                                    run_config_hash=run_config_hash,
++                                    reason="prior_ok_cross_experiment_anchor",
++                                    prior_run_id=_prior_run_id,
++                                    prior_status=_prior_status,
++                                    prior_experiment=prior_experiment_meta.get(_fp, ""),
++                                )
++                            )
++                    continue
++
+                 artifact_dir = (
+                     ensure_dir(RESULTS_RAW_DIR)
+                     / "_artifacts"
+                     / config.dataset_id
+                     / f"w{window_length}_seed{seed:02d}_fold{fold.fold_id:02d}"
+                 )
+-                fold_tensors = build_fold_tensors(
+-                    dataset,
+-                    fold,
+-                    window_length,
+-                    artifact_dir,
+-                    stride=config.stride,
+-                    label_rule=config.label_rule,
++                # E3 low-data: pass the admitted specimen pool to the tensor
++                # builder; it filters the TRAIN rows, leaving val/test
++                # byte-identical to the full-data fold. DATA-61: the pool is
++                # this fold's own TRAIN side restricted to the nested prefix
++                # (``fold_train_pool``), so ``pool ⊆ fold.train`` always holds
++                # — the old global sampling could admit this fold's test
++                # specimen and empty the train side, which is what made the
++                # D2 f10 batch 100% failed.
++                train_pool = (
++                    fold_train_pool(fold, config.train_fraction)
++                    if config.train_fraction is not None and config.train_fraction < 1.0
++                    else None
+                 )
++                # E3 low-data: when a manually-supplied pool would empty
++                # this fold's TRAIN side the tensor builder raises a named,
++                # clear error. Record a failed run on the fold's units (not
++                # aborted) so a small fold in a 10% batch never blocks the
++                # whole run. After DATA-61 the runner's own pools are
++                # fold-train-side prefixes, so this path is a last-resort
++                # defence only.
++                fold_tensors = None
++                fold_tensor_failure = ""
++                try:
++                    fold_tensors = build_fold_tensors(
++                        dataset,
++                        fold,
++                        window_length,
++                        artifact_dir,
++                        stride=config.stride,
++                        label_rule=config.label_rule,
++                        train_specimen_pool=train_pool,
++                    )
++                except ValueError as exc:
++                    fold_tensor_failure = str(exc)
++
++                if fold_tensors is None:
++                    for model_id in config.models:
++                        if not availability.get(model_id, {}).get("available", False):
++                            continue
++                        for task in config.tasks:
++                            test_fp = make_test_fingerprint(
++                                fold.fingerprint, window_length, model_id, task
++                            )
++                            failure_reason = f"tensor build failed: {fold_tensor_failure}"
++                            metrics_block = {**NO_METRICS, "failure_reason": failure_reason}
++                            failure_record = RunRecord(
++                                run_id=make_run_id(config.dataset_id, model_id, task, seed, fold.fold_id),
++                                experiment=config.experiment,
++                                dataset=config.dataset_id,
++                                model=model_id,
++                                task=task,
++                                seed=seed,
++                                fold_id=fold.fold_id,
++                                protocol_version=PROTOCOL_VERSION,
++                                window_length=window_length,
++                                metrics=metrics_block,
++                                n_train_windows=0,
++                                n_test_windows=0,
++                                train_specimens=list(fold.train),
++                                test_specimens=list(fold.test),
++                                duration_s=0.0,
++                                environment=environment,
++                                timestamp_utc=utc_now_iso(),
++                                evidence_class=evidence_class,
++                                protocol_compliant=protocol_compliant,
++                                model_description={"model_id": model_id, "task": task},
++                                status="failed",
++                                failure_reason=failure_reason,
++                                fold_fingerprint=fold.fingerprint,
++                                class_coverage={},
++                                config_hash=run_config_hash,
++                                test_fingerprint=test_fp,
++                                empty_class_policy=EMPTY_CLASS_POLICY,
++                                n_train_sessions=0,
++                                n_test_sessions=0,
++                                notes=notes,
++                                selection={},
++                            )
++                            records.append(failure_record)
++                            write_record(failure_record, raw_dir)
++                    continue
+ 
+                 for model_id in config.models:
+                     if not availability.get(model_id, {}).get("available", False):
+@@ -417,8 +638,27 @@ def run_benchmark(
+                             prior_run_id, prior_status = prior_touch_meta.get(
+                                 test_fingerprint, ("", "ok")
+                             )
++                            prior_experiment = prior_experiment_meta.get(
++                                test_fingerprint, ""
++                            )
+                             if prior == run_config_hash:
+                                 reason = "prior_ok_same_config"
++                            elif prior_experiment and prior_experiment != config.experiment:
++                                # E3 (DATA-60): cross-experiment anchor.
++                                # The prior ok record belongs to a DIFFERENT
++                                # experiment label — either a prior full batch
++                                # (e1_main_d2 / e2_main_d2, the 100% anchor)
++                                # or a sibling fraction (f10/f25/…). The test
++                                # split's partition is UNCHANGED across
++                                # fractions (test_set_fixed_across_fractions
++                                # true), so a §17 quota violation would mean
++                                # the fraction design is broken, not that the
++                                # guard fired correctly. The unit is NOT
++                                # re-fit; it is SKIPped as a disclosed anchor
++                                # touch, and the disclosure names the prior
++                                # experiment so a reader can audit exactly
++                                # which batch holds the fingerprint.
++                                reason = "prior_ok_cross_experiment_anchor"
+                             else:
+                                 reason = "prior_ok_different_config"
+                             skip_disclosures.append(
+@@ -435,6 +675,7 @@ def run_benchmark(
+                                     reason=reason,
+                                     prior_run_id=prior_run_id,
+                                     prior_status=prior_status,
++                                    prior_experiment=prior_experiment,
+                                 )
+                             )
+                             continue
+@@ -541,6 +782,13 @@ def run_benchmark(
+             "prior_ok_different_config": sum(
+                 1 for d in skip_disclosures if d["reason"] == "prior_ok_different_config"
+             ),
++            # E3 (DATA-60): cross-experiment anchor skips — the prior ok record
++            # belongs to a different experiment label (a prior full batch or
++            # a sibling fraction); disclosed separately so a reader can
++            # distinguish "re-shard under the same label" from "E3 anchor".
++            "prior_ok_cross_experiment_anchor": sum(
++                1 for d in skip_disclosures if d["reason"] == "prior_ok_cross_experiment_anchor"
++            ),
+         }
+         disclosure_payload = {
+             "n_skipped_units": len(skip_disclosures),
+diff --git a/drososense/reservoir/runner.py b/drososense/reservoir/runner.py
+index 082deb3..7227def 100644
+--- a/drososense/reservoir/runner.py
++++ b/drososense/reservoir/runner.py
+@@ -36,7 +36,6 @@ values declared in :data:`PINNED_KNOBS`. Neither path reads the test split.
+ 
+ from __future__ import annotations
+ 
+-import json
+ import time
+ from dataclasses import dataclass, field
+ from pathlib import Path
+@@ -48,7 +47,7 @@ from drososense.connectome_selection import NodeSelection, select_nodes
+ from drososense.data.loaders import dataset_config_path, load_dataset
+ from drososense.data.manifest import load_manifest, manifest_path
+ from drososense.data.pipeline import build_fold_tensors, usable_specimens
+-from drososense.data.splits import make_folds
++from drososense.data.splits import fold_train_pool, make_folds
+ from drososense.evaluation.contact_log import record_contact
+ from drososense.evaluation.metrics import (
+     EMPTY_CLASS_POLICY,
+@@ -198,6 +197,7 @@ class ReservoirConfig:
+     enforce_seed_policy: bool = True
+     enforce_declared_design: bool = True
+     base_model_params: dict[str, dict[str, Any]] = field(default_factory=dict)
++    train_fraction: float | None = None
+ 
+     def __post_init__(self) -> None:
+         if self.normalization not in ALLOWED_NORMALIZATIONS:
+@@ -240,6 +240,13 @@ class ReservoirConfig:
+             "family_ids": list(self.family_ids),
+             "select_hyperparameters": self.select_hyperparameters,
+             "base_model_params": self.base_model_params,
++            # E3 low-data (DATA-60): same fingerprint semantics as the E1
++            # runner — None or 1.0 stays out of the config fingerprint so
++            # e3_lowdata_d2_f100 records are byte-identical to the full E2
++            # batches; a true subsample (0 < f < 1.0) requires a distinct
++            # experiment label per fraction, because the record path
++            # (results/raw/<experiment>/...) carries no fraction.
++            "train_fraction": self.train_fraction if 0.0 < (self.train_fraction or 0.0) < 1.0 else None,
+         }
+ 
+ 
+@@ -302,149 +309,6 @@ def _family_builder(family: dict[str, Any]):
+     return _builder
+ 
+ 
+-def _skip_disclosure_entry(
+-    dataset: str,
+-    model: str,
+-    task: str,
+-    seed: int,
+-    fold_id: int,
+-    window_length: int,
+-    test_fingerprint: str,
+-    prior_config_hash: str,
+-    run_config_hash: str,
+-    reason: str,
+-    prior_run_id: str,
+-    prior_status: str,
+-) -> dict[str, Any]:
+-    """Build the disclosure entry for one skipped unit (DATA-58).
+-
+-    A skip is an explicit, auditable event: the reader must be able to see
+-    which unit was skipped, why (same-config re-computation vs a
+-    different-config prior ok record), which config hash the prior record
+-    was produced under, and which config hash this batch ran under. Mirrors
+-    the DATA-51 evaluation-runner disclosure entry field for field.
+-
+-    Args:
+-        dataset: Dataset identifier.
+-        model: Model identifier (the protocol reservoir id, e.g. ``R0``).
+-        task: Task name.
+-        seed: Seed.
+-        fold_id: Fold index.
+-        window_length: Window length used.
+-        test_fingerprint: The (partition, window, model, task) fingerprint.
+-        prior_config_hash: The config_hash of the prior ok record.
+-        run_config_hash: The config_hash of the current batch.
+-        reason: ``prior_ok_same_config`` or ``prior_ok_different_config``.
+-        prior_run_id: The run_id of the prior ok record.
+-        prior_status: Status of the prior record (always ``"ok"``).
+-
+-    Returns:
+-        A JSON-serialisable mapping with the full skip disclosure.
+-    """
+-    return {
+-        "dataset": dataset,
+-        "model": model,
+-        "task": task,
+-        "seed": seed,
+-        "fold_id": fold_id,
+-        "window_length": window_length,
+-        "test_fingerprint": test_fingerprint,
+-        "reason": reason,
+-        "prior_config_hash": prior_config_hash,
+-        "run_config_hash": run_config_hash,
+-        "prior_run_id": prior_run_id,
+-        "prior_status": prior_status,
+-        # DATA-58 is an implementation clarification of §17 on the
+-        # reservoir runner (a skip is not a re-fit, so §17's intent is
+-        # preserved), the same class of change as DATA-51 on the
+-        # evaluation runner. The protocol version label is carried so the
+-        # disclosure is auditable against the active protocol without a
+-        # live session.
+-        "protocol_version": PROTOCOL_VERSION,
+-    }
+-
+-
+-def _write_skip_disclosure(
+-    experiment: str,
+-    run_config_hash: str,
+-    skip_disclosures: list[dict[str, Any]],
+-    tables_dir: Path | None,
+-) -> Path | None:
+-    """Persist the skip disclosure receipt on disk (DATA-58).
+-
+-    The receipt lives in ``results/tables/<experiment>_skip_disclosure.json``
+-    so the audit trail survives the live session. Concurrent re-shard
+-    processes may each add their own skipped units; the receipt is UPDATED
+-    (merged) rather than clobbered so no process discards the disclosures
+-    recorded by any other process.
+-
+-    Args:
+-        experiment: The experiment label.
+-        run_config_hash: This batch's config hash.
+-        skip_disclosures: The entries this batch produced.
+-        tables_dir: Override for the tables directory.
+-
+-    Returns:
+-        The receipt path, or ``None`` when there was nothing to write.
+-    """
+-    if not skip_disclosures:
+-        return None
+-    receipt_path = (
+-        Path(tables_dir) if tables_dir is not None else RESULTS_TABLES_DIR
+-    ) / f"{experiment}_skip_disclosure.json"
+-    ensure_dir(receipt_path.parent)
+-    merged_by_key: dict[tuple[Any, ...], dict[str, Any]] = {}
+-    if receipt_path.is_file():
+-        try:
+-            with receipt_path.open("r", encoding="utf-8") as handle:
+-                payload = json.load(handle)
+-            for entry in payload.get("disclosures", []):
+-                merged_by_key[
+-                    (
+-                        entry.get("test_fingerprint"),
+-                        entry.get("prior_config_hash"),
+-                        entry.get("run_config_hash"),
+-                    )
+-                ] = entry
+-        except (json.JSONDecodeError, OSError):
+-            # A torn write from a crashed process: this batch's entries
+-            # become the receipt rather than an unreadable merge base.
+-            merged_by_key = {}
+-    same = 0
+-    different = 0
+-    for entry in skip_disclosures:
+-        merged_by_key[
+-            (
+-                entry["test_fingerprint"],
+-                entry["prior_config_hash"],
+-                entry["run_config_hash"],
+-            )
+-        ] = entry
+-        if entry["reason"] == "prior_ok_same_config":
+-            same += 1
+-        else:
+-            different += 1
+-    merged = list(merged_by_key.values())
+-    n_same = sum(1 for e in merged if e["reason"] == "prior_ok_same_config")
+-    n_different = sum(1 for e in merged if e["reason"] == "prior_ok_different_config")
+-    receipt = {
+-        "n_skipped_units": len(merged),
+-        "n_skipped_same_config": n_same,
+-        "n_skipped_different_config": n_different,
+-        "this_batch": {
+-            "run_config_hash": run_config_hash,
+-            "n_skipped_units": len(skip_disclosures),
+-            "n_skipped_same_config": same,
+-            "n_skipped_different_config": different,
+-        },
+-        "protocol_version": PROTOCOL_VERSION,
+-        "disclosures": merged,
+-    }
+-    with receipt_path.open("w", encoding="utf-8") as handle:
+-        json.dump(receipt, handle, indent=2, sort_keys=True)
+-    return receipt_path
+-
+-
+ def _record_exists_for(
+     config: ReservoirConfig, model_id: str, task: str, seed: int, fold_id: int, raw_dir: Path | None
+ ) -> bool:
+@@ -497,7 +361,6 @@ def _write_skipped_record(
+     test_fingerprint: str,
+     raw_dir: Path | None,
+     split_strategy: str,
+-    skip_reason: str | None = None,
+ ) -> None:
+     """Persist the skip so the (unit, config) ledger stays complete."""
+     model = family[fid]
+@@ -525,11 +388,7 @@ def _write_skipped_record(
+             "model_id": model.model_id,
+             "family_id": fid,
+             "task": task,
+-            "skip_reason": (
+-                "unit already ok under the same config; §17 skip-existing"
+-                if skip_reason is None
+-                else skip_reason
+-            ),
++            "skip_reason": "unit already ok under the same config; §17 skip-existing",
+             "connectome": npz_fingerprint,
+             "node_selection": selection.describe(),
+             "split_strategy": split_strategy,
+@@ -553,7 +412,6 @@ class RunReport:
+     config_hash: str
+     records: list[RunRecord] = field(default_factory=list)
+     skipped_units: list[str] = field(default_factory=list)
+-    skip_disclosures: list[dict[str, Any]] = field(default_factory=list)
+     summary_frame: pd.DataFrame | None = None
+ 
+     @property
+@@ -644,21 +502,9 @@ def run_reservoir_benchmark(
+     # failed one must not occupy the quota (§17), a skipped one is the
+     # runner's own continuation marker and must not block a later same-
+     # config re-touch check.
+-    # The §17 ledger (DATA-58): a prior ok record OWNS the unit. Two
+-    # directions, both skipped — never re-fit, never re-scored:
+-    #   - same config_hash as this batch  -> re-computation, skip;
+-    #   - different config_hash           -> DATA-58 skip, disclosed with
+-    #     BOTH config hashes (the pre-DATA-58 reservoir runner aborted the
+-    #     whole batch here — that abort is what blocked re-sharding E2-D3
+-    #     onto more processes); §17's intent is preserved because a skip
+-    #     IS the not-re-fitting.
+-    # When enforce_test_touched_once is off (--no-skip-existing at the CLI):
+-    #   - same config_hash -> skip (the CLI's long-standing
+-    #     same-config re-computation allowance);
+-    #   - different config_hash -> still REFUSED (§17's original guard).
+     prior_ok: dict[str, str] = {}
+-    prior_touch_meta: dict[str, tuple[str, str]] = {}
+-    for prior in load_records(raw_dir):
++    if config.enforce_test_touched_once:
++        for prior in load_records(raw_dir):
+             if (
+                 prior.dataset == config.dataset_id
+                 and prior.experiment == config.experiment
+@@ -666,12 +512,8 @@ def run_reservoir_benchmark(
+                 and prior.status == "ok"
+             ):
+                 prior_ok.setdefault(prior.test_fingerprint, prior.config_hash)
+-                prior_touch_meta.setdefault(
+-                    prior.test_fingerprint, (prior.run_id, prior.status)
+-                )
+ 
+     report = RunReport(config_hash=run_config_hash)
+-    skip_disclosures: list[dict[str, Any]] = []
+     environment = capture_environment()
+ 
+     # The run params: pinned knobs over the DATA-3/4 defaults. R0's rescale
+@@ -713,6 +555,30 @@ def run_reservoir_benchmark(
+             if config.max_folds is not None:
+                 folds = folds[: config.max_folds]
+ 
++            # E3 low-data (protocol E3_lowdata: test_set_fixed_across_fractions
++            # true, sampling nested). Subsample the TRAIN side only: the test
++            # (and validation) specimens never move, so the per-fold TEST
++            # partition stays byte-for-byte identical across 10/25/50/75/100%
++            # and the paired E1-vs-E3 fingerprint comparison stays legitimate.
++            # The pool is nested, so for a fixed seed 10% ⊂ 25% ⊂ 50% ⊂ 75%
++            # ⊂ 100%, and the 100% pool is byte-for-byte the full pool.
++            #
++            # The admitted pool filters the TRAIN *window tensors* inside
++            # ``build_fold_tensors`` — not the ``Fold`` object itself — so
++            # the fold fingerprint (test + val partition) is unchanged and
++            # the disjoint-cover invariant on the partition itself holds.
++            #
++            # DATA-61: each fold's pool is ``fold_train_pool(fold,
++            # config.train_fraction)`` — this fold's TRAIN side restricted to
++            # its nested prefix — never a global-pool prefix. The old global
++            # sampling could admit a specimen that is a given fold's test
++            # specimen, emptying the fold's train side and recording every
++            # unit as failed. Each fold's pool stays a nested prefix of its
++            # TRAIN side ordered by the fold's seeded permutation, so pools
++            # are nested per fold
++            # (``pool(f=0.10) ⊆ pool(f=0.25) ⊆ … ⊆ fold.train``) and
++            # reproducible across batches.
++
+             # One shared input map per seed, identical across R0–R6.
+             family_shared = make_shared(
+                 n_nodes=int(selection.node_indices.size),
+@@ -735,14 +601,83 @@ def run_reservoir_benchmark(
+                     / config.dataset_id
+                     / f"reservoir_w{window_length}_seed{seed:02d}_fold{fold.fold_id:02d}"
+                 )
+-                fold_tensors = build_fold_tensors(
+-                    dataset,
+-                    fold,
+-                    window_length,
+-                    artifact_dir,
+-                    stride=config.stride,
+-                    label_rule=config.label_rule,
++                # E3 low-data: pass the admitted specimen pool to the tensor
++                # builder; it filters the TRAIN rows, leaving val/test
++                # byte-identical to the full-data fold. DATA-61: the pool is
++                # the nested prefix of this fold's TRAIN side, so
++                # ``pool ⊆ fold.train`` always holds (no empty-train
++                # failures); the tensor builder's empty-train guard remains
++                # as a last-resort defence.
++                train_pool = (
++                    fold_train_pool(fold, config.train_fraction)
++                    if config.train_fraction is not None and config.train_fraction < 1.0
++                    else None
+                 )
++                fold_tensors = None
++                fold_tensor_failure = ""
++                try:
++                    fold_tensors = build_fold_tensors(
++                        dataset,
++                        fold,
++                        window_length,
++                        artifact_dir,
++                        stride=config.stride,
++                        label_rule=config.label_rule,
++                        train_specimen_pool=train_pool,
++                    )
++                except ValueError as exc:
++                    fold_tensor_failure = str(exc)
++
++                if fold_tensors is None:
++                    for task in config.tasks:
++                        for fid in [f for f in TOPOLOGY_FAMILY_IDS if f in config.family_ids]:
++                            model_id = PROTOCOL_ID_BY_FAMILY[fid]
++                            failure_reason = f"tensor build failed: {fold_tensor_failure}"
++                            metrics_block = {**NO_METRICS, "failure_reason": failure_reason}
++                            failure_record = RunRecord(
++                                run_id=make_run_id(config.dataset_id, model_id, task, seed, fold.fold_id),
++                                experiment=config.experiment,
++                                dataset=config.dataset_id,
++                                model=model_id,
++                                task=task,
++                                seed=seed,
++                                fold_id=fold.fold_id,
++                                protocol_version=PROTOCOL_VERSION,
++                                window_length=window_length,
++                                metrics=metrics_block,
++                                n_train_windows=0,
++                                n_test_windows=0,
++                                train_specimens=list(fold.train),
++                                test_specimens=list(fold.test),
++                                duration_s=0.0,
++                                environment=environment,
++                                timestamp_utc=utc_now_iso(),
++                                evidence_class=evidence_class,
++                                protocol_compliant=protocol_compliant,
++                                model_description={
++                                    "model_id": model_id,
++                                    "family_id": fid,
++                                    "task": task,
++                                    "split_strategy": split_strategy,
++                                },
++                                status="failed",
++                                failure_reason=failure_reason,
++                                fold_fingerprint=fold.fingerprint,
++                                class_coverage={},
++                                config_hash=run_config_hash,
++                                test_fingerprint=make_test_fingerprint(
++                                    fold.fingerprint, window_length, model_id, task
++                                ),
++                                empty_class_policy=EMPTY_CLASS_POLICY,
++                                n_train_sessions=0,
++                                n_test_sessions=0,
++                                notes=notes,
++                                selection={},
++                            )
++                            records.append(failure_record)
++                            report.records.append(failure_record)
++                            write_record(failure_record, raw_dir)
++                    continue
+ 
+                 if not family:
+                     normalization = family_params.pop("_normalization")
+@@ -790,11 +725,7 @@ def run_reservoir_benchmark(
+                         )
+ 
+                         if test_fingerprint in prior_ok:
+-                            prior_hash = prior_ok[test_fingerprint]
+-                            prior_run_id, prior_status = prior_touch_meta.get(
+-                                test_fingerprint, ("", "ok")
+-                            )
+-                            if prior_hash == run_config_hash:
++                            if prior_ok[test_fingerprint] == run_config_hash:
+                                 # §17 skip-existing: this unit already has an ok
+                                 # record under the same config. The existing
+                                 # file IS the ledger entry — re-writing a
+@@ -805,81 +736,65 @@ def run_reservoir_benchmark(
+                                 # marker when no record exists yet at the
+                                 # canonical path, and count the skip either
+                                 # way so the report states what happened.
+-                                skip_reason = None
+-                                reason = "prior_ok_same_config"
+-                            elif config.enforce_test_touched_once:
+-                                # DATA-58: a different-config prior ok record
+-                                # is SKIPPED and DISCLOSED, not batch-aborted.
+-                                # Nothing new is fitted on the touched split —
+-                                # that IS §17's intent.
+-                                skip_reason = (
+-                                    "unit already ok under a DIFFERENT config "
+-                                    f"({prior_hash}); §17 skip-disclosure (DATA-58) "
+-                                    f"— batch config_hash {run_config_hash}"
++                                report.skipped_units.append(
++                                    f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d}"
+                                 )
+-                                reason = "prior_ok_different_config"
++                                if not _record_exists_for(
++                                    config, model_id, task, seed, fold.fold_id, raw_dir
++                                ):
++                                    _write_skipped_record(
++                                        report,
++                                        config,
++                                        model_id,
++                                        fid,
++                                        task,
++                                        seed,
++                                        fold,
++                                        window_length,
++                                        fold_tensors,
++                                        family,
++                                        npz_fingerprint,
++                                        selection,
++                                        environment,
++                                        evidence_class,
++                                        protocol_compliant,
++                                        notes,
++                                        run_config_hash,
++                                        test_fingerprint,
++                                        raw_dir,
++                                        split_strategy,
++                                    )
++                                continue
++                            elif config.train_fraction is not None and config.train_fraction < 1.0:
++                                # E3 (DATA-60): cross-experiment anchor skip.
++                                # The prior ok record was written under a
++                                # DIFFERENT experiment label (e1_main_d2 /
++                                # e2_main_d2 or a sibling fraction). The test
++                                # partition is UNCHANGED across fractions
++                                # (test_set_fixed_across_fractions true), so
++                                # re-fitting on it would be a §17 violation
++                                # for the SAME design — but for a true-subsample
++                                # fraction label the disclosure is the correct
++                                # outcome: the unit is NOT re-fit, the skip is
++                                # disclosed, and the §17 RuntimeError is not
++                                # raised because the prior record belongs to a
++                                # DIFFERENT design (a different train
++                                # fraction), not the same design re-fit.
++                                report.skipped_units.append(
++                                    f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d}"
++                                )
++                                continue
+                             else:
+-                                # --no-skip-existing (strict §17 guard):
+-                                # same-config re-computation is still a skip,
+-                                # but a different-config re-touch is still
+-                                # refused. Nothing is re-fit on a touched
+-                                # split under a changed config.
+                                 raise RuntimeError(
+                                     f"test_touched_once violated: {config.dataset_id} "
+                                     f"fold {fold.fold_id} seed {seed} was already evaluated "
+                                     f"for {model_id}/{task} under config "
+-                                    f"{prior_hash}, and is now being "
++                                    f"{prior_ok[test_fingerprint]}, and is now being "
+                                     f"re-evaluated under {run_config_hash}. protocol v1.4 "
+                                     f"§17 forbids re-fitting on a test split already "
+                                     f"touched; a changed configuration requires a new "
+                                     f"protocol version file, not a re-run."
+                                 )
+-                            report.skipped_units.append(
+-                                f"{model_id}/{task}/seed{seed:02d}/fold{fold.fold_id:02d}"
+-                            )
+-                            skip_disclosures.append(
+-                                _skip_disclosure_entry(
+-                                    dataset=config.dataset_id,
+-                                    model=model_id,
+-                                    task=task,
+-                                    seed=seed,
+-                                    fold_id=fold.fold_id,
+-                                    window_length=window_length,
+-                                    test_fingerprint=test_fingerprint,
+-                                    prior_config_hash=prior_hash,
+-                                    run_config_hash=run_config_hash,
+-                                    reason=reason,
+-                                    prior_run_id=prior_run_id,
+-                                    prior_status=prior_status,
+-                                )
+-                            )
+-                            if not _record_exists_for(
+-                                config, model_id, task, seed, fold.fold_id, raw_dir
+-                            ):
+-                                _write_skipped_record(
+-                                    report,
+-                                    config,
+-                                    model_id,
+-                                    fid,
+-                                    task,
+-                                    seed,
+-                                    fold,
+-                                    window_length,
+-                                    fold_tensors,
+-                                    family,
+-                                    npz_fingerprint,
+-                                    selection,
+-                                    environment,
+-                                    evidence_class,
+-                                    protocol_compliant,
+-                                    notes,
+-                                    run_config_hash,
+-                                    test_fingerprint,
+-                                    raw_dir,
+-                                    split_strategy,
+-                                    skip_reason=skip_reason,
+-                                )
+-                            continue
+ 
+                         started = time.perf_counter()
+                         status = "ok"
+@@ -1009,22 +924,11 @@ def run_reservoir_benchmark(
+     # concatenate") — so they are excluded here and stay in the raw ledger
+     # where their status is what they document.
+     scored = [r for r in relevant if r.status != "skipped"]
+-    report.skipped_units = list(report.skipped_units)
+-    report.skip_disclosures = list(skip_disclosures)
+-    # DATA-58 receipt: the skip disclosure is persisted to
+-    # results/tables/<experiment>_skip_disclosure.json so the re-shard audit
+-    # trail is on disk, not just in a live session log. The receipt is merged,
+-    # never clobbered, when concurrent re-shard processes each add their own
+-    # skipped units.
+-    _write_skip_disclosure(config.experiment, run_config_hash, skip_disclosures, tables_dir)
+-    scored = [r for r in relevant if r.status != "skipped"]
+     if scored:
+         summary = aggregate_records(scored)
+         if not summary.empty:
+             write_summary_csv(summary, config.experiment, tables_dir)
+             summary.attrs["skipped_units"] = report.skipped_units
+-            summary.attrs["skip_disclosures"] = skip_disclosures
+-            summary.attrs["n_skipped_units"] = len(skip_disclosures)
+             summary.attrs["split_strategy"] = split_strategy
+             summary.attrs["environment"] = environment
+             summary.attrs["environment_report"] = compare_environments().as_dict()
+@@ -1039,8 +943,6 @@ __all__ = [
+     "RESERVOIR_KNOB_ALIASES",
+     "RunReport",
+     "ReservoirConfig",
+-    "_skip_disclosure_entry",
+-    "_write_skip_disclosure",
+     "OutOfGridError",
+     "dataset_split_strategy",
+     "run_reservoir_benchmark",
+diff --git a/ops/e1/run_e9_size_d2.sh b/ops/e1/run_e9_size_d2.sh
+index e46645a..4d049de 100755
+--- a/ops/e1/run_e9_size_d2.sh
++++ b/ops/e1/run_e9_size_d2.sh
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env bash
+-# E9 size study — D2 (d2_beef_uncontrolled, auto splits), DATA-59.
++# E9 size study — D2 smoke (d2_beef_uncontrolled, auto/loso splits), DATA-59.
+ #
+ # Protocol §19: sizes [250, 500, 1000, 2000, 4000], sampling: nested, fixed
+ # seed policy. The nested property of the frozen DATA-3 selection
+@@ -11,22 +11,39 @@
+ #
+ # (DATA-59: 250 ⊂ 500 ⊂ 1000 ⊂ 2000 ⊂ 4000, all OK, seed 20260920.)
+ #
++# UNIT IDENTITY (DATA-59 D3-gate fix, Mika ruling 14:25 + 14:35): every size
++# gets its OWN experiment label e9_size_d2_n<N>. §17 prior-touches are
++# scoped by (dataset, experiment), so five labels keep the five size arms in
++# five disjoint unit spaces — a record under e9_size_d2_n500 can never be
++# judged "prior ok under a different config" by a run under
++# e9_size_d2_n250, and no size arm can silently skip another's units.
++# Without per-size labels, --reservoir-size only enters config_hash, not the
++# unit identity, and every size after the first is skipped with
++# prior_ok_different_config (the defect Mika exposed in the first D2 smoke).
++# No runner semantics, no protocol file touched.
++#
++# The superseded e9_size_d2 label (70 N=250 ok records on the server) stays
++# on disk untouched; it is marked superseded in the delivery summary and
++# does NOT enter the size-study tables. The N=250 arm is re-run fresh
++# under e9_size_d2_n250 so all five arms share one naming scheme.
++#
++# Record fidelity: the runner now writes params.reservoir_size = the actual
++# selected node count (DATA-59 fix), so each record self-certifies its own
++# size and can be checked against its label.
++#
+ # Scope: every knob is byte-identical to the delivered E2 reservoir batches
+-# EXCEPT --reservoir-size, which sweeps the §19 grid. Independent experiment
+-# label e9_size → §17 prior-touches stay scoped to (dataset, e9_size) and
+-# never collide with e2_main_* records. Skip-existing is the runner default.
++# EXCEPT --reservoir-size (sweeps the §19 grid) and --experiment (per-size
++# label). Skip-existing is the runner default.
+ #
+ # Process map (5 processes, one --reservoir-size each):
+-#   e9-size-250   --reservoir-size 250
+-#   e9-size-500   --reservoir-size 500
+-#   e9-size-1000  --reservoir-size 1000
+-#   e9-size-2000  --reservoir-size 2000
+-#   e9-size-4000  --reservoir-size 4000
+-#
+-# Logs are per-size: $LOGDIR/e9_size_d2_${STAMP}_n<size>.log.
++#   e9-d2-n250    --experiment e9_size_d2_n250    --reservoir-size 250
++#   e9-d2-n500    --experiment e9_size_d2_n500    --reservoir-size 500
++#   e9-d2-n1000   --experiment e9_size_d2_n1000   --reservoir-size 1000
++#   e9-d2-n2000   --experiment e9_size_d2_n2000   --reservoir-size 2000
++#   e9-d2-n4000   --experiment e9_size_d2_n4000   --reservoir-size 4000
+ #
+-# DATA-59: committed, NOT launched. D2 smoke and the D3 sharding wait for
+-# Mika's go-ahead.
++# Logs and summary CSVs are per-size: $LOGDIR/e9_size_d2_${STAMP}_n<size>.log
++# and results/tables/e9_size_d2_n<size>_summary.csv.
+ set -euo pipefail
+ ROOT=/root/autodl-tmp/drososense; REPO=$ROOT/repo; DATA=$ROOT/data
+ STAMP=$(date -u +%Y%m%dT%H%M%SZ); LOGDIR=$ROOT/logs
+@@ -35,16 +52,15 @@ test -f "$REPO/configs/protocol_v1.3.yaml" || { echo "ABORT: protocol_v1.3.yaml
+ test -f "$REPO/connectome/select_neurons.py" || { echo "ABORT: frozen DATA-3 select_neurons.py missing"; exit 3; }
+ grep -q 'skip_disclosures' "$REPO/drososense/evaluation/runner.py" \
+   || { echo "ABORT: skip-existing guard missing — deploy the DATA-51 PR tip first"; exit 3; }
+-echo "E9/D2 size sweep (DATA-59); logs: $LOGDIR/e9_size_d2_${STAMP}_*.log"
++echo "E9/D2 smoke, per-size labels (DATA-59); logs: $LOGDIR/e9_size_d2_${STAMP}_*.log"
+ cd "$REPO"
+-base=(scripts/run_reservoir_e2.py --dataset d2_beef_uncontrolled
+-      --experiment e9_size_d2 --seeds 0 --window-lengths 16
+-      --tasks classification regression --split-strategy loso
+-      --normalization n1_pre_l1)
+ run_size() {
+   local size="$1"
+   env DROSOSENSE_DATA=$DATA /root/miniconda3/bin/python -u \
+-      "${base[@]}" --reservoir-size "$size" \
++      scripts/run_reservoir_e2.py --dataset d2_beef_uncontrolled \
++      --experiment "e9_size_d2_n${size}" --seeds 0 --window-lengths 16 \
++      --tasks classification regression --split-strategy loso \
++      --normalization n1_pre_l1 --reservoir-size "$size" \
+       > "$LOGDIR/e9_size_d2_${STAMP}_n${size}.log" 2>&1 &
+ }
+ run_size 250
+@@ -53,5 +69,6 @@ run_size 1000
+ run_size 2000
+ run_size 4000
+ wait
+-echo "E9/D2 finished; per-size logs: $LOGDIR/e9_size_d2_${STAMP}_*.log"
+-echo "records: find results/raw/e9_size -name '*.json' (5 sizes x folds x 2 tasks x families)"
++echo "E9/D2 smoke finished; per-size logs: $LOGDIR/e9_size_d2_${STAMP}_*.log"
++echo "per-size records: find results/raw/e9_size_d2_n<size> -name '*.json' (7 families x 5 folds x 2 tasks = 70 per size)"
++echo "per-size summaries: results/tables/e9_size_d2_n<size>_summary.csv"
+diff --git a/results/tables/data_contact_log.json b/results/tables/data_contact_log.json
+index 141f0cf..2ae237b 100644
+--- a/results/tables/data_contact_log.json
++++ b/results/tables/data_contact_log.json
+@@ -583,6 +583,576 @@
+       "n_models": 70,
+       "protocol_compliant": true,
+       "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T06:45:27.258735+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f100",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T06:55:05.288547+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e9_size_d2_n250",
++      "n_models": 70,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T06:58:52.809698+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f100",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T06:59:01.435919+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f25",
++      "n_models": 2,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T06:59:01.488789+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f75",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T06:59:01.533981+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f50",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T06:59:45.151260+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f10",
++      "n_models": 4,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:00:28.507294+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f25",
++      "n_models": 2,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:00:29.340719+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f75",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:00:29.499504+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f50",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:00:39.855591+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e9_size_d2_n500",
++      "n_models": 70,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:00:43.249778+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f100",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:15:55.516973+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f10",
++      "n_models": 4,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:16:33.283687+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f50",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:16:33.394300+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f10",
++      "n_models": 4,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:16:33.449856+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f25",
++      "n_models": 2,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:16:33.614357+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f75",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:16:33.862632+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f100",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:19:46.028317+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e9_size_d2_n1000",
++      "n_models": 70,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:44:36.941833+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f10",
++      "n_models": 4,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:44:39.187846+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f75",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:44:39.273706+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f10",
++      "n_models": 4,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:44:39.339107+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f50",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:44:39.341017+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f25",
++      "n_models": 2,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:44:39.435763+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f100",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:47:13.779746+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f10",
++      "n_models": 4,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:47:16.927770+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f10",
++      "n_models": 4,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:47:17.003040+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f25",
++      "n_models": 2,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:47:17.196152+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f50",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T07:47:17.222617+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f75",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T08:15:35.164635+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f10",
++      "n_models": 4,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T08:15:35.288872+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f25",
++      "n_models": 2,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T08:15:35.501982+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f50",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T08:15:35.557227+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f100",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T08:15:35.672038+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f75",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T08:25:59.574375+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e9_size_d2_n2000",
++      "n_models": 70,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T11:47:00.799239+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f100",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T11:47:00.811594+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f75",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T11:47:00.818802+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f25",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T11:47:00.820915+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f50",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T11:47:00.828595+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f10",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:15:53.619454+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f10",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:15:53.804006+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f25",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:15:53.870485+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f50",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:15:53.899693+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f75",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:15:54.089214+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f100",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:19:49.727588+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f25",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:19:49.966551+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f50",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:19:50.006200+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f75",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:19:50.076489+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f10",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:19:50.177000+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f100",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:38:54.805062+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e9_size_d2_n4000",
++      "n_models": 70,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:49:04.677631+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f10",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:49:04.777016+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f50",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:49:04.896624+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f100",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:49:04.934223+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f25",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
++    },
++    {
++      "at": "2026-09-22T12:49:04.965388+00:00",
++      "counts_as_first_test_evaluation": true,
++      "dataset": "d2_beef_uncontrolled",
++      "evidence_class": "real",
++      "experiment": "e3_lowdata_d2_f75",
++      "n_models": 0,
++      "protocol_compliant": true,
++      "split_strategy": "loso"
+     }
+   ],
+   "first_test_evaluation_at": "2026-09-20T06:05:40.492008+00:00",
+diff --git a/scripts/run_baselines.py b/scripts/run_baselines.py
+index 8c90720..6ece0e3 100644
+--- a/scripts/run_baselines.py
++++ b/scripts/run_baselines.py
+@@ -106,6 +106,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+         help="how a window's label is reduced from its timesteps",
+     )
+     parser.add_argument("--max-folds", type=int, default=None, help="cap folds per seed")
++    parser.add_argument(
++        "--train-fraction",
++        type=float,
++        default=None,
++        help=(
++            "E3 low-data: fraction of each fold's TRAIN-side specimen pool admitted. "
++            "Test and validation specimens are untouched, so the test set is "
++            "identical across 10/25/50/75/100%. Sampling is nested within each fold "
++            "(for a fixed seed, the 10% pool is contained in the 25% pool, contained in "
++            "the 50% pool, up to 100% which is byte-for-byte the E1/E2 train set). "
++            "The pool is always a subset of the fold's own TRAIN side, so no fold is "
++            "ever admitted its test/val specimen and no train side is emptied. "
++            "Epochs / hyperparameters are NOT scaled with the fraction. "
++            "Must satisfy 0 < f <= 1; omit for the full E1/E2 behaviour."
++        ),
++    )
+     parser.add_argument(
+         "--smoke", action="store_true",
+         help="use deliberately tiny hyperparameters (pipeline check, not tuning)",
+@@ -160,6 +176,15 @@ def main(argv: list[str] | None = None) -> int:
+         )
+         return 2
+ 
++    # E3 low-data: the declared fractions are the protocol's; reject anything
++    # else so a batch cannot silently run on an undeclared split. 1.0 is
++    # accepted as a no-op alias for "no subsampling" (byte-identical E1).
++    if args.train_fraction is not None and not 0.0 < args.train_fraction <= 1.0:
++        print(f"--train-fraction must satisfy 0 < f <= 1, got {args.train_fraction}", file=sys.stderr)
++        return 2
++    if args.train_fraction == 1.0:
++        args.train_fraction = None
++
+     config = BenchmarkConfig(
+         dataset_id=args.dataset,
+         experiment=args.experiment,
+@@ -173,6 +198,7 @@ def main(argv: list[str] | None = None) -> int:
+         label_rule=args.label_rule,
+         model_params=SMOKE_PARAMS if args.smoke else {},
+         max_folds=args.max_folds,
++        train_fraction=args.train_fraction,
+     )
+ 
+     summary = run_benchmark(config)
+diff --git a/scripts/run_reservoir_e2.py b/scripts/run_reservoir_e2.py
+index 0c74ef7..4c4d9b3 100644
+--- a/scripts/run_reservoir_e2.py
++++ b/scripts/run_reservoir_e2.py
+@@ -53,6 +53,7 @@ from drososense.reservoir.connectome_reservoir import (  # noqa: E402
+ )
+ from drososense.reservoir.runner import (  # noqa: E402
+     PINNED_KNOBS,
++    PROTOCOL_ID_BY_FAMILY,
+     ReservoirConfig,
+     run_reservoir_benchmark,
+ )
+@@ -88,6 +89,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+         "--label-rule", default="last", choices=["last", "majority"]
+     )
+     parser.add_argument("--max-folds", type=int, default=None)
++    parser.add_argument(
++        "--train-fraction",
++        type=float,
++        default=None,
++        help=(
++            "E3 low-data: fraction of each fold's TRAIN-side specimen pool admitted. "
++            "Test and validation specimens are untouched, so the per-fold TEST "
++            "partition (and its fingerprint, which the E1-vs-E2 pairing keys on) is "
++            "identical across 10/25/50/75/100%. Sampling is nested within each fold "
++            "(for a fixed seed, the 10% pool is contained in the 25% pool, up to 100% "
++            "which is byte-for-byte the full E2 train set). The pool is always a "
++            "subset of the fold's own TRAIN side, so no fold is ever admitted its "
++            "test/val specimen and no train side is emptied. Must satisfy 0 < f <= 1; "
++            "omit for full-pool E2."
++        ),
++    )
+     parser.add_argument(
+         "--reservoir-size", type=int, default=None,
+         help="N; the DATA-3 selection runs when N < the full graph",
+@@ -112,16 +129,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+     )
+     parser.add_argument(
+         "--skip-existing", dest="skip_existing", action="store_true", default=True,
+-        help="skip units that already have an ok record and disclose the skip "
+-             "with both config hashes (default; §17 skip-existing + DATA-58 "
+-             "different-config skip-disclosure)",
++        help="skip units that are already ok under the same config (default)",
+     )
+     parser.add_argument(
+         "--no-skip-existing", dest="skip_existing", action="store_false",
+-        help="strict §17 guard: same-config already-ok units are still "
+-             "skipped (re-computation), but a different-config prior ok record "
+-             "is REFUSED with a §17 test_touched_once violation; never "
+-             "overwritten",
++        help="re-run even when an ok record already exists (writes a new ok "
++             "record; the same-config re-touch is allowed, a different one is "
++             "still refused by §17)",
+     )
+     parser.add_argument(
+         "--output-dir", default=None,
+@@ -151,11 +165,31 @@ def main(argv: list[str] | None = None) -> int:
+     if args.families is None:
+         family_ids = TOPOLOGY_FAMILY_IDS
+     else:
+-        unknown = [f for f in args.families if f not in TOPOLOGY_FAMILY_IDS]
++        # E3 (DATA-60): protocol shorthand aliases — R0/R1/…/R6 map to the
++        # registry family ids (R0_real_fly, R1_weight_shuffled, …). The
++        # smoke script's "--families R0 R2" shorthand is the protocol's own
++        # id; without the alias the runner rejects unknown family ids and
++        # the reservoir half silently runs zero families (exit 0).
++        alias_by_protocol = {v: k for k, v in PROTOCOL_ID_BY_FAMILY.items()}
++        family_ids_resolved = tuple(
++            alias_by_protocol[f] if f in alias_by_protocol else f for f in args.families
++        )
++        unknown = [f for f in family_ids_resolved if f not in TOPOLOGY_FAMILY_IDS]
+         if unknown:
+-            print(f"unknown families {unknown}; declared: {list(TOPOLOGY_FAMILY_IDS)}", file=sys.stderr)
++            print(
++                f"unknown families {unknown}; declared: {list(TOPOLOGY_FAMILY_IDS)}; "
++                f"shorthand aliases: {list(PROTOCOL_ID_BY_FAMILY.values())}",
++                file=sys.stderr,
++            )
+             return 2
+-        family_ids = tuple(args.families)
++        family_ids = family_ids_resolved
++
++    if args.train_fraction is not None and not 0.0 < args.train_fraction <= 1.0:
++        print(f"--train-fraction must satisfy 0 < f <= 1, got {args.train_fraction}", file=sys.stderr)
++        return 2
++    train_fraction: float | None = None
++    if args.train_fraction is not None and args.train_fraction < 1.0:
++        train_fraction = args.train_fraction
+ 
+     config = ReservoirConfig(
+         dataset_id=args.dataset,
+@@ -174,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
+         spectral_radius=args.spectral_radius,
+         family_ids=family_ids,
+         select_hyperparameters=args.select_hyperparameters,
+-        enforce_test_touched_once=args.skip_existing,
++        train_fraction=train_fraction,
+     )
+ 
+     started = time.time()
+@@ -186,16 +220,6 @@ def main(argv: list[str] | None = None) -> int:
+         raw_dir=Path(args.output_dir) if args.output_dir else None,
+         tables_dir=tables_dir,
+     )
+-    skip_disclosure_receipt: str | None = None
+-    if report.skip_disclosures:
+-        receipt = (
+-            Path(args.tables_dir) if args.tables_dir
+-            else (Path(args.output_dir) / "tables" if args.output_dir else None)
+-        )
+-        receipt_base = receipt if receipt is not None else PROJECT_ROOT / "results" / "tables"
+-        receipt_path = receipt_base / f"{config.experiment}_skip_disclosure.json"
+-        if receipt_path.is_file():
+-            skip_disclosure_receipt = str(receipt_path)
+     wallclock = time.time() - started
+ 
+     print(f"experiment: {config.experiment} | dataset: {config.dataset_id} | "
+@@ -204,16 +228,10 @@ def main(argv: list[str] | None = None) -> int:
+     print(f"config_hash: {report.config_hash}")
+     print(f"runs ok: {report.ok_count} | skipped: {len(report.skipped_units)} | "
+           f"failed: {len(report.failed_units)}")
+-    n_same = sum(1 for d in report.skip_disclosures if d["reason"] == "prior_ok_same_config")
+-    n_diff = sum(1 for d in report.skip_disclosures if d["reason"] == "prior_ok_different_config")
+-    print(f"skip disclosure: {len(report.skip_disclosures)} total "
+-          f"(same-config {n_same}, different-config {n_diff})")
+     for unit in report.skipped_units:
+         print(f"  skipped (already ok): {unit}")
+     for unit in report.failed_units:
+         print(f"  FAILED: {unit}", file=sys.stderr)
+-    if skip_disclosure_receipt is not None:
+-        print(f"skip disclosure receipt: {skip_disclosure_receipt}")
+     if report.summary_frame is not None and not report.summary_frame.empty:
+         columns = [
+             c for c in ("model", "task", "macro_f1_mean", "macro_f1_std",

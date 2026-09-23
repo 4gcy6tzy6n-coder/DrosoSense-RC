@@ -1,0 +1,126 @@
+{
+  "audit": "A1",
+  "npz_path": "/Users/yyl/Desktop/workshop/DrosoSense-RC/data-root/connectome/adjacency/olfactory_v1.npz",
+  "per_size": {
+    "1000": {
+      "M_R0": 2343,
+      "M_R2": 2343,
+      "N": 1000,
+      "R0_is_binary": false,
+      "R0_weight_range": [
+        1.4209203072823584e-05,
+        0.8540157079696655
+      ],
+      "R2_is_binary": false,
+      "R2_weight_range": [
+        0.08748183455204409,
+        0.08748183455204409
+      ],
+      "edge_overlap_fraction": 0.05804524114383269,
+      "expected_overlap_if_fully_mixed": 0.054853520983068726,
+      "expected_shared_edges_if_fully_mixed": 128.52179966333003,
+      "identical_bytes": false,
+      "implied_successful_swaps": 1103.5,
+      "n_edges_only_in_R0": 2207,
+      "n_edges_only_in_R2": 2207,
+      "n_shared_edges": 136,
+      "nnz_binary_difference": 4414,
+      "same_object": false,
+      "sha16_R0_data": "fe66e997e73205f2",
+      "sha16_R0_indptr": "c2cfc16ecb273efd",
+      "sha16_R2_data": "fc6edfef6e9b5066",
+      "sha16_R2_indptr": "c2cfc16ecb273efd",
+      "target_n": 1000
+    },
+    "2000": {
+      "M_R0": 7414,
+      "M_R2": 7414,
+      "N": 2000,
+      "R0_is_binary": false,
+      "R0_weight_range": [
+        9.972834959626198e-06,
+        0.5993973016738892
+      ],
+      "R2_is_binary": false,
+      "R2_weight_range": [
+        0.04935237866463886,
+        0.04935237866463886
+      ],
+      "edge_overlap_fraction": 0.06420285945508497,
+      "expected_overlap_if_fully_mixed": 0.05550421160497992,
+      "expected_shared_edges_if_fully_mixed": 411.5082248393211,
+      "identical_bytes": false,
+      "implied_successful_swaps": 3469.0,
+      "n_edges_only_in_R0": 6938,
+      "n_edges_only_in_R2": 6938,
+      "n_shared_edges": 476,
+      "nnz_binary_difference": 13876,
+      "same_object": false,
+      "sha16_R0_data": "c6a813f05a133aed",
+      "sha16_R0_indptr": "18be9ef026522a1e",
+      "sha16_R2_data": "ed0688c328058829",
+      "sha16_R2_indptr": "18be9ef026522a1e",
+      "target_n": 2000
+    },
+    "250": {
+      "M_R0": 126,
+      "M_R2": 126,
+      "N": 250,
+      "R0_is_binary": false,
+      "R0_weight_range": [
+        0.0014760637423023582,
+        2.0279412269592285
+      ],
+      "R2_is_binary": false,
+      "R2_weight_range": [
+        0.31150747965915354,
+        0.31150747965915354
+      ],
+      "edge_overlap_fraction": 0.10317460317460317,
+      "expected_overlap_if_fully_mixed": 0.08686366963010954,
+      "expected_shared_edges_if_fully_mixed": 10.944822373393801,
+      "identical_bytes": false,
+      "implied_successful_swaps": 56.5,
+      "n_edges_only_in_R0": 113,
+      "n_edges_only_in_R2": 113,
+      "n_shared_edges": 13,
+      "nnz_binary_difference": 226,
+      "same_object": false,
+      "sha16_R0_data": "6856f5c5353ab5f4",
+      "sha16_R0_indptr": "a872caf2e9ea2702",
+      "sha16_R2_data": "9c8e7dcb14276a82",
+      "sha16_R2_indptr": "a872caf2e9ea2702",
+      "target_n": 250
+    },
+    "500": {
+      "M_R0": 657,
+      "M_R2": 657,
+      "N": 500,
+      "R0_is_binary": false,
+      "R0_weight_range": [
+        6.249720900086686e-05,
+        0.6742199063301086
+      ],
+      "R2_is_binary": false,
+      "R2_weight_range": [
+        0.15013141495350177,
+        0.15013141495350177
+      ],
+      "edge_overlap_fraction": 0.0837138508371385,
+      "expected_overlap_if_fully_mixed": 0.06247868757647679,
+      "expected_shared_edges_if_fully_mixed": 41.04849773774525,
+      "identical_bytes": false,
+      "implied_successful_swaps": 301.0,
+      "n_edges_only_in_R0": 602,
+      "n_edges_only_in_R2": 602,
+      "n_shared_edges": 55,
+      "nnz_binary_difference": 1204,
+      "same_object": false,
+      "sha16_R0_data": "931d848398c6946b",
+      "sha16_R0_indptr": "e0d63f7c0d0922d9",
+      "sha16_R2_data": "2027eabb2c043af7",
+      "sha16_R2_indptr": "e0d63f7c0d0922d9",
+      "target_n": 500
+    }
+  }
+}

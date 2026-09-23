@@ -1,0 +1,217 @@
+{
+  "audit": "A3",
+  "normalization": "n1_pre_l1",
+  "note": "R_t << 1 means the update is dominated by the instantaneous input projection, i.e. h ~= tanh(W_in x + b) is a memoryless random feature map and the topology cannot express itself in the state.",
+  "per_size": {
+    "1000": {
+      "M_edges": 2343,
+      "N": 1000,
+      "R_t_final": 0.05397644932272089,
+      "R_t_max": 0.11813702499067442,
+      "R_t_mean": 0.028318869036889543,
+      "R_t_per_step_mean": [
+        0.0,
+        0.006408120607014137,
+        0.011113640664597834,
+        0.016121471213046454,
+        0.019910592064786865,
+        0.024156224449369927,
+        0.026676958938367724,
+        0.026681714554021414,
+        0.02882711606544849,
+        0.02975413863087476,
+        0.0376813027437426,
+        0.03685253947871696,
+        0.042266744042959256,
+        0.042043717422657625,
+        0.05063117439190774,
+        0.0539764493227209
+      ],
+      "R_t_step0": 0.0,
+      "effective_recurrent_gain": 0.44999992847442627,
+      "gain": 0.5,
+      "input_norm_mean": 4.282108069783938,
+      "input_scale": 0.1,
+      "leak": 0.1,
+      "memory_probe": {
+        "x_t_minus_1": {
+          "max_abs_corr": 0.8666038624334607,
+          "mean_abs_corr": 0.3421574337668404
+        },
+        "x_t_minus_4": {
+          "max_abs_corr": 0.858575752860422,
+          "mean_abs_corr": 0.34932181478913993
+        },
+        "x_t_minus_8": {
+          "max_abs_corr": 0.751556933581383,
+          "mean_abs_corr": 0.2821235413027308
+        }
+      },
+      "readout_features": "column_stack([h_L, ones]) \u2014 H-only, no raw x",
+      "recurrent_norm_mean": 0.12144353569492175,
+      "spectral_radius_measured": 0.8999998569488525,
+      "spectral_radius_target": 0.9,
+      "state_norm_final_mean": 2.922205499885413,
+      "state_pooling": "last",
+      "target_n": 1000,
+      "washout": 10,
+      "washout_effective_with_pooling_last": "no effect: pooling=='last' returns the final state, and ``washout`` only gates the running mean",
+      "zero_recurrent_control": {
+        "A_is_zero_matrix": true,
+        "R0_vs_zero_recurrent_divergence": {
+          "d_final": 0.03926762186662151,
+          "d_max_over_steps": 0.03926762186662151,
+          "d_mean": 0.020309879617168982,
+          "d_min_over_steps": 0.0,
+          "d_step0": 0.0,
+          "d_step1": 0.0,
+          "d_step5": 0.013764707440733171,
+          "per_step_mean": [
+            0.0,
+            0.0,
+            0.003742455145209464,
+            0.007137679337027626,
+            0.010334122830581802,
+            0.013764707440733171,
+            0.016823178819814006,
+            0.01962088406211076,
+            0.02195021627141299,
+            0.02406644098423687,
+            0.02574855946885308,
+            0.028309470146997258,
+            0.030341427858629328,
+            0.03266236527376513,
+            0.03462328783401102,
+            0.03687553615186861,
+            0.03926762186662151
+          ]
+        },
+        "memory_probe": {
+          "x_t_minus_1": {
+            "max_abs_corr": 0.8666038624334607,
+            "mean_abs_corr": 0.34214108522123154
+          },
+          "x_t_minus_4": {
+            "max_abs_corr": 0.858575752860422,
+            "mean_abs_corr": 0.34921523997567566
+          },
+          "x_t_minus_8": {
+            "max_abs_corr": 0.751556933581383,
+            "mean_abs_corr": 0.28176937207802066
+          }
+        },
+        "note": "d(R0, A=0) small means the connectome term changes almost nothing about the state; a memory probe that survives with A=0 means the state's memory is the leak's, not the graph's."
+      }
+    },
+    "250": {
+      "M_edges": 126,
+      "N": 250,
+      "R_t_final": 0.05563124180791439,
+      "R_t_max": 0.14579893163343685,
+      "R_t_mean": 0.025645959728762883,
+      "R_t_per_step_mean": [
+        0.0,
+        0.005152609663265749,
+        0.008533424833399939,
+        0.012820247142714744,
+        0.015643398703769507,
+        0.01769035003872207,
+        0.019359179160757096,
+        0.020068018802883843,
+        0.02158005995124398,
+        0.023129441042104057,
+        0.031305969721838446,
+        0.035938375564834285,
+        0.04456781211744522,
+        0.045552763171923416,
+        0.05336246393738937,
+        0.055631241807914386
+      ],
+      "R_t_step0": 0.0,
+      "effective_recurrent_gain": 0.44999995827674866,
+      "gain": 0.5,
+      "input_norm_mean": 2.151134838270445,
+      "input_scale": 0.1,
+      "leak": 0.1,
+      "memory_probe": {
+        "x_t_minus_1": {
+          "max_abs_corr": 0.8396220285230812,
+          "mean_abs_corr": 0.34187465504232495
+        },
+        "x_t_minus_4": {
+          "max_abs_corr": 0.8121248525572186,
+          "mean_abs_corr": 0.35310396671434985
+        },
+        "x_t_minus_8": {
+          "max_abs_corr": 0.7311340451477619,
+          "mean_abs_corr": 0.2843299235688782
+        }
+      },
+      "readout_features": "column_stack([h_L, ones]) \u2014 H-only, no raw x",
+      "recurrent_norm_mean": 0.05410594302934714,
+      "spectral_radius_measured": 0.8999999165534973,
+      "spectral_radius_target": 0.9,
+      "state_norm_final_mean": 1.4734058342902192,
+      "state_pooling": "last",
+      "target_n": 250,
+      "washout": 10,
+      "washout_effective_with_pooling_last": "no effect: pooling=='last' returns the final state, and ``washout`` only gates the running mean",
+      "zero_recurrent_control": {
+        "A_is_zero_matrix": true,
+        "R0_vs_zero_recurrent_divergence": {
+          "d_final": 0.036030856655795925,
+          "d_max_over_steps": 0.036030856655795925,
+          "d_mean": 0.01615815058934825,
+          "d_min_over_steps": 0.0,
+          "d_step0": 0.0,
+          "d_step1": 0.0,
+          "d_step5": 0.010345364235495383,
+          "per_step_mean": [
+            0.0,
+            0.0,
+            0.003028358787594255,
+            0.005570115444440273,
+            0.00785968955497359,
+            0.010345364235495383,
+            0.012436226823641592,
+            0.014386011125459234,
+            0.016074737324391124,
+            0.01760380009878588,
+            0.01884697001275241,
+            0.02090707601792202,
+            0.023217910729609534,
+            0.0262802391098844,
+            0.0293607553613961,
+            0.03274044873677859,
+            0.036030856655795925
+          ]
+        },
+        "memory_probe": {
+          "x_t_minus_1": {
+            "max_abs_corr": 0.8396220285230812,
+            "mean_abs_corr": 0.3419990625046642
+          },
+          "x_t_minus_4": {
+            "max_abs_corr": 0.8121248525572186,
+            "mean_abs_corr": 0.3531511478944345
+          },
+          "x_t_minus_8": {
+            "max_abs_corr": 0.7311340451477619,
+            "mean_abs_corr": 0.2842249016879511
+          }
+        },
+        "note": "d(R0, A=0) small means the connectome term changes almost nothing about the state; a memory probe that survives with A=0 means the state's memory is the leak's, not the graph's."
+      }
+    }
+  },
+  "regime": {
+    "gain": 0.5,
+    "input_scale": 0.1,
+    "leak": 0.1,
+    "readout": "ridge",
+    "ridge_lambda": 0.001,
+    "spectral_radius": 0.9,
+    "state_pooling": "last",
+    "washout": 10
+  }
+}

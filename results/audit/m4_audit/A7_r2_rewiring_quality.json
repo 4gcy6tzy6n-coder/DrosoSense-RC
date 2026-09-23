@@ -1,0 +1,446 @@
+{
+  "audit": "A7",
+  "full_graph_feasibility": {
+    "c_seconds_per_edge_from_fit": 2.7940580354786445e-09,
+    "cost_model": "seconds_per_attempt = c * M (duplicate scan is O(M))",
+    "full_graph_M": 14828657,
+    "full_graph_N": 124185,
+    "full_graph_memory": {
+      "per_window_length_16_bytes": 15895680,
+      "projected_gib_for_D2_train_windows_6435": 95.26377618312836,
+      "projected_gib_for_D3_train_windows_20000": 296.0801124572754,
+      "what": "_ReservoirBase._drive materialises input_projection = x @ w_in.T of shape (n_windows, length, N) in float64"
+    },
+    "measured_points": [
+      {
+        "M": 126,
+        "seconds_per_attempt": 7.645289103190105e-06
+      },
+      {
+        "M": 657,
+        "seconds_per_attempt": 8.878678854560561e-06
+      },
+      {
+        "M": 2343,
+        "seconds_per_attempt": 1.118390721945085e-05
+      },
+      {
+        "M": 7414,
+        "seconds_per_attempt": 1.850153900138252e-05
+      }
+    ],
+    "note": "The runner builds one family per (window_length, seed), so a 10-seed sweep needs 10 R2 builds. The runner's default (reservoir_size=None) is the full graph.",
+    "projected_days_for_10_seeds": 711.0912251655209,
+    "projected_days_one_r2_build": 71.10912251655209,
+    "projected_seconds_one_r2_build": 6143828.1854301,
+    "runner_default_target_n_is_full_graph": true,
+    "swap_attempts_total": 148286570
+  },
+  "npz_path": "/Users/yyl/Desktop/workshop/DrosoSense-RC/data-root/connectome/adjacency/olfactory_v1.npz",
+  "per_size": {
+    "1000": {
+      "M": 2343,
+      "N": 1000,
+      "R0_weight_uniform": false,
+      "R2_destroys_weight_structure": true,
+      "R2_weight_uniform": true,
+      "edge_count_preserved": true,
+      "edge_overlap_fraction": 0.05804524114383269,
+      "elapsed_seconds": 0.2620389461517334,
+      "expected_overlap_if_fully_mixed": 0.054853520983068726,
+      "implied_success_rate": 0.04709773794280837,
+      "implied_successful_swaps": 1103.5,
+      "multiplicity_R0": {
+        "coo_nnz": 2343,
+        "csr_nnz": 2343,
+        "n_duplicate_coordinates": 0
+      },
+      "multiplicity_R2": {
+        "coo_nnz": 2343,
+        "csr_nnz": 2343,
+        "n_duplicate_coordinates": 0
+      },
+      "n_distinct_graphs_over_seeds": 10,
+      "n_edges_only_in_R0": 2207,
+      "n_seeds": 10,
+      "n_swap_attempts_per_edge": 10,
+      "per_seed": {
+        "0": {
+          "M": 2343,
+          "overlap_with_R0": 0.05804524114383269,
+          "structure_sha16": "07554b45fa335b10|c2cfc16ecb273efd|98624111bc965dac",
+          "unweighted_out_degree_preserved": true
+        },
+        "1": {
+          "M": 2343,
+          "overlap_with_R0": 0.05804524114383269,
+          "structure_sha16": "ac8b5501bae9c77b|c2cfc16ecb273efd|98624111bc965dac",
+          "unweighted_out_degree_preserved": true
+        },
+        "2": {
+          "M": 2343,
+          "overlap_with_R0": 0.061886470337174565,
+          "structure_sha16": "25c235b76d222524|c2cfc16ecb273efd|98624111bc965dac",
+          "unweighted_out_degree_preserved": true
+        },
+        "3": {
+          "M": 2343,
+          "overlap_with_R0": 0.05847204438753734,
+          "structure_sha16": "501e7902f948b52c|c2cfc16ecb273efd|98624111bc965dac",
+          "unweighted_out_degree_preserved": true
+        },
+        "4": {
+          "M": 2343,
+          "overlap_with_R0": 0.056338028169014086,
+          "structure_sha16": "922a59283d09687d|c2cfc16ecb273efd|98624111bc965dac",
+          "unweighted_out_degree_preserved": true
+        },
+        "5": {
+          "M": 2343,
+          "overlap_with_R0": 0.05932565087494665,
+          "structure_sha16": "647be6223349b7f4|c2cfc16ecb273efd|98624111bc965dac",
+          "unweighted_out_degree_preserved": true
+        },
+        "6": {
+          "M": 2343,
+          "overlap_with_R0": 0.062313273580879215,
+          "structure_sha16": "2f84198ccc1615ea|c2cfc16ecb273efd|98624111bc965dac",
+          "unweighted_out_degree_preserved": true
+        },
+        "7": {
+          "M": 2343,
+          "overlap_with_R0": 0.05463081519419548,
+          "structure_sha16": "e854f73853018df9|c2cfc16ecb273efd|98624111bc965dac",
+          "unweighted_out_degree_preserved": true
+        },
+        "8": {
+          "M": 2343,
+          "overlap_with_R0": 0.05932565087494665,
+          "structure_sha16": "901a2bc2630950eb|c2cfc16ecb273efd|98624111bc965dac",
+          "unweighted_out_degree_preserved": true
+        },
+        "9": {
+          "M": 2343,
+          "overlap_with_R0": 0.05932565087494665,
+          "structure_sha16": "2defb1ab41eebabd|c2cfc16ecb273efd|98624111bc965dac",
+          "unweighted_out_degree_preserved": true
+        }
+      },
+      "seconds_per_attempt": 1.118390721945085e-05,
+      "seed_pairwise_edge_overlap_max": 0.056338028169014086,
+      "seed_pairwise_edge_overlap_mean": 0.04900649689382083,
+      "seed_pairwise_edge_overlap_min": 0.040546308151941955,
+      "self_loops_R0": 0,
+      "self_loops_R2": 0,
+      "swap_attempts_total": 23430,
+      "target_n": 1000,
+      "unweighted_in_degree_preserved": true,
+      "unweighted_out_degree_preserved": true,
+      "unweighted_total_degree_preserved": true,
+      "weighted_degree_preserved": false
+    },
+    "2000": {
+      "M": 7414,
+      "N": 2000,
+      "R0_weight_uniform": false,
+      "R2_destroys_weight_structure": true,
+      "R2_weight_uniform": true,
+      "edge_count_preserved": true,
+      "edge_overlap_fraction": 0.06420285945508497,
+      "elapsed_seconds": 1.3717041015625,
+      "expected_overlap_if_fully_mixed": 0.05550421160497992,
+      "implied_success_rate": 0.04678985702724575,
+      "implied_successful_swaps": 3469.0,
+      "multiplicity_R0": {
+        "coo_nnz": 7414,
+        "csr_nnz": 7414,
+        "n_duplicate_coordinates": 0
+      },
+      "multiplicity_R2": {
+        "coo_nnz": 7414,
+        "csr_nnz": 7414,
+        "n_duplicate_coordinates": 0
+      },
+      "n_distinct_graphs_over_seeds": 10,
+      "n_edges_only_in_R0": 6938,
+      "n_seeds": 10,
+      "n_swap_attempts_per_edge": 10,
+      "per_seed": {
+        "0": {
+          "M": 7414,
+          "overlap_with_R0": 0.06420285945508497,
+          "structure_sha16": "30037e5b80af869e|18be9ef026522a1e|70e19577061fb40e",
+          "unweighted_out_degree_preserved": true
+        },
+        "1": {
+          "M": 7414,
+          "overlap_with_R0": 0.05988670083625573,
+          "structure_sha16": "fd50c27073e4e2c9|18be9ef026522a1e|70e19577061fb40e",
+          "unweighted_out_degree_preserved": true
+        },
+        "2": {
+          "M": 7414,
+          "overlap_with_R0": 0.05921230105206366,
+          "structure_sha16": "d01d7c2534d25cfa|18be9ef026522a1e|70e19577061fb40e",
+          "unweighted_out_degree_preserved": true
+        },
+        "3": {
+          "M": 7414,
+          "overlap_with_R0": 0.06164014027515511,
+          "structure_sha16": "90467dd64f69dbe6|18be9ef026522a1e|70e19577061fb40e",
+          "unweighted_out_degree_preserved": true
+        },
+        "4": {
+          "M": 7414,
+          "overlap_with_R0": 0.06244942001618559,
+          "structure_sha16": "5071f2cacc1166b6|18be9ef026522a1e|70e19577061fb40e",
+          "unweighted_out_degree_preserved": true
+        },
+        "5": {
+          "M": 7414,
+          "overlap_with_R0": 0.06298893984353925,
+          "structure_sha16": "17d3149299ad17af|18be9ef026522a1e|70e19577061fb40e",
+          "unweighted_out_degree_preserved": true
+        },
+        "6": {
+          "M": 7414,
+          "overlap_with_R0": 0.05840302131103318,
+          "structure_sha16": "962e9c2b1fe2440f|18be9ef026522a1e|70e19577061fb40e",
+          "unweighted_out_degree_preserved": true
+        },
+        "7": {
+          "M": 7414,
+          "overlap_with_R0": 0.05867278122471001,
+          "structure_sha16": "73e8066fda559848|18be9ef026522a1e|70e19577061fb40e",
+          "unweighted_out_degree_preserved": true
+        },
+        "8": {
+          "M": 7414,
+          "overlap_with_R0": 0.06474237928243863,
+          "structure_sha16": "0c5f9065451075ac|18be9ef026522a1e|70e19577061fb40e",
+          "unweighted_out_degree_preserved": true
+        },
+        "9": {
+          "M": 7414,
+          "overlap_with_R0": 0.06123550040463987,
+          "structure_sha16": "b9e188e651109849|18be9ef026522a1e|70e19577061fb40e",
+          "unweighted_out_degree_preserved": true
+        }
+      },
+      "seconds_per_attempt": 1.850153900138252e-05,
+      "seed_pairwise_edge_overlap_max": 0.052872943080658215,
+      "seed_pairwise_edge_overlap_mean": 0.048376944519377754,
+      "seed_pairwise_edge_overlap_min": 0.04343134610196925,
+      "self_loops_R0": 0,
+      "self_loops_R2": 0,
+      "swap_attempts_total": 74140,
+      "target_n": 2000,
+      "unweighted_in_degree_preserved": true,
+      "unweighted_out_degree_preserved": true,
+      "unweighted_total_degree_preserved": true,
+      "weighted_degree_preserved": false
+    },
+    "250": {
+      "M": 126,
+      "N": 250,
+      "R0_weight_uniform": false,
+      "R2_destroys_weight_structure": true,
+      "R2_weight_uniform": true,
+      "edge_count_preserved": true,
+      "edge_overlap_fraction": 0.10317460317460317,
+      "elapsed_seconds": 0.009633064270019531,
+      "expected_overlap_if_fully_mixed": 0.08686366963010954,
+      "implied_success_rate": 0.04484126984126984,
+      "implied_successful_swaps": 56.5,
+      "multiplicity_R0": {
+        "coo_nnz": 126,
+        "csr_nnz": 126,
+        "n_duplicate_coordinates": 0
+      },
+      "multiplicity_R2": {
+        "coo_nnz": 126,
+        "csr_nnz": 126,
+        "n_duplicate_coordinates": 0
+      },
+      "n_distinct_graphs_over_seeds": 10,
+      "n_edges_only_in_R0": 113,
+      "n_seeds": 10,
+      "n_swap_attempts_per_edge": 10,
+      "per_seed": {
+        "0": {
+          "M": 126,
+          "overlap_with_R0": 0.10317460317460317,
+          "structure_sha16": "561e4a0f4611562a|a872caf2e9ea2702|d9afd2afae14ee10",
+          "unweighted_out_degree_preserved": true
+        },
+        "1": {
+          "M": 126,
+          "overlap_with_R0": 0.09523809523809523,
+          "structure_sha16": "d123578e8ad0f74a|a872caf2e9ea2702|d9afd2afae14ee10",
+          "unweighted_out_degree_preserved": true
+        },
+        "2": {
+          "M": 126,
+          "overlap_with_R0": 0.07936507936507936,
+          "structure_sha16": "c7aab936fd6ce836|a872caf2e9ea2702|d9afd2afae14ee10",
+          "unweighted_out_degree_preserved": true
+        },
+        "3": {
+          "M": 126,
+          "overlap_with_R0": 0.09523809523809523,
+          "structure_sha16": "8fd61821800e30b0|a872caf2e9ea2702|d9afd2afae14ee10",
+          "unweighted_out_degree_preserved": true
+        },
+        "4": {
+          "M": 126,
+          "overlap_with_R0": 0.0873015873015873,
+          "structure_sha16": "23b5e3648a1e5010|a872caf2e9ea2702|d9afd2afae14ee10",
+          "unweighted_out_degree_preserved": true
+        },
+        "5": {
+          "M": 126,
+          "overlap_with_R0": 0.031746031746031744,
+          "structure_sha16": "53c1030a79b83d74|a872caf2e9ea2702|d9afd2afae14ee10",
+          "unweighted_out_degree_preserved": true
+        },
+        "6": {
+          "M": 126,
+          "overlap_with_R0": 0.11904761904761904,
+          "structure_sha16": "5baa6e867a56da96|a872caf2e9ea2702|d9afd2afae14ee10",
+          "unweighted_out_degree_preserved": true
+        },
+        "7": {
+          "M": 126,
+          "overlap_with_R0": 0.06349206349206349,
+          "structure_sha16": "4954a83745cc808d|a872caf2e9ea2702|d9afd2afae14ee10",
+          "unweighted_out_degree_preserved": true
+        },
+        "8": {
+          "M": 126,
+          "overlap_with_R0": 0.09523809523809523,
+          "structure_sha16": "a2e25a759434442b|a872caf2e9ea2702|d9afd2afae14ee10",
+          "unweighted_out_degree_preserved": true
+        },
+        "9": {
+          "M": 126,
+          "overlap_with_R0": 0.0873015873015873,
+          "structure_sha16": "8e90f663f1a9c0fe|a872caf2e9ea2702|d9afd2afae14ee10",
+          "unweighted_out_degree_preserved": true
+        }
+      },
+      "seconds_per_attempt": 7.645289103190105e-06,
+      "seed_pairwise_edge_overlap_max": 0.12698412698412698,
+      "seed_pairwise_edge_overlap_mean": 0.0855379188712522,
+      "seed_pairwise_edge_overlap_min": 0.047619047619047616,
+      "self_loops_R0": 0,
+      "self_loops_R2": 0,
+      "swap_attempts_total": 1260,
+      "target_n": 250,
+      "unweighted_in_degree_preserved": true,
+      "unweighted_out_degree_preserved": true,
+      "unweighted_total_degree_preserved": true,
+      "weighted_degree_preserved": false
+    },
+    "500": {
+      "M": 657,
+      "N": 500,
+      "R0_weight_uniform": false,
+      "R2_destroys_weight_structure": true,
+      "R2_weight_uniform": true,
+      "edge_count_preserved": true,
+      "edge_overlap_fraction": 0.0837138508371385,
+      "elapsed_seconds": 0.05833292007446289,
+      "expected_overlap_if_fully_mixed": 0.06247868757647679,
+      "implied_success_rate": 0.04581430745814308,
+      "implied_successful_swaps": 301.0,
+      "multiplicity_R0": {
+        "coo_nnz": 657,
+        "csr_nnz": 657,
+        "n_duplicate_coordinates": 0
+      },
+      "multiplicity_R2": {
+        "coo_nnz": 657,
+        "csr_nnz": 657,
+        "n_duplicate_coordinates": 0
+      },
+      "n_distinct_graphs_over_seeds": 10,
+      "n_edges_only_in_R0": 602,
+      "n_seeds": 10,
+      "n_swap_attempts_per_edge": 10,
+      "per_seed": {
+        "0": {
+          "M": 657,
+          "overlap_with_R0": 0.0837138508371385,
+          "structure_sha16": "b0f2ac91fb05f890|e0d63f7c0d0922d9|58aeb4a0fb18fc5d",
+          "unweighted_out_degree_preserved": true
+        },
+        "1": {
+          "M": 657,
+          "overlap_with_R0": 0.0745814307458143,
+          "structure_sha16": "74738e58ae9201a3|e0d63f7c0d0922d9|58aeb4a0fb18fc5d",
+          "unweighted_out_degree_preserved": true
+        },
+        "2": {
+          "M": 657,
+          "overlap_with_R0": 0.0684931506849315,
+          "structure_sha16": "b7e20dcc9f752a1f|e0d63f7c0d0922d9|58aeb4a0fb18fc5d",
+          "unweighted_out_degree_preserved": true
+        },
+        "3": {
+          "M": 657,
+          "overlap_with_R0": 0.0867579908675799,
+          "structure_sha16": "f1573578cd90b1e9|e0d63f7c0d0922d9|58aeb4a0fb18fc5d",
+          "unweighted_out_degree_preserved": true
+        },
+        "4": {
+          "M": 657,
+          "overlap_with_R0": 0.0684931506849315,
+          "structure_sha16": "5fd203b766835529|e0d63f7c0d0922d9|58aeb4a0fb18fc5d",
+          "unweighted_out_degree_preserved": true
+        },
+        "5": {
+          "M": 657,
+          "overlap_with_R0": 0.076103500761035,
+          "structure_sha16": "4e3e71dba2ad75b2|e0d63f7c0d0922d9|58aeb4a0fb18fc5d",
+          "unweighted_out_degree_preserved": true
+        },
+        "6": {
+          "M": 657,
+          "overlap_with_R0": 0.0745814307458143,
+          "structure_sha16": "71a28cdf52eb5918|e0d63f7c0d0922d9|58aeb4a0fb18fc5d",
+          "unweighted_out_degree_preserved": true
+        },
+        "7": {
+          "M": 657,
+          "overlap_with_R0": 0.0700152207001522,
+          "structure_sha16": "9d77f76243439e05|e0d63f7c0d0922d9|58aeb4a0fb18fc5d",
+          "unweighted_out_degree_preserved": true
+        },
+        "8": {
+          "M": 657,
+          "overlap_with_R0": 0.0700152207001522,
+          "structure_sha16": "202c2718c48eec62|e0d63f7c0d0922d9|58aeb4a0fb18fc5d",
+          "unweighted_out_degree_preserved": true
+        },
+        "9": {
+          "M": 657,
+          "overlap_with_R0": 0.0806697108066971,
+          "structure_sha16": "d4576fc6395e303a|e0d63f7c0d0922d9|58aeb4a0fb18fc5d",
+          "unweighted_out_degree_preserved": true
+        }
+      },
+      "seconds_per_attempt": 8.878678854560561e-06,
+      "seed_pairwise_edge_overlap_max": 0.0806697108066971,
+      "seed_pairwise_edge_overlap_mean": 0.05854895991882293,
+      "seed_pairwise_edge_overlap_min": 0.0395738203957382,
+      "self_loops_R0": 0,
+      "self_loops_R2": 0,
+      "swap_attempts_total": 6570,
+      "target_n": 500,
+      "unweighted_in_degree_preserved": true,
+      "unweighted_out_degree_preserved": true,
+      "unweighted_total_degree_preserved": true,
+      "weighted_degree_preserved": false
+    }
+  }
+}

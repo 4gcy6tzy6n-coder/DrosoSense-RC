@@ -1,0 +1,131 @@
+=== repo HEAD ===
+afbd0e1a795d03039ad5b6cbf328c18373d9b0f5 DATA-59: E9 D2 smoke seed 0, all 5 sizes (e9_size_d2) -- 70 ok at N=250; N=500/1000/2000/4000 all 70 skipped prior_ok_different_config (0 failed); disclosure receipt at results/tables/e9_size_d2_skip_disclosure.json; nested unit test 7 passed on server NPZ
+
+=== tables e2/e3/e9 ===
+-rw-r--r-- 1 root root    4719 Sep 22 05:28 e2_main_d2_summary.csv
+-rw-r--r-- 1 root root 2273811 Sep 22 11:43 e2_main_d3_skip_disclosure.json
+-rw-r--r-- 1 root root     991 Sep 22 11:43 e2_main_d3_summary.csv
+-rw-r--r-- 1 root root    1950 Sep 22 05:07 e2_smoke_summary.csv
+-rw-r--r-- 1 root root   10883 Sep 22 20:49 e3_lowdata_d2_f100_skip_disclosure.json
+-rw-r--r-- 1 root root   10883 Sep 22 20:49 e3_lowdata_d2_f10_skip_disclosure.json
+-rw-r--r-- 1 root root   10883 Sep 22 20:49 e3_lowdata_d2_f25_skip_disclosure.json
+-rw-r--r-- 1 root root   10883 Sep 22 20:49 e3_lowdata_d2_f50_skip_disclosure.json
+-rw-r--r-- 1 root root   10883 Sep 22 20:49 e3_lowdata_d2_f75_skip_disclosure.json
+-rw-r--r-- 1 root root    4126 Sep 22 15:19 e9_size_d2_n1000_summary.csv
+-rw-r--r-- 1 root root    4133 Sep 22 16:25 e9_size_d2_n2000_summary.csv
+-rw-r--r-- 1 root root    4125 Sep 22 14:55 e9_size_d2_n250_summary.csv
+-rw-r--r-- 1 root root    4122 Sep 22 20:38 e9_size_d2_n4000_summary.csv
+-rw-r--r-- 1 root root    4116 Sep 22 15:00 e9_size_d2_n500_summary.csv
+-rw-r--r-- 1 root root  135267 Sep 22 14:27 e9_size_d2_skip_disclosure.json
+-rw-r--r-- 1 root root    4059 Sep 22 14:09 e9_size_d2_summary.csv
+
+=== logs (E2/E3/E9) ===
+-rw-r--r--  1 root root   4432 Sep 22 05:08 e2_launch.log
+-rw-r--r--  1 root root      2 Sep 22 05:27 e2_main_d2_a.exit
+-rw-r--r--  1 root root   1586 Sep 22 05:27 e2_main_d2_a.log
+-rw-r--r--  1 root root      2 Sep 22 05:28 e2_main_d2_b.exit
+-rw-r--r--  1 root root   1586 Sep 22 05:28 e2_main_d2_b.log
+-rw-r--r--  1 root root  23733 Sep 22 10:36 e2_main_d3_20260922T020522Z_R0_0_4.log
+-rw-r--r--  1 root root      2 Sep 22 10:36 e2_main_d3_20260922T020522Z_R0_0_4.log.exit
+-rw-r--r--  1 root root      0 Sep 22 10:05 e2_main_d3_20260922T020522Z_R0_0_4.nohup
+-rwxr-xr-x  1 root root    698 Sep 22 10:05 e2_main_d3_20260922T020522Z_R0_0_4.sh
+-rw-r--r--  1 root root  22625 Sep 22 10:38 e2_main_d3_20260922T020522Z_R0_5_9.log
+-rw-r--r--  1 root root      2 Sep 22 10:38 e2_main_d3_20260922T020522Z_R0_5_9.log.exit
+-rw-r--r--  1 root root      0 Sep 22 10:05 e2_main_d3_20260922T020522Z_R0_5_9.nohup
+-rwxr-xr-x  1 root root    698 Sep 22 10:05 e2_main_d3_20260922T020522Z_R0_5_9.sh
+-rw-r--r--  1 root root  24123 Sep 22 10:37 e2_main_d3_20260922T020522Z_R1_0_4.log
+-rw-r--r--  1 root root      2 Sep 22 10:37 e2_main_d3_20260922T020522Z_R1_0_4.log.exit
+-rw-r--r--  1 root root      0 Sep 22 10:05 e2_main_d3_20260922T020522Z_R1_0_4.nohup
+-rwxr-xr-x  1 root root    705 Sep 22 10:05 e2_main_d3_20260922T020522Z_R1_0_4.sh
+-rw-r--r--  1 root root  22820 Sep 22 10:37 e2_main_d3_20260922T020522Z_R1_5_9.log
+-rw-r--r--  1 root root      2 Sep 22 10:37 e2_main_d3_20260922T020522Z_R1_5_9.log.exit
+-rw-r--r--  1 root root      0 Sep 22 10:05 e2_main_d3_20260922T020522Z_R1_5_9.nohup
+-rwxr-xr-x  1 root root    705 Sep 22 10:05 e2_main_d3_20260922T020522Z_R1_5_9.sh
+-rw-r--r--  1 root root  23343 Sep 22 10:35 e2_main_d3_20260922T020522Z_R2_0_4.log
+-rw-r--r--  1 root root      2 Sep 22 10:35 e2_main_d3_20260922T020522Z_R2_0_4.log.exit
+-rw-r--r--  1 root root      0 Sep 22 10:05 e2_main_d3_20260922T020522Z_R2_0_4.nohup
+-rwxr-xr-x  1 root root    704 Sep 22 10:05 e2_main_d3_20260922T020522Z_R2_0_4.sh
+-rw-r--r--  1 root root  22963 Sep 22 10:35 e2_main_d3_20260922T020522Z_R2_5_9.log
+-rw-r--r--  1 root root      2 Sep 22 10:35 e2_main_d3_20260922T020522Z_R2_5_9.log.exit
+-rw-r--r--  1 root root      0 Sep 22 10:05 e2_main_d3_20260922T020522Z_R2_5_9.nohup
+-rwxr-xr-x  1 root root    704 Sep 22 10:05 e2_main_d3_20260922T020522Z_R2_5_9.sh
+-rw-r--r--  1 root root  23733 Sep 22 10:35 e2_main_d3_20260922T020522Z_R3_0_4.log
+-rw-r--r--  1 root root      2 Sep 22 10:35 e2_main_d3_20260922T020522Z_R3_0_4.log.exit
+-rw-r--r--  1 root root      0 Sep 22 10:05 e2_main_d3_20260922T020522Z_R3_0_4.nohup
+-rwxr-xr-x  1 root root    703 Sep 22 10:05 e2_main_d3_20260922T020522Z_R3_0_4.sh
+-rw-r--r--  1 root root  23158 Sep 22 10:35 e2_main_d3_20260922T020522Z_R3_5_9.log
+-rw-r--r--  1 root root      2 Sep 22 10:35 e2_main_d3_20260922T020522Z_R3_5_9.log.exit
+-rw-r--r--  1 root root      0 Sep 22 10:05 e2_main_d3_20260922T020522Z_R3_5_9.nohup
+-rwxr-xr-x  1 root root    703 Sep 22 10:05 e2_main_d3_20260922T020522Z_R3_5_9.sh
+-rw-r--r--  1 root root  23343 Sep 22 10:40 e2_main_d3_20260922T020522Z_R4_0_4.log
+-rw-r--r--  1 root root      2 Sep 22 10:40 e2_main_d3_20260922T020522Z_R4_0_4.log.exit
+-rw-r--r--  1 root root      0 Sep 22 10:05 e2_main_d3_20260922T020522Z_R4_0_4.nohup
+
+=== exit receipts ===
+d60_f10.v2=Terminated
+d60_f10.v3=Terminated
+d60_f10.v4=Terminated
+d60_f10.v5=Terminated
+d60_f10.v6=Terminated
+d60_f10.v7=Terminated
+d60_f10.v8=Terminated
+d60_f10.v9=Terminated
+d60_f100.v4=usage: /root/autodl-tmp/drososense/stage_d60/e3_d2_smoke.sh 10|25|50|75|100|f100_then_f10
+d60_f100.v5=Terminated
+d60_f100.v6=Terminated
+d60_f100.v7=Terminated
+d60_f100.v8=Terminated
+d60_f100.v9=Terminated
+d60_f100_f10.relaunch=Terminated
+Terminated
+d60_f25.relaunch=Terminated
+d60_f25.v2=Terminated
+d60_f25.v3=Terminated
+d60_f25.v4=Terminated
+d60_f25.v5=Terminated
+d60_f25.v6=Terminated
+d60_f25.v7=Terminated
+d60_f25.v8=Terminated
+d60_f25.v9=Terminated
+d60_f50.relaunch=Terminated
+d60_f50.v2=Terminated
+d60_f50.v3=Terminated
+d60_f50.v4=Terminated
+d60_f50.v5=Terminated
+d60_f50.v6=Terminated
+d60_f50.v7=Terminated
+d60_f50.v8=Terminated
+d60_f50.v9=Terminated
+d60_f75.relaunch=Terminated
+d60_f75.v2=Terminated
+d60_f75.v3=Terminated
+d60_f75.v4=Terminated
+d60_f75.v5=Terminated
+d60_f75.v6=Terminated
+d60_f75.v7=Terminated
+d60_f75.v8=Terminated
+d60_f75.v9=Terminated
+d60_pair=Terminated
+Terminated
+d60_pair.v2=Terminated
+Terminated
+d60_pair.v3=Terminated
+Terminated
+e2_main_d2_a=0
+e2_main_d2_b=0
+e2_main_d3_20260922T020522Z_R0_0_4.log=0
+e2_main_d3_20260922T020522Z_R0_5_9.log=0
+e2_main_d3_20260922T020522Z_R1_0_4.log=0
+e2_main_d3_20260922T020522Z_R1_5_9.log=0
+e2_main_d3_20260922T020522Z_R2_0_4.log=0
+e2_main_d3_20260922T020522Z_R2_5_9.log=0
+e2_main_d3_20260922T020522Z_R3_0_4.log=0
+e2_main_d3_20260922T020522Z_R3_5_9.log=0
+e2_main_d3_20260922T020522Z_R4_0_4.log=0
+e2_main_d3_20260922T020522Z_R4_5_9.log=0
+e2_main_d3_20260922T020522Z_R5_0_4.log=0
+e2_main_d3_20260922T020522Z_R5_5_9.log=0
+e2_main_d3_20260922T020522Z_R6_0_4.log=0
+e2_main_d3_20260922T020522Z_R6_5_9.log=0
+e2_main_d3_a=143
+e2_main_d3_b=143

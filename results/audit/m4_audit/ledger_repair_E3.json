@@ -1,0 +1,82 @@
+{
+  "classification": "no_evidence_produced",
+  "n_records": 0,
+  "n_skipped_units": 100,
+  "receipts": [
+    {
+      "n_skipped_different_config": 0,
+      "n_skipped_same_config": 0,
+      "n_skipped_units": 20,
+      "prior_run_ids": [
+        "d2_beef_uncontrolled|gru|classification|seed00|fold00",
+        "d2_beef_uncontrolled|gru|classification|seed00|fold01",
+        "d2_beef_uncontrolled|gru|classification|seed00|fold02"
+      ],
+      "reasons": [
+        "prior_ok_cross_experiment_anchor"
+      ],
+      "receipt": "e3_lowdata_d2_f100_skip_disclosure.json",
+      "run_config_hash": "278a4241a877"
+    },
+    {
+      "n_skipped_different_config": 0,
+      "n_skipped_same_config": 0,
+      "n_skipped_units": 20,
+      "prior_run_ids": [
+        "d2_beef_uncontrolled|gru|classification|seed00|fold00",
+        "d2_beef_uncontrolled|gru|classification|seed00|fold01",
+        "d2_beef_uncontrolled|gru|classification|seed00|fold02"
+      ],
+      "reasons": [
+        "prior_ok_cross_experiment_anchor"
+      ],
+      "receipt": "e3_lowdata_d2_f10_skip_disclosure.json",
+      "run_config_hash": "dc53b28e4603"
+    },
+    {
+      "n_skipped_different_config": 0,
+      "n_skipped_same_config": 0,
+      "n_skipped_units": 20,
+      "prior_run_ids": [
+        "d2_beef_uncontrolled|gru|classification|seed00|fold00",
+        "d2_beef_uncontrolled|gru|classification|seed00|fold01",
+        "d2_beef_uncontrolled|gru|classification|seed00|fold02"
+      ],
+      "reasons": [
+        "prior_ok_cross_experiment_anchor"
+      ],
+      "receipt": "e3_lowdata_d2_f25_skip_disclosure.json",
+      "run_config_hash": "86dcea3be579"
+    },
+    {
+      "n_skipped_different_config": 0,
+      "n_skipped_same_config": 0,
+      "n_skipped_units": 20,
+      "prior_run_ids": [
+        "d2_beef_uncontrolled|gru|classification|seed00|fold00",
+        "d2_beef_uncontrolled|gru|classification|seed00|fold01",
+        "d2_beef_uncontrolled|gru|classification|seed00|fold02"
+      ],
+      "reasons": [
+        "prior_ok_cross_experiment_anchor"
+      ],
+      "receipt": "e3_lowdata_d2_f50_skip_disclosure.json",
+      "run_config_hash": "9df4aa8eb379"
+    },
+    {
+      "n_skipped_different_config": 0,
+      "n_skipped_same_config": 0,
+      "n_skipped_units": 20,
+      "prior_run_ids": [
+        "d2_beef_uncontrolled|gru|classification|seed00|fold00",
+        "d2_beef_uncontrolled|gru|classification|seed00|fold01",
+        "d2_beef_uncontrolled|gru|classification|seed00|fold02"
+      ],
+      "reasons": [
+        "prior_ok_cross_experiment_anchor"
+      ],
+      "receipt": "e3_lowdata_d2_f75_skip_disclosure.json",
+      "run_config_hash": "e8768cc1ff1e"
+    }
+  ]
+}

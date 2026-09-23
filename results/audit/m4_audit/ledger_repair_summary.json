@@ -1,0 +1,35 @@
+{
+  "e3": {
+    "classification": "no_evidence_produced",
+    "n_records": 0,
+    "n_skipped_units": 100
+  },
+  "e9_summary": {
+    "n_evidence_units": 350,
+    "n_fingerprints_with_a_true_repeat": 70,
+    "n_fingerprints_with_more_than_one_substrate": 70,
+    "n_legacy_fingerprints": 70,
+    "n_legacy_identity_records": 420,
+    "n_ok_records": 420,
+    "n_records": 420,
+    "units_collision_only": 0,
+    "units_recomputation_same_config": 0,
+    "units_single_scored_evaluation": 280,
+    "units_true_repeat_different_config": 70
+  },
+  "e9_violations_under_old_identity": {
+    "n_distinct_test_fingerprints": 70,
+    "n_repeated_test_fingerprints": 70,
+    "n_violations": 70
+  },
+  "legacy_fallback": {
+    "current_identity_keys": 0,
+    "e3_style_probe_id": "577685c3426268aa",
+    "interpretation": "v1.5 does not by itself unblock E3; the pre-v1.5 records must be classified and re-filed under their own components first.",
+    "legacy_identity_keys": 700,
+    "matched": true,
+    "matched_config_hash": "07cd93e03295",
+    "matched_identity": "fbe44838fb1ba484",
+    "n_legacy_ok_records_d2": 700
+  }
+}

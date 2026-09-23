@@ -1,0 +1,56 @@
+{
+  "arms": {
+    "H_only": {
+      "accuracy": 0.41904761904761906,
+      "macro_f1": 0.22587907375643224
+    },
+    "X_only": {
+      "accuracy": 0.41904761904761906,
+      "macro_f1": 0.22587907375643224
+    },
+    "X_plus_H": {
+      "accuracy": 0.41904761904761906,
+      "macro_f1": 0.22587907375643224
+    },
+    "X_plus_shuffled_H": {
+      "accuracy": 0.41904761904761906,
+      "macro_f1": 0.22587907375643224
+    },
+    "zero_H": {
+      "accuracy": 0.41904761904761906,
+      "macro_f1": 0.22587907375643224
+    }
+  },
+  "audit": "A4",
+  "dataset": "synthetic_enose",
+  "deltas": {
+    "H_only_minus_X_only_macro_f1": 0.0,
+    "X_plus_H_minus_X_only_macro_f1": 0.0,
+    "X_plus_H_minus_X_plus_shuffled_H_macro_f1": 0.0
+  },
+  "evidence_class": "synthetic_fixture",
+  "n_channels": 8,
+  "n_train_windows": 630,
+  "n_val_windows": 315,
+  "normalization": "n1_pre_l1",
+  "regime": {
+    "gain": 0.5,
+    "input_scale": 0.1,
+    "leak": 0.1,
+    "readout": "ridge",
+    "ridge_lambda": 0.001,
+    "spectral_radius": 0.9,
+    "state_pooling": "last",
+    "washout": 10
+  },
+  "reservoir_size": 250,
+  "split": "group_kfold seed 0 fold 0 \u2014 train + validation ONLY",
+  "test_split_read": false,
+  "val_class_support": {
+    "0": 108,
+    "1": 28,
+    "2": 20,
+    "3": 159
+  },
+  "window_length": 16
+}

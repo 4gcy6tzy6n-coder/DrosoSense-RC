@@ -1,0 +1,158 @@
+{
+  "A2r_divergence": [
+    {
+      "d_R0_R2_final": 0.06972723345469098,
+      "d_R0_R2_mean": 0.03603104189683466,
+      "d_R0_R3_final": 0.2130702062328108,
+      "d_R0_zero_final": 0.035572109719072195,
+      "fold_id": 0
+    },
+    {
+      "d_R0_R2_final": 0.06901389384426487,
+      "d_R0_R2_mean": 0.03560680481865071,
+      "d_R0_R3_final": 0.21086041823271656,
+      "d_R0_zero_final": 0.034396701842680295,
+      "fold_id": 1
+    }
+  ],
+  "A2r_means": {
+    "d_R0_R2_final": 0.06937056364947793,
+    "d_R0_R3_final": 0.2119653122327637,
+    "d_R0_zero_final": 0.03498440578087625
+  },
+  "A4r_arms_mean": {
+    "H_only": {
+      "accuracy": 0.9628509378244539,
+      "macro_f1": 0.9597033697442245
+    },
+    "X_only": {
+      "accuracy": 0.9729322388539206,
+      "macro_f1": 0.9737254168454994
+    },
+    "X_plus_H": {
+      "accuracy": 0.9634006082391446,
+      "macro_f1": 0.960595809627164
+    },
+    "X_plus_shuffled_H": {
+      "accuracy": 0.9713597973864116,
+      "macro_f1": 0.9720468382750717
+    },
+    "zero_H": {
+      "accuracy": 0.9765192838985446,
+      "macro_f1": 0.9758786574611534
+    }
+  },
+  "A4r_deltas": {
+    "H_only_minus_X_only": -0.01402204710127486,
+    "X_plus_H_minus_X_plus_shuffled_H": -0.011451028647907702,
+    "X_plus_H_minus_zero_H": -0.015282847833989477
+  },
+  "A4r_majority_accuracy_mean": 0.4382404354093752,
+  "A5r_effective_rank": [
+    {
+      "dims": 250,
+      "effective_rank": 3.2404614145842126,
+      "fold_id": 0,
+      "top1_variance_fraction": 0.7434126206228158
+    },
+    {
+      "dims": 250,
+      "effective_rank": 3.1818692193879397,
+      "fold_id": 1,
+      "top1_variance_fraction": 0.7428495474259051
+    }
+  ],
+  "A5r_effective_rank_mean": 3.211165316986076,
+  "audit": "A2r/A4r/A5r",
+  "channels": 7,
+  "dataset": "d3_rainbow_trout",
+  "normalization": "n1_pre_l1",
+  "per_fold": [
+    {
+      "H_only": {
+        "accuracy": 0.9553195385460538,
+        "macro_f1": 0.9519812007579982,
+        "majority_accuracy": 0.4806811939205274
+      },
+      "X_only": {
+        "accuracy": 0.9628273210034792,
+        "macro_f1": 0.9651434203725766,
+        "majority_accuracy": 0.4806811939205274
+      },
+      "X_plus_H": {
+        "accuracy": 0.9609961545504486,
+        "macro_f1": 0.9590311776805993,
+        "majority_accuracy": 0.4806811939205274
+      },
+      "X_plus_shuffled_H": {
+        "accuracy": 0.9626442043581761,
+        "macro_f1": 0.9646922434397904,
+        "majority_accuracy": 0.4806811939205274
+      },
+      "fold_id": 0,
+      "n_train": 12899,
+      "n_val": 5461,
+      "val_class_support": {
+        "0": 630,
+        "1": 841,
+        "2": 2625,
+        "3": 1365
+      },
+      "zero_H": {
+        "accuracy": 0.971616919978026,
+        "macro_f1": 0.9713003291303022,
+        "majority_accuracy": 0.4806811939205274
+      }
+    },
+    {
+      "H_only": {
+        "accuracy": 0.970382337102854,
+        "macro_f1": 0.9674255387304508,
+        "majority_accuracy": 0.39579967689822293
+      },
+      "X_only": {
+        "accuracy": 0.9830371567043619,
+        "macro_f1": 0.9823074133184221,
+        "majority_accuracy": 0.39579967689822293
+      },
+      "X_plus_H": {
+        "accuracy": 0.9658050619278407,
+        "macro_f1": 0.9621604415737286,
+        "majority_accuracy": 0.39579967689822293
+      },
+      "X_plus_shuffled_H": {
+        "accuracy": 0.9800753904146473,
+        "macro_f1": 0.9794014331103529,
+        "majority_accuracy": 0.39579967689822293
+      },
+      "fold_id": 1,
+      "n_train": 12755,
+      "n_val": 3714,
+      "val_class_support": {
+        "0": 774,
+        "1": 735,
+        "2": 1470,
+        "3": 735
+      },
+      "zero_H": {
+        "accuracy": 0.981421647819063,
+        "macro_f1": 0.9804569857920047,
+        "majority_accuracy": 0.39579967689822293
+      }
+    }
+  ],
+  "regime": {
+    "gain": 0.5,
+    "input_scale": 0.1,
+    "leak": 0.1,
+    "readout": "ridge",
+    "ridge_lambda": 0.001,
+    "spectral_radius": 0.9,
+    "state_pooling": "last",
+    "washout": 10
+  },
+  "reservoir_M": 126,
+  "reservoir_N": 250,
+  "split": "group_kfold seed=0 folds=[0, 1]",
+  "test_split_read": false
+}
