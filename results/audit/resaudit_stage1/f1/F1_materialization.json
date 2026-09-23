@@ -1,5 +1,6 @@
 {
   "verdict": "REPRODUCED",
+  "status": "VERIFIED_FOR_STAGE1",
   "dataset": "F1 (frozen S0 substrate)",
   "raw_connectome_sha256": "243aa18fe7ad838a9f6df1df5e3f46b7d579ffdf5ee839572ff6cbb37998998b",
   "raw_connectome_layout": "scipy_csr_layout",
@@ -12,32 +13,97 @@
   },
   "node_list_sha256": "77ec9bfd90d6ec7216f642e1860c815ca972fd7638f1bb464766b9053faccb1e",
   "edge_list_sha256": "a840f45bd5c96ce654f8ff9c5957b0ec3eb158527a417ff635b462e03815740a",
-  "A_sha256_observed": "3aa95745aea38ea85b4750c51c5262bd3d79c64e3450cca9a07fa8ecb33dac20",
+  "substrate_identity": "node-list hash + edge-list hash + raw weights/topology provenance (amendment 5); the legacy scaled-float A_hash is run provenance only",
+  "A_sha256_observed_legacy": "002bac2438452ce1578615dd9b38af7f6a9587c4c31c7985f965ce3a3fea3233",
   "A_sha256_frozen_NOT_AN_IDENTITY": "3aa95745aea38ea85b4750c51c5262bd3d79c64e3450cca9a07fa8ecb33dac20",
-  "A_hash_defect": "amendment 5: score_matrix normalises with an unseeded eigsh estimate, so this digest is not reproducible; the wiring-level hashes are the reproduction criterion",
   "N": 1000,
   "M": 80443,
   "B5_sha256_historical": "3bd78eaca10cad865749a6bb1d04871d83a48af48b83ee5d1000e9ca39e7d968",
-  "B_sha256": {},
-  "B_blocked_din": {
-    "6": "InputMappingError: din_per_layer must sum to total_din=6 for the declared layers ['ORN', 'PN', 'KC'], got {'ORN': 2, 'PN': 2, 'KC': 1}",
-    "8": "InputMappingError: din_per_layer must sum to total_din=8 for the declared layers ['ORN', 'PN', 'KC'], got {'ORN': 2, 'PN': 2, 'KC': 1}"
+  "B_sha256": {
+    "5": "3bd78eaca10cad865749a6bb1d04871d83a48af48b83ee5d1000e9ca39e7d968",
+    "6": "2b2ff2c97e978584c255e9c518c1b2ffe45e3b1d2efa8b0cf18ee33432648eea",
+    "8": "3be884f260e4765850bbb4a05d35a97166fc937904f94ea9e4d76403a0172c2a"
   },
-  "B_blocker_reason": "DEFAULT_TYPED_ALIGNED_DIN_PER_LAYER = {ORN:2, PN:2, KC:1} sums to 5 and build_typed_aligned_mapping requires the allocation to sum to total_din. The rule declares no allocation for any other width, so Din=6 (FD1/FD3) and Din=8 (FD2) cannot be instantiated without inventing one. No allocation was improvised; this awaits an operator decision.",
-  "status": "PARTIAL: F1 wiring verified; B at Din=5 verified; B at Din=6/8 blocked",
+  "B_stats": {
+    "5": {
+      "allocation": {
+        "ORN": 2,
+        "PN": 2,
+        "KC": 1
+      },
+      "input_nodes": 473,
+      "density": 0.0946,
+      "w_in_sha256": "3bd78eaca10cad865749a6bb1d04871d83a48af48b83ee5d1000e9ca39e7d968",
+      "deterministic_two_runs_byte_identical": true,
+      "fallback_used": false,
+      "dynamic_allocation": false
+    },
+    "6": {
+      "allocation": {
+        "ORN": 3,
+        "PN": 2,
+        "KC": 1
+      },
+      "input_nodes": 473,
+      "density": 0.07883333333333334,
+      "w_in_sha256": "2b2ff2c97e978584c255e9c518c1b2ffe45e3b1d2efa8b0cf18ee33432648eea",
+      "deterministic_two_runs_byte_identical": true,
+      "fallback_used": false,
+      "dynamic_allocation": false
+    },
+    "8": {
+      "allocation": {
+        "ORN": 3,
+        "PN": 3,
+        "KC": 2
+      },
+      "input_nodes": 473,
+      "density": 0.059125,
+      "w_in_sha256": "3be884f260e4765850bbb4a05d35a97166fc937904f94ea9e4d76403a0172c2a",
+      "deterministic_two_runs_byte_identical": true,
+      "fallback_used": false,
+      "dynamic_allocation": false
+    }
+  },
+  "allocation_rule": "amendment 6: weights (ORN:2,PN:2,KC:1), q_l = D*w_l/5, floors then largest-remainder, fixed tie order ORN>PN>KC",
+  "allocations": {
+    "5": {
+      "ORN": 2,
+      "PN": 2,
+      "KC": 1
+    },
+    "6": {
+      "ORN": 3,
+      "PN": 2,
+      "KC": 1
+    },
+    "8": {
+      "ORN": 3,
+      "PN": 3,
+      "KC": 2
+    }
+  },
   "dataset_din": {
     "FD1": 6,
     "FD3": 6,
     "FD2": 8
   },
-  "input_mapping_rule": "amended-2/3 typed-aligned mapping, receiving_fraction=0.80, density_limit=0.16",
-  "nested_property_B6_is_B8_prefix": null,
+  "input_mapping_rule": "typed-aligned, receiving_fraction=0.80, density_limit=0.16 (unchanged)",
+  "sanity_checks": {
+    "1_din5_allocation_and_B_hash": true,
+    "2_din6_allocation_3_2_1_no_fallback": true,
+    "3_din8_allocation_3_3_2_no_fallback": true,
+    "4_two_materializations_byte_identical": true
+  },
+  "nested_property_B6_is_B8_prefix": "not required (amendment 6 section 5)",
   "din_affects_wiring": true,
-  "din_wiring_note": "expand_from_orns is Din-parameterized (ORN seed budget, class/group floors, ORN_FLOOR(din)), so S0 generated at Din=6/8 is a different substrate. Amendment 4 requires A byte-identical across widths, so the wiring is materialized once in the frozen Din=5 selection context and only B is re-instantiated.",
+  "din_wiring_note": "expand_from_orns is Din-parameterized, so the wiring is materialized once in the frozen Din=5 selection context and only B is re-instantiated (amendment 4)",
   "protocol_amendment_hashes": {
     "amendment_3": "655acc84effa19f6e9eb3dfab8ca9389485155aa96cd1826e5b6fdb24988dd11",
-    "amendment_4": "9992d79f4ed524da0b13babd62345a6c2452b03c4b7f9ca9c0eb9bdc18ed9ac1"
+    "amendment_4": "9992d79f4ed524da0b13babd62345a6c2452b03c4b7f9ca9c0eb9bdc18ed9ac1",
+    "amendment_5": "12a8d5c3b8017b6afeace0b12a0275a10a288024feccecfee87405a400cd45e4",
+    "amendment_6": "91d3d3e2ac4ca8e1b5ad1447e6f56327fe5a52dd0057a5cbf3dd17a0d9de6ed4"
   },
-  "git_head": "71cecb090d95f78d5caccedb45b970763ef24cc5",
-  "generated_utc": "2026-09-23T16:40:57.861418+00:00"
+  "git_head": "4a0a6ad80fc008cc5929d04941c55ec84d86d2e2",
+  "generated_utc": "2026-09-23T16:44:14.611689+00:00"
 }

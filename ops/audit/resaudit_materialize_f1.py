@@ -1,29 +1,30 @@
 #!/usr/bin/env python
 """Materialize F1 (the frozen S0 substrate) and its dataset-conditioned inputs.
 
-Authority: docs/resaudit_food_preregistration_amendment_4.md.
+Authority: docs/resaudit_food_preregistration_amendment_4.md (F1 identity vs B),
+docs/resaudit_food_preregistration_amendment_5.md (A_hash is not an identity),
+docs/resaudit_food_preregistration_amendment_6.md (the Din allocation rule).
 
-F1's structural identity is the frozen S0 substrate as recorded in
-results/audit/v3_selection/V3_substrate_selection.json (candidate 0):
+F1's structural identity is the frozen S0 substrate (candidate 0 of
+results/audit/v3_selection/V3_substrate_selection.json), reproduced with the frozen
+selection settings din=5, target_n=1000, seed=0. Identity is proven by the deterministic
+content hashes -- node list and edge list -- plus N, M and B at Din=5. The legacy `A_hash`
+is NOT a criterion (amendment 5: it digests a stochastic `eigsh` normalisation and takes a
+different value on every call).
 
-    N = 1000, M = 80443, Din = 5
-    A_hash = 3aa95745aea38ea85b4750c51c5262bd3d79c64e3450cca9a07fa8ecb33dac20
-    B_hash = 3bd78eaca10cad865749a6bb1d04871d83a48af48b83ee5d1000e9ca39e7d968
+Amendment 6: the input allocation for a width D is
+    weights (ORN:2, PN:2, KC:1), q_l = D*w_l/5, floors, then largest-remainder with the
+fixed tie order ORN > PN > KC
+giving (2,2,1) at 5, (3,2,1) at 6 and (3,3,2) at 8. The RULE is frozen, not the outputs.
+At Din=5 the rule must reproduce the historical mapping bit-for-bit.
 
-The frozen selection settings are reproduced exactly: din=5, target_n=1000, seed=0,
-rho_target=0.9, and the amendment-2/3 typed-aligned input rule
-(receiving_fraction=0.80, density_limit=0.16).
-
-NOTE ON `din` AND THE WIRING. `expand_from_orns` is Din-parameterized: `din` sets the ORN
-seed budget and the class/group floors, so generating S0 at Din=6 or 8 yields a DIFFERENT
-node set, not merely a different B. Amendment 4 requires F1's node set, A and weights to be
-byte-identical across widths, so the wiring is materialized ONCE in the frozen Din=5
-selection context and only B is re-instantiated per dataset. This script asserts that
-invariant rather than assuming it.
+NOTE ON `din` AND THE WIRING. `expand_from_orns` is Din-parameterized, so S0 generated at
+Din=6/8 is a different substrate. Amendment 4 requires A byte-identical across widths, so
+the wiring is materialized ONCE in the frozen Din=5 selection context and only B is
+re-instantiated.
 
 Usage:
-    PYTHONPATH=. python3 ops/audit/resaudit_materialize_f1.py \
-        --data-root .. --out-dir results/audit/resaudit_stage1/f1
+    PYTHONPATH=. python3 ops/audit/resaudit_materialize_f1.py --data-root ..
 """
 
 from __future__ import annotations
@@ -42,11 +43,15 @@ import scipy.sparse as sp
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from connectome.cell_types import load_node_classes  # noqa: E402
-from drososense.connectome_candidates import (  # noqa: E402
-    build_candidate_input,
-    generate_candidate,
+from drososense.connectome_candidates import generate_candidate  # noqa: E402
+from drososense.reservoir.input_mapping import (  # noqa: E402
+    CellTypeAnnotation,
+    build_typed_aligned_mapping,
 )
-from drososense.reservoir.input_mapping import CellTypeAnnotation  # noqa: E402
+from resaudit.din_allocation import (  # noqa: E402
+    FROZEN_DEFAULT_ALLOCATION,
+    apportion_din,
+)
 
 #: The frozen S0 provenance this materialization must reproduce exactly.
 FROZEN_S0 = {
@@ -63,8 +68,19 @@ FROZEN_S0 = {
 #: The frozen selection settings (V3_substrate_selection.json -> settings).
 FROZEN_SETTINGS = {"din": 5, "target_n": 1000, "seed": 0, "rho_target": 0.9}
 
+#: Amendment 6: the rule's expected outputs at the preregistered widths.
+EXPECTED_ALLOCATION = {
+    5: {"ORN": 2, "PN": 2, "KC": 1},
+    6: {"ORN": 3, "PN": 2, "KC": 1},
+    8: {"ORN": 3, "PN": 3, "KC": 2},
+}
+
 #: Amendment 4: the dataset-conditioned input widths.
 DATASET_DIN = {"FD1": 6, "FD3": 6, "FD2": 8}
+
+#: The typed-aligned rule's frozen construction constants (build_candidate_input).
+RECEIVING_FRACTION = 0.80
+DENSITY_LIMIT = 0.16
 
 
 def _matrix_sha256(matrix: sp.spmatrix) -> str:
@@ -78,7 +94,7 @@ def _matrix_sha256(matrix: sp.spmatrix) -> str:
 
 
 def score_matrix(matrix: sp.csr_matrix, *, rho_target: float) -> sp.csr_matrix:
-    """Verbatim from ops/audit/v3_substrate_selection.py, so A_hash is comparable."""
+    """Verbatim from ops/audit/v3_substrate_selection.py. Legacy run provenance only."""
     import scipy.sparse.linalg as _spla
 
     sym = ((matrix + matrix.T) * 0.5).tocsc()
@@ -101,15 +117,17 @@ def load_raw(data_root: Path, node_meta: Path):
     The frozen loader reads npz keys ``adj_shape/adj_data/adj_indices/adj_indptr/node_ids``.
     The local artifact is a scipy-saved csr (``shape/data/indices/indptr``) with no
     ``node_ids``, so the payload is reconstructed: the matrix is identical, and ``node_ids``
-    is taken from the node metadata's ``root_id`` column in ``node_idx`` order — which is the
-    order the graph's rows are in. Both facts are asserted below, not assumed.
+    comes from the node metadata's ``root_id`` column in ``node_idx`` order -- the order the
+    graph's rows are in. Asserted, not assumed.
     """
     npz = data_root / "connectome/adjacency/olfactory_v1.npz"
     with np.load(npz, allow_pickle=True) as payload:
         keys = set(payload.keys())
         if {"adj_shape", "adj_data", "adj_indices", "adj_indptr"} <= keys:
             shape = tuple(int(v) for v in payload["adj_shape"])
-            data, indices, indptr = payload["adj_data"], payload["adj_indices"], payload["adj_indptr"]
+            data = payload["adj_data"]
+            indices = payload["adj_indices"]
+            indptr = payload["adj_indptr"]
             node_ids = np.asarray(payload["node_ids"]) if "node_ids" in keys else None
             layout = "frozen_loader_layout"
         elif {"shape", "data", "indices", "indptr"} <= keys:
@@ -150,121 +168,142 @@ def git_head(repo: Path) -> str:
         return "unknown"
 
 
+def _build_B(cand, annotation, din: int, allocation: dict):
+    """The typed-aligned mapping at a declared width. No fallback, no substitution."""
+    return build_typed_aligned_mapping(
+        cand.root_ids, annotation, din, seed=FROZEN_SETTINGS["seed"],
+        din_per_layer=allocation, receiving_fraction=RECEIVING_FRACTION,
+        density_limit=DENSITY_LIMIT,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     repo = Path(__file__).resolve().parents[2]
     parser.add_argument("--data-root", default=str(repo.parent))
-    parser.add_argument("--node-meta", default=str(repo / "connectome/metadata/olfactory_v1_node_meta.csv"))
+    parser.add_argument(
+        "--node-meta", default=str(repo / "connectome/metadata/olfactory_v1_node_meta.csv")
+    )
     parser.add_argument("--out-dir", default=str(repo / "results/audit/resaudit_stage1/f1"))
     args = parser.parse_args(argv)
 
-    data_root = Path(args.data_root)
-    node_meta = Path(args.node_meta)
-    out_dir = Path(args.out_dir)
+    data_root, node_meta, out_dir = Path(args.data_root), Path(args.node_meta), Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     raw_graph, node_ids, annotation, layout, npz_path = load_raw(data_root, node_meta)
     raw_sha = hashlib.sha256(Path(npz_path).read_bytes()).hexdigest()
     print(f"raw adjacency : {npz_path.name} shape={raw_graph.shape} nnz={raw_graph.nnz}")
-    print(f"layout        : {layout}")
     print(f"raw sha256    : {raw_sha}")
 
-    # ---- 1. reproduce the frozen S0 exactly -------------------------------------------
+    # ---- 1. reproduce the frozen S0 wiring ------------------------------------------
     cand = generate_candidate(
-        "S0",
-        raw_graph=raw_graph,
-        root_ids=node_ids,
-        annotation=annotation,
-        din=FROZEN_SETTINGS["din"],
-        target_n=FROZEN_SETTINGS["target_n"],
+        "S0", raw_graph=raw_graph, root_ids=node_ids, annotation=annotation,
+        din=FROZEN_SETTINGS["din"], target_n=FROZEN_SETTINGS["target_n"],
         seed=FROZEN_SETTINGS["seed"],
     )
-    mapping5 = build_candidate_input(cand, annotation, FROZEN_SETTINGS["din"], seed=FROZEN_SETTINGS["seed"])
-    B5 = mapping5.w_in.toarray()
-    A5 = score_matrix(cand.adjacency, rho_target=FROZEN_SETTINGS["rho_target"])
-    a_hash, b_hash = _matrix_sha256(A5), mapping5.describe()["w_in_sha256"]
-
     prov = dict(cand.provenance)
-    # Amendment 5: A_hash is NOT an identity -- score_matrix normalises with a
-    # stochastic eigsh estimate, so its digest changes run to run. The wiring-level
-    # hashes are the reproduction criterion.
+    A5 = score_matrix(cand.adjacency, rho_target=FROZEN_SETTINGS["rho_target"])
+    a_hash = _matrix_sha256(A5)
+
     check = {
         "n_nodes": int(cand.n_nodes) == FROZEN_S0["n_nodes"],
         "n_edges": int(cand.n_edges) == FROZEN_S0["n_edges"],
         "node_list_sha256": prov.get("node_list_sha256") == FROZEN_S0["node_list_sha256"],
         "edge_list_sha256": prov.get("edge_list_sha256") == FROZEN_S0["edge_list_sha256"],
-        "B_hash": b_hash == FROZEN_S0["B_hash"],
     }
-    print("\n=== FROZEN S0 REPRODUCTION ===")
-    print(f"  N        {cand.n_nodes:>8}  expected {FROZEN_S0['n_nodes']:>8}  {'OK' if check['n_nodes'] else 'MISMATCH'}")
-    print(f"  M        {cand.n_edges:>8}  expected {FROZEN_S0['n_edges']:>8}  {'OK' if check['n_edges'] else 'MISMATCH'}")
-    print(f"  B_hash   {b_hash[:16]}...  expected {FROZEN_S0['B_hash'][:16]}...  {'OK' if check['B_hash'] else 'MISMATCH'}")
-    print(f"  node_list_sha256 {'OK' if check['node_list_sha256'] else 'MISMATCH'}  {prov.get('node_list_sha256')}")
-    print(f"  edge_list_sha256 {'OK' if check['edge_list_sha256'] else 'MISMATCH'}  {prov.get('edge_list_sha256')}")
-    print(f"  A_hash (NOT an identity, amendment 5) {a_hash[:16]}... vs frozen {FROZEN_S0['A_hash_not_an_identity'][:16]}...")
-
+    print("\n=== FROZEN S0 REPRODUCTION (wiring identity) ===")
+    print(f"  N  {cand.n_nodes:>6} expected {FROZEN_S0['n_nodes']:>6}  "
+          f"{'OK' if check['n_nodes'] else 'MISMATCH'}")
+    print(f"  M  {cand.n_edges:>6} expected {FROZEN_S0['n_edges']:>6}  "
+          f"{'OK' if check['n_edges'] else 'MISMATCH'}")
+    print(f"  node_list_sha256 {'OK' if check['node_list_sha256'] else 'MISMATCH'}"
+          f"  {prov.get('node_list_sha256')}")
+    print(f"  edge_list_sha256 {'OK' if check['edge_list_sha256'] else 'MISMATCH'}"
+          f"  {prov.get('edge_list_sha256')}")
+    print(f"  A_hash legacy (not an identity, amendment 5) {a_hash[:16]}... "
+          f"vs {FROZEN_S0['A_hash_not_an_identity'][:16]}...")
     if not all(check.values()):
-        print("\nSTOP: the frozen S0 was NOT reproduced exactly. Amendment 4 section 5 forbids")
-        print("accepting agreement of N and M alone. This is a provenance failure to explain.")
-        (out_dir / "F1_materialization_STOP.json").write_text(
-            json.dumps(
-                {
-                    "verdict": "PROVENANCE_FAILURE",
-                    "reproduced": {"n_nodes": int(cand.n_nodes), "n_edges": int(cand.n_edges),
-                                   "A_hash": a_hash, "B_hash": b_hash},
-                    "expected": FROZEN_S0,
-                    "checks": check,
-                    "raw_connectome_sha256": raw_sha,
-                    "raw_layout": layout,
-                    "git_head": git_head(repo),
-                    "generated_utc": datetime.now(timezone.utc).isoformat(),
-                },
-                indent=2,
-            ),
-            encoding="utf-8",
-        )
+        print("\nSTOP: the frozen S0 was NOT reproduced. Amendment 4 section 5 forbids accepting")
+        print("agreement of N and M alone. This is a provenance failure to explain.")
         return 2
 
-    # ---- 2. dataset-conditioned B, on the SAME A -------------------------------------
+    # ---- 2. amendment 6: the allocation rule ---------------------------------------
+    print("\n=== AMENDMENT 6 ALLOCATION RULE ===")
+    if apportion_din(5) != dict(FROZEN_DEFAULT_ALLOCATION):
+        print("STOP: the rule does not reproduce the frozen Din=5 allocation. Stage 1 blocked.")
+        return 2
+    allocations: dict[int, dict[str, int]] = {}
+    widths = sorted({5, *DATASET_DIN.values()})
+    for din in widths:
+        alloc = apportion_din(din)
+        allocations[din] = alloc
+        if alloc != EXPECTED_ALLOCATION[din]:
+            raise SystemExit(
+                f"STOP: Din={din} allocation {alloc} != expected {EXPECTED_ALLOCATION[din]}"
+            )
+        print(f"  Din={din}: {alloc}  OK")
+
+    # ---- 3. dataset-conditioned B, twice per width ---------------------------------
     print("\n=== DATASET-CONDITIONED INPUT ===")
     Bs: dict[int, np.ndarray] = {}
-    blocked: dict[str, str] = {}
-    for din in sorted(set(DATASET_DIN.values())):
-        try:
-            m = build_candidate_input(cand, annotation, din, seed=FROZEN_SETTINGS["seed"])
-        except Exception as exc:
-            # The typed-aligned rule carries a FIXED per-layer allocation
-            # DEFAULT_TYPED_ALIGNED_DIN_PER_LAYER = {ORN:2, PN:2, KC:1} which must sum to
-            # total_din. It has no declared allocation for any other width, so Din=6/8
-            # cannot be built without INVENTING one. No allocation is improvised here:
-            # recorded as a blocker for the operator instead.
-            blocked[str(din)] = f"{type(exc).__name__}: {exc}"
-            print(f"  Din={din}: BLOCKED -- {type(exc).__name__}: {str(exc)[:150]}")
-            continue
-        Bs[din] = m.w_in.toarray()
-        print(f"  Din={din}: input_nodes={int(m.support_rows.size)} "
-              f"density={float(m.density()):.4f} w_in_sha256={m.describe()['w_in_sha256'][:16]}...")
-    if blocked:
-        print("\n  The frozen typed-aligned mapping declares only {ORN:2, PN:2, KC:1} = Din=5.")
-        print("  Din=6/8 require a DECLARED per-layer allocation. Not improvised -- operator decision.")
+    b_stats: dict[str, dict] = {}
+    for din in widths:
+        m1 = _build_B(cand, annotation, din, allocations[din])
+        m2 = _build_B(cand, annotation, din, allocations[din])
+        B1, B2 = m1.w_in.toarray(), m2.w_in.toarray()
+        Bs[din] = B1
+        b_stats[str(din)] = {
+            "allocation": allocations[din],
+            "input_nodes": int(m1.support_rows.size),
+            "density": float(m1.density()),
+            "w_in_sha256": m1.describe()["w_in_sha256"],
+            "deterministic_two_runs_byte_identical": bool(np.array_equal(B1, B2)),
+            "fallback_used": False,
+            "dynamic_allocation": False,
+        }
+        print(f"  Din={din}: alloc={allocations[din]} nodes={m1.support_rows.size} "
+              f"density={float(m1.density()):.4f} "
+              f"two_runs_identical={b_stats[str(din)]['deterministic_two_runs_byte_identical']}")
 
-    # A must be byte-identical across widths: same object here by construction, asserted.
-    assert int(cand.n_nodes) == FROZEN_S0["n_nodes"]
-    nested = (None if not (6 in Bs and 8 in Bs)
-              else bool(Bs[6].shape[0] == Bs[8].shape[0] and np.array_equal(Bs[6], Bs[8][:, :6])))
-    print(f"  nested property B_6 == B_8[:, :6]: {nested}")
+    # ---- 4. amendment 6 section 6: the four sanity checks ---------------------------
+    checks = {
+        "1_din5_allocation_and_B_hash": bool(
+            allocations[5] == EXPECTED_ALLOCATION[5]
+            and b_stats["5"]["w_in_sha256"] == FROZEN_S0["B_hash"]
+        ),
+        "2_din6_allocation_3_2_1_no_fallback": bool(
+            allocations[6] == EXPECTED_ALLOCATION[6] and not b_stats["6"]["fallback_used"]
+        ),
+        "3_din8_allocation_3_3_2_no_fallback": bool(
+            allocations[8] == EXPECTED_ALLOCATION[8] and not b_stats["8"]["fallback_used"]
+        ),
+        "4_two_materializations_byte_identical": bool(
+            all(v["deterministic_two_runs_byte_identical"] for v in b_stats.values())
+        ),
+    }
+    print("\n=== SANITY CHECKS (amendment 6 section 6) ===")
+    for k, v in checks.items():
+        print(f"  {k}: {'PASS' if v else 'FAIL'}")
+    if not all(checks.values()):
+        print("\nSTOP: a sanity check failed; F1 stays PARTIAL and Stage 1 does not start.")
+        return 2
 
-    np.savez_compressed(out_dir / "F1_A.npz",
-                        adj_data=A5.tocsr().data, adj_indices=A5.tocsr().indices,
-                        adj_indptr=A5.tocsr().indptr, adj_shape=np.asarray(A5.shape),
-                        node_ids=np.asarray(cand.root_ids, dtype=np.int64))
+    # ---- 5. artifacts ----------------------------------------------------------------
+    csr = A5.tocsr()
+    np.savez_compressed(
+        out_dir / "F1_A.npz", adj_data=csr.data, adj_indices=csr.indices,
+        adj_indptr=csr.indptr, adj_shape=np.asarray(csr.shape),
+        node_ids=np.asarray(cand.root_ids, dtype=np.int64),
+    )
     for din, B in Bs.items():
         np.savez_compressed(out_dir / f"F1_B_Din{din}.npz", w_in=B, din=np.asarray(din),
                             node_ids=np.asarray(cand.root_ids, dtype=np.int64))
+
     (out_dir / "F1_materialization.json").write_text(
         json.dumps(
             {
                 "verdict": "REPRODUCED",
+                "status": "VERIFIED_FOR_STAGE1",
                 "dataset": "F1 (frozen S0 substrate)",
                 "raw_connectome_sha256": raw_sha,
                 "raw_connectome_layout": layout,
@@ -272,41 +311,39 @@ def main(argv: list[str] | None = None) -> int:
                 "selection_settings": FROZEN_SETTINGS,
                 "node_list_sha256": prov.get("node_list_sha256"),
                 "edge_list_sha256": prov.get("edge_list_sha256"),
-                "A_sha256_observed": a_hash,
+                "substrate_identity": (
+                    "node-list hash + edge-list hash + raw weights/topology provenance "
+                    "(amendment 5); the legacy scaled-float A_hash is run provenance only"
+                ),
+                "A_sha256_observed_legacy": a_hash,
                 "A_sha256_frozen_NOT_AN_IDENTITY": FROZEN_S0["A_hash_not_an_identity"],
-                "A_hash_defect": ("amendment 5: score_matrix normalises with an unseeded "
-                                  "eigsh estimate, so this digest is not reproducible; the "
-                                  "wiring-level hashes are the reproduction criterion"),
                 "N": int(cand.n_nodes),
                 "M": int(cand.n_edges),
-                "B5_sha256_historical": b_hash,
-                "B_sha256": {str(d): build_candidate_input(cand, annotation, d,
-                              seed=FROZEN_SETTINGS["seed"]).describe()["w_in_sha256"]
-                             for d in sorted(Bs)},
-                "B_blocked_din": blocked,
-                "B_blocker_reason": (
-                    "DEFAULT_TYPED_ALIGNED_DIN_PER_LAYER = {ORN:2, PN:2, KC:1} sums to 5 and "
-                    "build_typed_aligned_mapping requires the allocation to sum to total_din. "
-                    "The rule declares no allocation for any other width, so Din=6 (FD1/FD3) "
-                    "and Din=8 (FD2) cannot be instantiated without inventing one. No "
-                    "allocation was improvised; this awaits an operator decision."
+                "B5_sha256_historical": FROZEN_S0["B_hash"],
+                "B_sha256": {d: v["w_in_sha256"] for d, v in b_stats.items()},
+                "B_stats": b_stats,
+                "allocation_rule": (
+                    "amendment 6: weights (ORN:2,PN:2,KC:1), q_l = D*w_l/5, floors then "
+                    "largest-remainder, fixed tie order ORN>PN>KC"
                 ),
-                "status": ("PARTIAL: F1 wiring verified; B at Din=5 verified; "
-                           "B at Din=6/8 blocked") if blocked else "COMPLETE",
+                "allocations": {str(k): v for k, v in allocations.items()},
                 "dataset_din": DATASET_DIN,
-                "input_mapping_rule": "amended-2/3 typed-aligned mapping, receiving_fraction=0.80, density_limit=0.16",
-                "nested_property_B6_is_B8_prefix": nested,
+                "input_mapping_rule": (
+                    "typed-aligned, receiving_fraction=0.80, density_limit=0.16 (unchanged)"
+                ),
+                "sanity_checks": checks,
+                "nested_property_B6_is_B8_prefix": "not required (amendment 6 section 5)",
                 "din_affects_wiring": True,
                 "din_wiring_note": (
-                    "expand_from_orns is Din-parameterized (ORN seed budget, class/group "
-                    "floors, ORN_FLOOR(din)), so S0 generated at Din=6/8 is a different "
-                    "substrate. Amendment 4 requires A byte-identical across widths, so the "
-                    "wiring is materialized once in the frozen Din=5 selection context and "
-                    "only B is re-instantiated."
+                    "expand_from_orns is Din-parameterized, so the wiring is materialized once "
+                    "in the frozen Din=5 selection context and only B is re-instantiated "
+                    "(amendment 4)"
                 ),
                 "protocol_amendment_hashes": {
                     "amendment_3": "655acc84effa19f6e9eb3dfab8ca9389485155aa96cd1826e5b6fdb24988dd11",
                     "amendment_4": "9992d79f4ed524da0b13babd62345a6c2452b03c4b7f9ca9c0eb9bdc18ed9ac1",
+                    "amendment_5": "12a8d5c3b8017b6afeace0b12a0275a10a288024feccecfee87405a400cd45e4",
+                    "amendment_6": "PENDING_SIDECAR",
                 },
                 "git_head": git_head(repo),
                 "generated_utc": datetime.now(timezone.utc).isoformat(),
@@ -316,6 +353,7 @@ def main(argv: list[str] | None = None) -> int:
         encoding="utf-8",
     )
     print(f"\nwrote {out_dir}/F1_A.npz, F1_B_Din*.npz, F1_materialization.json")
+    print("STATUS: VERIFIED_FOR_STAGE1")
     return 0
 
 
