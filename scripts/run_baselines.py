@@ -44,6 +44,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from drososense.baselines.registry import MODEL_IDS  # noqa: E402
 from drososense.data.loaders import dataset_config_path  # noqa: E402
+from drososense.data.splits import condition_from_train_fraction
 from drososense.evaluation.runner import BenchmarkConfig, describe_models, run_benchmark  # noqa: E402
 from drososense.evaluation.selection import HyperparameterGrid, OutOfGridError  # noqa: E402
 from drososense.utils.seeding import load_seed_policy  # noqa: E402
@@ -107,6 +108,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--max-folds", type=int, default=None, help="cap folds per seed")
     parser.add_argument(
+        "--train-fraction",
+        type=float,
+        default=None,
+        help=(
+            "E3 low-data: fraction of each fold's TRAIN-side specimen pool admitted. "
+            "Test and validation specimens are untouched, so the test set is "
+            "identical across 10/25/50/75/100%. Sampling is nested within each fold "
+            "(for a fixed seed, the 10% pool is contained in the 25% pool, contained in "
+            "the 50% pool, up to 100% which is byte-for-byte the E1/E2 train set). "
+            "The pool is always a subset of the fold's own TRAIN side, so no fold is "
+            "ever admitted its test/val specimen and no train side is emptied. "
+            "Epochs / hyperparameters are NOT scaled with the fraction. "
+            "Must satisfy 0 < f <= 1; omit for the full E1/E2 behaviour."
+        ),
+    )
+    parser.add_argument(
         "--smoke", action="store_true",
         help="use deliberately tiny hyperparameters (pipeline check, not tuning)",
     )
@@ -160,6 +177,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    # E3 low-data: the declared fractions are the protocol's; reject anything
+    # else so a batch cannot silently run on an undeclared split. 1.0 is
+    # accepted as a no-op alias for "no subsampling" (byte-identical E1).
+    if args.train_fraction is not None and not 0.0 < args.train_fraction <= 1.0:
+        print(f"--train-fraction must satisfy 0 < f <= 1, got {args.train_fraction}", file=sys.stderr)
+        return 2
+    if args.train_fraction == 1.0:
+        args.train_fraction = None
+
     config = BenchmarkConfig(
         dataset_id=args.dataset,
         experiment=args.experiment,
@@ -173,6 +199,8 @@ def main(argv: list[str] | None = None) -> int:
         label_rule=args.label_rule,
         model_params=SMOKE_PARAMS if args.smoke else {},
         max_folds=args.max_folds,
+        train_fraction=args.train_fraction,
+        condition=condition_from_train_fraction(args.train_fraction),
     )
 
     summary = run_benchmark(config)

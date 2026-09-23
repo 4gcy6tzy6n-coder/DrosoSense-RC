@@ -53,6 +53,7 @@ from drososense.reservoir.connectome_reservoir import (  # noqa: E402
 )
 from drososense.reservoir.runner import (  # noqa: E402
     PINNED_KNOBS,
+    PROTOCOL_ID_BY_FAMILY,
     ReservoirConfig,
     run_reservoir_benchmark,
 )
@@ -88,6 +89,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--label-rule", default="last", choices=["last", "majority"]
     )
     parser.add_argument("--max-folds", type=int, default=None)
+    parser.add_argument(
+        "--train-fraction",
+        type=float,
+        default=None,
+        help=(
+            "E3 low-data: fraction of each fold's TRAIN-side specimen pool admitted. "
+            "Test and validation specimens are untouched, so the per-fold TEST "
+            "partition (and its fingerprint, which the E1-vs-E2 pairing keys on) is "
+            "identical across 10/25/50/75/100%. Sampling is nested within each fold "
+            "(for a fixed seed, the 10% pool is contained in the 25% pool, up to 100% "
+            "which is byte-for-byte the full E2 train set). The pool is always a "
+            "subset of the fold's own TRAIN side, so no fold is ever admitted its "
+            "test/val specimen and no train side is emptied. Must satisfy 0 < f <= 1; "
+            "omit for full-pool E2."
+        ),
+    )
     parser.add_argument(
         "--reservoir-size", type=int, default=None,
         help="N; the DATA-3 selection runs when N < the full graph",
@@ -148,11 +165,31 @@ def main(argv: list[str] | None = None) -> int:
     if args.families is None:
         family_ids = TOPOLOGY_FAMILY_IDS
     else:
-        unknown = [f for f in args.families if f not in TOPOLOGY_FAMILY_IDS]
+        # E3 (DATA-60): protocol shorthand aliases — R0/R1/…/R6 map to the
+        # registry family ids (R0_real_fly, R1_weight_shuffled, …). The
+        # smoke script's "--families R0 R2" shorthand is the protocol's own
+        # id; without the alias the runner rejects unknown family ids and
+        # the reservoir half silently runs zero families (exit 0).
+        alias_by_protocol = {v: k for k, v in PROTOCOL_ID_BY_FAMILY.items()}
+        family_ids_resolved = tuple(
+            alias_by_protocol[f] if f in alias_by_protocol else f for f in args.families
+        )
+        unknown = [f for f in family_ids_resolved if f not in TOPOLOGY_FAMILY_IDS]
         if unknown:
-            print(f"unknown families {unknown}; declared: {list(TOPOLOGY_FAMILY_IDS)}", file=sys.stderr)
+            print(
+                f"unknown families {unknown}; declared: {list(TOPOLOGY_FAMILY_IDS)}; "
+                f"shorthand aliases: {list(PROTOCOL_ID_BY_FAMILY.values())}",
+                file=sys.stderr,
+            )
             return 2
-        family_ids = tuple(args.families)
+        family_ids = family_ids_resolved
+
+    if args.train_fraction is not None and not 0.0 < args.train_fraction <= 1.0:
+        print(f"--train-fraction must satisfy 0 < f <= 1, got {args.train_fraction}", file=sys.stderr)
+        return 2
+    train_fraction: float | None = None
+    if args.train_fraction is not None and args.train_fraction < 1.0:
+        train_fraction = args.train_fraction
 
     config = ReservoirConfig(
         dataset_id=args.dataset,
@@ -171,6 +208,8 @@ def main(argv: list[str] | None = None) -> int:
         spectral_radius=args.spectral_radius,
         family_ids=family_ids,
         select_hyperparameters=args.select_hyperparameters,
+        train_fraction=train_fraction,
+        condition=condition_from_train_fraction(train_fraction),
     )
 
     started = time.time()

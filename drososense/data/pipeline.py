@@ -125,6 +125,7 @@ def build_fold_tensors(
     stride: int = 1,
     eps: float = DEFAULT_EPS,
     label_rule: str = "last",
+    train_specimen_pool: tuple[str, ...] | None = None,
 ) -> FoldTensors:
     """Build audited train/val/test windows for one fold.
 
@@ -136,6 +137,17 @@ def build_fold_tensors(
         stride: Step between window starts.
         eps: Epsilon added to sigma when fitting the standardizer.
         label_rule: ``last`` or ``majority``.
+        train_specimen_pool: E3 low-data (protocol ``E3_lowdata``,
+            ``--train-fraction``). When set, only windows whose specimen is
+            in ``train_specimen_pool`` enter the TRAIN tensor; the validation
+            and test tensors are built exactly as the full-data case, so the
+            test partition — and its fingerprint — stays byte-identical
+            across fractions. DATA-61: the pool is now built by the runner
+            via ``fold_train_pool`` (the fold's TRAIN side restricted to the
+            nested prefix), so ``pool ⊆ fold.train`` always holds and no
+            fold's train side is ever emptied by the sampling. The guard
+            below remains as a last-resort defence against a misconstructed
+            pool (e.g. a manual call with a disjoint pool).
 
     Returns:
         The assembled :class:`FoldTensors`.
@@ -158,9 +170,33 @@ def build_fold_tensors(
     membership = frame[SPECIMEN_COLUMN].astype(str)
     feature_columns = list(dataset.schema.feature_columns)
 
+    # E3 low-data (protocol E3_lowdata, ``--train-fraction``): restrict the
+    # TRAIN rows to the admitted specimen pool. Val and test are built from
+    # the full partition, byte-for-byte, so the fold's test partition and
+    # its fingerprint stay identical across every fraction. A fold whose
+    # TRAIN side holds no admitted specimen yields an empty train tensor;
+    # ``make_windows`` raises with a clear reason and the runner records the
+    # unit as a failed run — never a partition-construction abort of the
+    # whole batch.
     train_mask = membership.isin(set(fold.train)).to_numpy()
     val_mask = membership.isin(set(fold.val)).to_numpy()
     test_mask = membership.isin(set(fold.test)).to_numpy()
+    if train_specimen_pool is not None:
+        pool_set = set(train_specimen_pool)
+        train_mask = np.logical_and(train_mask, membership.isin(pool_set).to_numpy())
+
+    # E3 low-data (protocol E3_lowdata, ``--train-fraction``): a fold whose
+    # TRAIN side holds no admitted specimen cannot fit a train-only
+    # scaler — but the failure belongs to the runner (it records a failed
+    # unit), not to the tensor builder. Raise a narrow, named error the
+    # runner already catches, carrying the reason the low-data batch needs
+    # it for the audit trail.
+    if train_specimen_pool is not None and not set(fold.train) & set(train_specimen_pool):
+        raise ValueError(
+            f"fold {fold.fold_id}: E3 low-data pool admitted no specimen to this "
+            f"fold's TRAIN side (pool={sorted(train_specimen_pool)}, "
+            f"train={list(fold.train)}); unit is recorded as a failed run"
+        )
 
     # 1. Fit the scaler on training rows only, then prove it.
     x_train = frame.loc[train_mask, feature_columns].to_numpy(dtype=np.float64)

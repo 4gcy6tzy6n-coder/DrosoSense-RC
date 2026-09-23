@@ -500,3 +500,74 @@ def test_v1_5_does_not_change_the_loadable_base_protocol():
     for token in ("datasets", "split", "alpha", "AUROC", "Holm", "gate expressions"):
         assert any(token in item for item in v1_5["non_changes"]), token
     assert v1_3["statistical_tests"]["alpha"] == 0.05
+
+
+# ---------------------------------------------------------------------------
+# 10. the E3 half: a declared training fraction must not carry the "full" identity
+# ---------------------------------------------------------------------------
+
+@pytest.mark.unit
+def test_the_e3_fractions_get_distinct_conditions_and_never_the_full_identity():
+    """E3_lowdata declares that the test split stays fixed across fractions.
+
+    Without a condition axis the four fractions share the ``full`` identity, and
+    that is how E3 produced zero records: 100 units skipped as
+    ``prior_ok_cross_experiment_anchor`` against an E1 unit they do not
+    duplicate. The label is DERIVED from the fraction so the two cannot drift.
+    """
+    from drososense.data.splits import condition_from_train_fraction
+
+    assert condition_from_train_fraction(None) == "full"
+    assert condition_from_train_fraction(1.0) == "full"
+    assert condition_from_train_fraction(0.10) == "train10pct"
+    assert condition_from_train_fraction(0.25) == "train25pct"
+    assert condition_from_train_fraction(0.50) == "train50pct"
+    assert condition_from_train_fraction(0.75) == "train75pct"
+
+    ids = {
+        make_evidence_unit(
+            dataset=BASE["dataset"],
+            task=BASE["task"],
+            fold_fingerprint=BASE["fold_fingerprint"],
+            model=BASE["model"],
+            window_length=BASE["window_length"],
+            condition=condition_from_train_fraction(fraction),
+            reservoir_size=BASE["reservoir_size"],
+            normalization=BASE["normalization"],
+        )["id"]
+        for fraction in (None, 0.10, 0.25, 0.50, 0.75)
+    }
+    assert len(ids) == 5, "the full batch and the four fractions are five units"
+
+    with pytest.raises(ValueError):
+        condition_from_train_fraction(0.0)
+    with pytest.raises(ValueError):
+        condition_from_train_fraction(1.5)
+    # a fraction that is not a declared whole percent is named exactly rather
+    # than rounded onto a declared label the run did not use
+    assert condition_from_train_fraction(0.333) == "train0p333"
+
+
+@pytest.mark.unit
+def test_condition_is_part_of_config_hash_so_the_ledger_can_tell_them_apart():
+    """A condition change must change the configuration hash too.
+
+    If it did not, the ledger would see "same config" across two conditions and
+    treat a genuinely different evaluation as a re-computation.
+    """
+    from drososense.evaluation.runner import BenchmarkConfig
+    from drososense.reservoir.runner import ReservoirConfig
+    from drososense.utils.config import config_hash
+
+    base = BenchmarkConfig(dataset_id="d2_beef_uncontrolled", experiment="x")
+    other = BenchmarkConfig(
+        dataset_id="d2_beef_uncontrolled", experiment="x", condition="train10pct"
+    )
+    assert config_hash(base.as_dict()) != config_hash(other.as_dict())
+
+    rbase = ReservoirConfig(dataset_id="d2_beef_uncontrolled", experiment="x")
+    rother = ReservoirConfig(
+        dataset_id="d2_beef_uncontrolled", experiment="x", condition="train10pct"
+    )
+    assert config_hash(rbase.as_dict()) != config_hash(rother.as_dict())
+    assert rbase.condition == "full"

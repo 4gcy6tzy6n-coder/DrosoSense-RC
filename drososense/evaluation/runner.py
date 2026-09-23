@@ -26,7 +26,7 @@ from drososense.baselines.registry import MODEL_IDS, build_model, model_availabi
 from drososense.data.loaders import dataset_config_path, load_dataset
 from drososense.data.manifest import load_manifest, manifest_path
 from drososense.data.pipeline import build_fold_tensors, usable_specimens
-from drososense.data.splits import make_folds
+from drososense.data.splits import Fold, fold_train_pool, make_folds
 from drososense.evaluation.contact_log import record_contact
 from drososense.evaluation.metrics import (
     EMPTY_CLASS_POLICY,
@@ -40,6 +40,7 @@ from drososense.evaluation.results import (
     load_records,
     make_run_id,
     build_prior_ledgers,
+    legacy_test_fingerprint,
     lookup_prior_unit,
     make_evidence_unit,
     utc_now_iso,
@@ -52,7 +53,7 @@ from drososense.evaluation.selection import (
     select_hyperparameters,
     validate_run_hyperparameters,
 )
-from drososense.utils.config import config_hash
+from drososense.utils.config import DEFAULT_CONDITION, config_hash
 from drososense.utils.env_report import compare_environments
 from drososense.utils.paths import RESULTS_RAW_DIR, RESULTS_TABLES_DIR, ensure_dir
 from drososense.utils.seeding import load_seed_policy
@@ -97,6 +98,13 @@ class BenchmarkConfig:
             hyperparameters on that fold's validation split, drawing only from
             this grid. ``None`` keeps the M1 behaviour of taking the supplied
             parameters; the declared grid is enforced either way.
+        train_fraction: E3 low-data subsampling (protocol ``E3_lowdata``).
+            When set to a value in ``(0, 1)``, only the nested prefix of the
+            full specimen pool (seeded, deterministic) is allowed into each
+            fold's TRAIN side; test (and validation) are untouched, so the
+            test set is fixed across fractions. ``None`` (the default) keeps
+            the full-pool, E1-identical behaviour — with which a 100% run is
+            byte-for-byte the same split as any prior E1/E2 batch.
     """
 
     dataset_id: str
@@ -114,6 +122,12 @@ class BenchmarkConfig:
     evidence_class: str = "real"
     enforce_test_touched_once: bool = True
     selection_grid: HyperparameterGrid | None = None
+    train_fraction: float | None = None
+    #: The protocol's experiment-condition label. v1.5 makes it part of the
+    #: evidence-unit identity AND of ``config_hash``: a declared, pre-registered
+    #: condition (E3_lowdata's fractions, the robustness conditions) is a
+    #: distinct evidence unit, while an undeclared change still trips §17.
+    condition: str = DEFAULT_CONDITION
 
     def as_dict(self) -> dict[str, Any]:
         """Return a JSON-serialisable view for the config fingerprint.
@@ -135,6 +149,19 @@ class BenchmarkConfig:
             "model_params": self.model_params,
             "max_folds": self.max_folds,
             "selection_grid": None if self.selection_grid is None else self.selection_grid.as_dict(),
+            # E3 low-data (DATA-60): train_fraction is EXCLUDED from the
+            # config fingerprint when it is None or 1.0. fraction=1.0 is a
+            # no-op alias for "no subsampling", so e3_lowdata_d2_f100's
+            # config_hash stays byte-identical to the full E1/E2 batches
+            # (the required f100 anchor). Only a true subsample
+            # (0 < f < 1.0) enters the fingerprint, and those values MUST
+            # carry a distinct experiment label per fraction
+            # (e3_lowdata_d2_f10 / _f25 / ...) — the record path does not
+            # carry the fraction, so a shared label would collide on the
+            # (fingerprint, different-config) hash-agnostic skip path (the
+            # same-source trap that zeroed out E9).
+            "train_fraction": self.train_fraction if 0.0 < (self.train_fraction or 0.0) < 1.0 else None,
+            "condition": self.condition,
         }
 
 
@@ -159,6 +186,54 @@ def dataset_split_strategy(config_path: Path) -> tuple[str, int]:
     return str(split.get("strategy", "group_kfold")), int(split.get("n_splits", 5))
 
 
+
+def _prior_index(
+    records: list[RunRecord],
+) -> tuple[dict[str, str], dict[str, str], dict[str, tuple[str, str]], dict[str, str]]:
+    """Build the four §17 prior-touch ledgers, keyed consistently (protocol v1.5).
+
+    The identity split is the whole point of v1.5: `current` holds schema-2
+    evidence-unit ids and is populated only from records that carry one, while
+    `legacy` holds schema-1 fingerprints and is populated only from records
+    written before v1.5. The two meta tables are keyed by *every* identity a
+    record is filed under, so a matched identity always resolves to the run that
+    owns it — which is what the skip disclosure and the E3 anchor rule read.
+
+    Args:
+        records: Prior run records.
+
+    Returns:
+        ``(current, legacy, meta, experiment)``.
+    """
+    current, legacy = build_prior_ledgers(records)
+    meta: dict[str, tuple[str, str]] = {}
+    experiment: dict[str, str] = {}
+    for record in records:
+        if record.status != "ok":
+            continue
+        unit_id = (record.evidence_unit or {}).get("id")
+        if unit_id:
+            keys = [unit_id]
+            if record.test_fingerprint:
+                keys.append(record.test_fingerprint)
+        else:
+            keys = [record.test_fingerprint] if record.test_fingerprint else []
+            if record.fold_fingerprint and record.model and record.task:
+                keys.append(
+                    legacy_test_fingerprint(
+                        record.fold_fingerprint,
+                        record.window_length,
+                        record.model,
+                        record.task,
+                    )
+                )
+        for key in keys:
+            if key:
+                meta.setdefault(key, (record.run_id, record.status))
+                experiment.setdefault(key, record.experiment)
+    return current, legacy, meta, experiment
+
+
 def _skip_disclosure_entry(
     dataset: str,
     model: str,
@@ -172,6 +247,7 @@ def _skip_disclosure_entry(
     reason: str,
     prior_run_id: str,
     prior_status: str,
+    prior_experiment: str = "",
     legacy_test_fingerprint: str = "",
     prior_identity: str = "",
 ) -> dict[str, Any]:
@@ -214,6 +290,13 @@ def _skip_disclosure_entry(
         "run_config_hash": run_config_hash,
         "prior_run_id": prior_run_id,
         "prior_status": prior_status,
+        # E3 (DATA-60): the experiment label the prior ok record was written
+        # under. Empty when the prior belongs to the SAME experiment label as
+        # this batch (the re-shard / seed-half case from DATA-51); non-empty
+        # on a cross-label anchor touch, so a reader can name the prior
+        # batch (e1_main_d2 / e2_main_d2 / a sibling fraction) without
+        # re-deriving it from the run_id alone.
+        "prior_experiment": prior_experiment,
         # DATA-51 is an implementation clarification of §17 (a skip is not a
         # re-fit, so §17's intent is preserved). The protocol version label is
         # carried so the disclosure is auditable against the active protocol
@@ -280,6 +363,10 @@ def run_benchmark(
         raise ValueError("no models selected")
     if not config.tasks:
         raise ValueError("no tasks selected")
+    if config.train_fraction is not None and not 0.0 < config.train_fraction <= 1.0:
+        raise ValueError(
+            f"train_fraction must satisfy 0 < f <= 1, got {config.train_fraction!r}"
+        )
 
     # The declared design, checked before any data is touched. The seed set was
     # previously whatever the caller passed — a run outside 0..9 would have been
@@ -338,33 +425,33 @@ def run_benchmark(
     # the group selects and every later one is handed the same value.
     shared_choices: dict[tuple[int, int], dict[str, Any]] = {}
 
-    # test_touched_once: a (test split, model, task) triple may be evaluated once.
-    # Re-scoring saved predictions for another metric is not a new touch; fitting
-    # the model again on the same test split under a different configuration is.
-    # Protocol v1.4 §17: only a run that actually scored the split (status == ok)
-    # occupies the (dataset, model, task, seed, fold) quota; a crashed/errored run
-    # never produced test evidence and is not a touch. The filter mirrors
-    # `test_touched_once_report` in drososense/evaluation/results.py.
+    # §17 / E3 (DATA-60): when train_fraction is set (any value, including the
+    # 1.0 no-op alias), the unit's test split is already occupied by ok records
+    # from a prior batch of a DIFFERENT experiment (e1_main_d2, e2_main_d2,
+    # the 100% anchor, or any 0<f<1.0 sibling). In that case the prior's
+    # "hold" is the E3 design itself — the fractions differ only in the
+    # admitted TRAIN pool — so re-touching is not a §17 violation; the
+    # §17 quota is about re-fitting on a test split that the SAME design
+    # already scored. A prior ok record under a DIFFERENT experiment label
+    # is therefore the E3 anchor, not a guard: a unit is skipped ONLY when
+    # the prior record was written by THIS experiment (same label)
+    # under a different config (the re-shard / seed-half case from DATA-51).
     prior_touches: dict[str, str] = {}
     # The prior-touches registry also carries the run_id and status of the ok
     # record that owns each fingerprint, so a skip can be disclosed with the
     # full audit trail (which run, which status) rather than just a hash.
     prior_touch_meta: dict[str, tuple[str, str]] = {}
+    # And, for the E3 cross-label case, the prior EXPERIMENT label itself, so
+    # the skip disclosure can name the anchor batch (e1_main_d2 / e2_main_d2
+    # / a sibling fraction) — a reader sees exactly which prior run the
+    # skip refers to and under which experiment it was written.
+    prior_experiment_meta: dict[str, str] = {}
     prior_legacy_touches: dict[str, str] = {}
     if config.enforce_test_touched_once:
-        ok_records = [p for p in load_records(raw_dir) if p.status == "ok"]
-        current_ledger, prior_legacy_touches = build_prior_ledgers(ok_records)
-        for identity, cfg in current_ledger.items():
-            prior_touches.setdefault(identity, cfg)
-        for prior in ok_records:
-            for identity in (
-                list(current_ledger)
-                if (prior.evidence_unit or {}).get("id")
-                else [prior.test_fingerprint]
-            ):
-                if identity:
-                    prior_touch_meta.setdefault(identity, (prior.run_id, prior.status))
-
+        _current, prior_legacy_touches, prior_touch_meta, prior_experiment_meta = (
+            _prior_index([p for p in load_records(raw_dir) if p.status == "ok"])
+        )
+        prior_touches.update(_current)
     # Skip disclosure (DATA-51): units whose test_fingerprint is already held by
     # a status == "ok" record are SKIPPED — never re-fit and never re-scored —
     # and the skip is made explicit, not silent. Both directions are disclosed:
@@ -391,21 +478,224 @@ def run_benchmark(
             if config.max_folds is not None:
                 folds = folds[: config.max_folds]
 
+            # E3 low-data (protocol E3_lowdata: test_set_fixed_across_fractions
+            # true, sampling nested). Subsample the TRAIN side only: the test
+            # (and validation) specimens never move, so the test set — and the
+            # per-fold TEST partition fingerprint the E1/E2 records carry — is
+            # identical across 10/25/50/75/100%. The pool is nested, so for
+            # a fixed seed 10% ⊂ 25% ⊂ 50% ⊂ 75% ⊂ 100%, and the 100% pool is
+            # byte-for-byte the full pool (E1-identical train set).
+            #
+            # DATA-61: the admitted pool is taken from each fold's TRAIN side
+            # (``fold_train_pool``), not from the global specimen set — the old
+            # global sampling could admit a specimen that is THIS fold's test
+            # specimen, which emptied the fold's train side and recorded every
+            # unit as a failed run.
+            #
+            # The admitted pool filters the TRAIN *window tensors* inside
+            # ``build_fold_tensors`` — not the ``Fold`` object itself, which
+            # would leak out of the disjoint-cover invariant or raise on an
+            # empty train block. The test fingerprint is still byte-identical
+            # to the 100% fold's.
+            #
+            # DATA-61: each fold's pool is ``fold_train_pool(fold,
+            # config.train_fraction)`` — this fold's TRAIN side restricted to
+            # its nested prefix — never a global-pool prefix. The old global
+            # sampling could admit a specimen that is a given fold's test
+            # specimen, emptying the fold's train side and recording every
+            # unit as failed. Each fold's pool stays a nested prefix of its
+            # TRAIN side ordered by the fold's seeded permutation, so pools
+            # are nested per fold
+            # (``pool(f=0.10) ⊆ pool(f=0.25) ⊆ … ⊆ fold.train``) and
+            # reproducible across batches.
+
             for fold in folds:
+                # E3 cross-experiment anchor guard (DATA-60): if EVERY
+                # (model, task) unit on this fold is already held by an
+                # ok record under a DIFFERENT experiment label (a prior
+                # full batch or a sibling fraction), the entire fold is a
+                # disclosed anchor skip — no tensor build, no records.
+                # This is the D2-smoke guard that replaces the failed
+                # RunRecord path when the skip is a cross-label anchor
+                # (test partition unchanged across fractions), not a
+                # genuinely empty train pool on a fresh label.
+                all_anchor = False
+                if config.enforce_test_touched_once:
+                    # E3 (DATA-60): cross-experiment anchor skip at the fold
+                    # level. Fire ONLY when a prior ok record exists under a
+                    # DIFFERENT experiment label AND the prior config_hash
+                    # equals the current batch's config_hash. This means:
+                    #
+                    # - f100 (train_fraction=None, byte-identical to the full
+                    #   E1/E2 batch): prior e1_main_d2 / e2_main_d2 records
+                    #   have the SAME config_hash as f100 → ANCHOR SKIP
+                    #   (the full-pool reference that f100 labels audit against).
+                    #
+                    # - f10/f25/f50/f75 (train_fraction in (0,1), a different
+                    #   config_hash than any prior full batch): prior e1_main_d2
+                    #   records have a DIFFERENT config_hash → NOT an anchor skip,
+                    #   the unit scores fresh under its own fraction label.
+                    #
+                    # The D2 smoke spec: "cross-fraction `prior_ok_different_
+                    # config` skips must not occur" — achieved by the fold-level
+                    # guard firing only when config_hash matches exactly.
+                    for _model_id in config.models:
+                        for _task in config.tasks:
+                            _unit = make_evidence_unit(
+                                dataset=config.dataset_id,
+                                task=_task,
+                                fold_fingerprint=fold.fingerprint,
+                                model=_model_id,
+                                window_length=window_length,
+                                condition=config.condition,
+                            )
+                            _hit = lookup_prior_unit(
+                                _unit, prior_touches, prior_legacy_touches
+                            )
+                            _fp = _hit[0] if _hit else ""
+                            _prior_exp = prior_experiment_meta.get(_fp, "")
+                            _prior_cfg = _hit[1] if _hit else ""
+                            if (
+                                _prior_exp
+                                and _prior_exp != config.experiment
+                                and _prior_cfg == run_config_hash
+                            ):
+                                all_anchor = True
+                                break
+                        if all_anchor:
+                            break
+                if all_anchor:
+                    for _model_id in config.models:
+                        for _task in config.tasks:
+                            _unit = make_evidence_unit(
+                                dataset=config.dataset_id,
+                                task=_task,
+                                fold_fingerprint=fold.fingerprint,
+                                model=_model_id,
+                                window_length=window_length,
+                                condition=config.condition,
+                            )
+                            _hit = lookup_prior_unit(
+                                _unit, prior_touches, prior_legacy_touches
+                            )
+                            _fp = _hit[0] if _hit else ""
+                            _prior_cfg = _hit[1] if _hit else ""
+                            _prior_run_id, _prior_status = prior_touch_meta.get(
+                                _fp, ("", "ok")
+                            )
+                            skip_disclosures.append(
+                                _skip_disclosure_entry(
+                                    dataset=config.dataset_id,
+                                    model=_model_id,
+                                    task=_task,
+                                    seed=seed,
+                                    fold_id=fold.fold_id,
+                                    window_length=window_length,
+                                    test_fingerprint=_fp,
+                                    prior_config_hash=_prior_cfg,
+                                    run_config_hash=run_config_hash,
+                                    reason="prior_ok_cross_experiment_anchor",
+                                    prior_run_id=_prior_run_id,
+                                    prior_status=_prior_status,
+                                    prior_experiment=prior_experiment_meta.get(_fp, ""),
+                                )
+                            )
+                    continue
+
                 artifact_dir = (
                     ensure_dir(RESULTS_RAW_DIR)
                     / "_artifacts"
                     / config.dataset_id
                     / f"w{window_length}_seed{seed:02d}_fold{fold.fold_id:02d}"
                 )
-                fold_tensors = build_fold_tensors(
-                    dataset,
-                    fold,
-                    window_length,
-                    artifact_dir,
-                    stride=config.stride,
-                    label_rule=config.label_rule,
+                # E3 low-data: pass the admitted specimen pool to the tensor
+                # builder; it filters the TRAIN rows, leaving val/test
+                # byte-identical to the full-data fold. DATA-61: the pool is
+                # this fold's own TRAIN side restricted to the nested prefix
+                # (``fold_train_pool``), so ``pool ⊆ fold.train`` always holds
+                # — the old global sampling could admit this fold's test
+                # specimen and empty the train side, which is what made the
+                # D2 f10 batch 100% failed.
+                train_pool = (
+                    fold_train_pool(fold, config.train_fraction)
+                    if config.train_fraction is not None and config.train_fraction < 1.0
+                    else None
                 )
+                # E3 low-data: when a manually-supplied pool would empty
+                # this fold's TRAIN side the tensor builder raises a named,
+                # clear error. Record a failed run on the fold's units (not
+                # aborted) so a small fold in a 10% batch never blocks the
+                # whole run. After DATA-61 the runner's own pools are
+                # fold-train-side prefixes, so this path is a last-resort
+                # defence only.
+                fold_tensors = None
+                fold_tensor_failure = ""
+                try:
+                    fold_tensors = build_fold_tensors(
+                        dataset,
+                        fold,
+                        window_length,
+                        artifact_dir,
+                        stride=config.stride,
+                        label_rule=config.label_rule,
+                        train_specimen_pool=train_pool,
+                    )
+                except ValueError as exc:
+                    fold_tensor_failure = str(exc)
+
+                if fold_tensors is None:
+                    for model_id in config.models:
+                        if not availability.get(model_id, {}).get("available", False):
+                            continue
+                        for task in config.tasks:
+                            _failure_unit = make_evidence_unit(
+                                dataset=config.dataset_id,
+                                task=task,
+                                fold_fingerprint=fold.fingerprint,
+                                model=model_id,
+                                window_length=window_length,
+                                condition=config.condition,
+                            )
+                            test_fp = _failure_unit["id"]
+                            failure_reason = f"tensor build failed: {fold_tensor_failure}"
+                            metrics_block = {**NO_METRICS, "failure_reason": failure_reason}
+                            failure_record = RunRecord(
+                                run_id=make_run_id(config.dataset_id, model_id, task, seed, fold.fold_id),
+                                experiment=config.experiment,
+                                dataset=config.dataset_id,
+                                model=model_id,
+                                task=task,
+                                seed=seed,
+                                fold_id=fold.fold_id,
+                                protocol_version=PROTOCOL_VERSION,
+                                window_length=window_length,
+                                metrics=metrics_block,
+                                n_train_windows=0,
+                                n_test_windows=0,
+                                train_specimens=list(fold.train),
+                                test_specimens=list(fold.test),
+                                duration_s=0.0,
+                                environment=environment,
+                                timestamp_utc=utc_now_iso(),
+                                evidence_class=evidence_class,
+                                protocol_compliant=protocol_compliant,
+                                model_description={"model_id": model_id, "task": task},
+                                status="failed",
+                                failure_reason=failure_reason,
+                                fold_fingerprint=fold.fingerprint,
+                                class_coverage={},
+                                config_hash=run_config_hash,
+                                test_fingerprint=test_fp,
+                                evidence_unit=_failure_unit,
+                                empty_class_policy=EMPTY_CLASS_POLICY,
+                                n_train_sessions=0,
+                                n_test_sessions=0,
+                                notes=notes,
+                                selection={},
+                            )
+                            records.append(failure_record)
+                            write_record(failure_record, raw_dir)
+                    continue
 
                 for model_id in config.models:
                     if not availability.get(model_id, {}).get("available", False):
@@ -418,15 +708,16 @@ def run_benchmark(
                     for task in config.tasks:
                         # Protocol v1.5: the unit of identity is the evidence
                         # unit. A baseline model has no reservoir, so every
-                        # substrate component is the explicit "n/a" marker —
-                        # which is a name, not a missing value, and therefore
-                        # cannot silently collide with a reservoir run's unit.
+                        # substrate component is the explicit "n/a" marker — a
+                        # name, not a missing value, so it cannot silently
+                        # collide with a reservoir run's unit.
                         evidence_unit = make_evidence_unit(
                             dataset=config.dataset_id,
                             task=task,
                             fold_fingerprint=fold.fingerprint,
                             model=model_id,
                             window_length=window_length,
+                            condition=config.condition,
                         )
                         test_fingerprint = evidence_unit["id"]
                         prior_hit = lookup_prior_unit(
@@ -444,8 +735,27 @@ def run_benchmark(
                             prior_run_id, prior_status = prior_touch_meta.get(
                                 prior_identity, ("", "ok")
                             )
+                            prior_experiment = prior_experiment_meta.get(
+                                prior_identity, ""
+                            )
                             if prior == run_config_hash:
                                 reason = "prior_ok_same_config"
+                            elif prior_experiment and prior_experiment != config.experiment:
+                                # E3 (DATA-60): cross-experiment anchor.
+                                # The prior ok record belongs to a DIFFERENT
+                                # experiment label — either a prior full batch
+                                # (e1_main_d2 / e2_main_d2, the 100% anchor)
+                                # or a sibling fraction (f10/f25/…). The test
+                                # split's partition is UNCHANGED across
+                                # fractions (test_set_fixed_across_fractions
+                                # true), so a §17 quota violation would mean
+                                # the fraction design is broken, not that the
+                                # guard fired correctly. The unit is NOT
+                                # re-fit; it is SKIPped as a disclosed anchor
+                                # touch, and the disclosure names the prior
+                                # experiment so a reader can audit exactly
+                                # which batch holds the fingerprint.
+                                reason = "prior_ok_cross_experiment_anchor"
                             else:
                                 reason = "prior_ok_different_config"
                             skip_disclosures.append(
@@ -457,13 +767,12 @@ def run_benchmark(
                                     fold_id=fold.fold_id,
                                     window_length=window_length,
                                     test_fingerprint=test_fingerprint,
-                                    legacy_test_fingerprint=evidence_unit["legacy_id"],
-                                    prior_identity=prior_identity,
                                     prior_config_hash=prior,
                                     run_config_hash=run_config_hash,
                                     reason=reason,
                                     prior_run_id=prior_run_id,
                                     prior_status=prior_status,
+                                    prior_experiment=prior_experiment,
                                 )
                             )
                             continue
@@ -570,6 +879,13 @@ def run_benchmark(
             ),
             "prior_ok_different_config": sum(
                 1 for d in skip_disclosures if d["reason"] == "prior_ok_different_config"
+            ),
+            # E3 (DATA-60): cross-experiment anchor skips — the prior ok record
+            # belongs to a different experiment label (a prior full batch or
+            # a sibling fraction); disclosed separately so a reader can
+            # distinguish "re-shard under the same label" from "E3 anchor".
+            "prior_ok_cross_experiment_anchor": sum(
+                1 for d in skip_disclosures if d["reason"] == "prior_ok_cross_experiment_anchor"
             ),
         }
         disclosure_payload = {
