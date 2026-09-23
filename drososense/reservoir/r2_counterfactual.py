@@ -544,6 +544,12 @@ def counterfactual_quality(
 
     rho_a = float(spectral_radius(a, seed=0))
     rho_b = float(spectral_radius(b, seed=0))
+    target = mixing_target(reference)
+    mixing = {
+        "measured_overlap": float(report.overlap_final),
+        **target,
+        "pass": bool(report.overlap_final <= target["threshold"] + 1e-12),
+    }
 
     return {
         "C4.1_degree_sequences": {
@@ -604,11 +610,12 @@ def counterfactual_quality(
         },
         "C4.6_mixing_overlap": {
             "observed": report.overlap_final,
-            "threshold": f"<= {MIXING_OVERLAP_LIMIT}",
-            "pass": bool(report.mixing_reached),
+            "threshold": target["threshold"],
+            "pass": bool(report.overlap_final <= target["threshold"] + 1e-12),
             "note": (
                 f"stopped_because={report.stopped_because!r}, "
-                f"{report.swaps_accepted} swap(s) accepted"
+                f"{report.swaps_accepted} swap(s) accepted; threshold form "
+                f"{target['form']}"
             ),
         },
         "C4.7_build_seconds": {
@@ -617,6 +624,7 @@ def counterfactual_quality(
             "pass": bool(report.seconds <= BUILD_TIME_BUDGET_S),
         },
         "C4.8_report": report.as_dict(),
+        "mixing_target": mixing,
         "verdict": verdict_header(
             degree_ok=degree_ok,
             weights_ok=weights_ok,
@@ -625,7 +633,7 @@ def counterfactual_quality(
             median_relative_error=median_relative_error,
             overlap=report.overlap_final,
             seconds=report.seconds,
-            mixing_reached=report.mixing_reached,
+            mixing_reached=report.overlap_final <= target["threshold"] + 1e-12,
         ),
         "spectral_radius": {
             "R0": rho_a,
@@ -670,7 +678,7 @@ def verdict_header(
     per_source_weights_exact  PASS/FAIL
     input_population_same     PASS/FAIL
     median_in_strength_err    value <= 0.05
-    edge_overlap              value <= 0.20
+    edge_overlap              value <= max(0.20, 1.10 * E[overlap])   [amendment 1]
     build_time                value <= 600 s
     mixing_declared           PASS/FAIL
     C4                        PASS iff all pass
@@ -699,7 +707,14 @@ def verdict_header(
         "median_in_strength_err": bool(
             median_relative_error <= IN_STRENGTH_MEDIAN_RELATIVE_ERROR_LIMIT
         ),
-        "edge_overlap": bool(overlap <= MIXING_OVERLAP_LIMIT),
+        # amendment 1: the caller passes the overlap ALREADY compared against the
+        # floor-relative threshold through ``mixing_reached``; the absolute form is kept
+        # as a belt-and-braces check so a caller that forgets cannot pass a 0.9 overlap
+        "edge_overlap": bool(
+            mixing_reached and overlap <= max(MIXING_OVERLAP_LIMIT, 1e-12) * 1.0
+            if overlap > MIXING_OVERLAP_LIMIT
+            else True
+        ),
         "build_time": bool(seconds <= BUILD_TIME_BUDGET_S),
         "mixing_declared": bool(mixing_reached),
     }
@@ -737,3 +752,213 @@ def cell_type_pair_matrix(
         out.setdefault(str(source), {})
         out[str(source)][str(target)] = out[str(source)].get(str(target), 0) + 1
     return {source: dict(sorted(targets.items())) for source, targets in sorted(out.items())}
+
+
+# ---------------------------------------------------------------------------
+# v2 amendment 1 (signed): the measurement object of C4.2/C4.3/C4.4
+# ---------------------------------------------------------------------------
+#: The declared expectation estimator behind C4.6's floor-relative form.
+#:
+#: Measured on the C2 substrate: 0.2022, i.e. AT the absolute 0.20 threshold, so the
+#: absolute form alone cannot discriminate a mixed graph from an unmixed one there. The
+#: criterion is therefore ``overlap <= max(0.20, 1.10 * E[overlap])``: the absolute 0.20
+#: REMAINS the operative threshold wherever the substrate's floor is comfortably below it
+#: (a sparse substrate must still mix to 0.20, and this amendment must not make that
+#: easier), and the floor-relative form takes over only when the floor reaches it.
+#:
+#: THE OWNER APPROVED THE DESCRIBED SEMANTICS, NOT THE LITERAL ``min``. The option text put
+#: to them wrote ``min`` while describing ``max`` ("keep the absolute threshold where it is
+#: above the floor; use the relative form where the floor reaches it"). ``min`` would
+#: TIGHTEN the criterion on sparse substrates -- v1's floor of 0.0570 would have demanded
+#: 0.0627 instead of 0.20 -- which is the opposite of the intent. The implementation
+#: follows the described semantics, ``max``, and this note records the discrepancy rather
+#: than leaving two versions to be confused later. Both forms accept v1's measured 0.058
+#: against its floor of 0.0570, so no past verdict changes; what changes is which
+#: substrates the criterion is strict on.
+FLOOR_RELATIVE_FACTOR = 1.10
+
+
+def expected_overlap_configuration_model(matrix: sp.spmatrix) -> float:
+    """``E[overlap]`` for a uniformly random graph with the same degree sequences.
+
+    For each original edge ``(u -> v)`` the probability that a random out-stub of ``u``
+    lands on ``v`` is ``out_u * in_v / M`` (configuration model), so
+
+        ``E[overlap] = (1/M) * sum over R0's edges of (out_u * in_v / M)``.
+
+    This is the floor that makes C4.6 substrate-dependent, and it is computed from R0
+    alone -- no result enters it.
+    """
+    csr = matrix.tocsr()
+    coo = csr.tocoo()
+    out_degree = np.bincount(coo.row.astype(np.int64), minlength=csr.shape[0]).astype(float)
+    in_degree = np.bincount(coo.col.astype(np.int64), minlength=csr.shape[0]).astype(float)
+    m = float(csr.nnz)
+    if m == 0:
+        return float("nan")
+    per_edge = out_degree[coo.row.astype(np.int64)] * in_degree[coo.col.astype(np.int64)] / m
+    return float(per_edge.sum() / m)
+
+
+def mixing_target(matrix: sp.spmatrix, *, absolute: float = MIXING_OVERLAP_LIMIT) -> dict[str, Any]:
+    """C4.6's threshold, absolute and floor-relative (amendment 1)."""
+    expected = expected_overlap_configuration_model(matrix)
+    relative = FLOOR_RELATIVE_FACTOR * expected
+    return {
+        "absolute": float(absolute),
+        "expected_overlap_configuration_model": expected,
+        "floor_relative": float(relative),
+        "threshold": float(max(absolute, relative)),
+        "form": "max(absolute 0.20, 1.10 * E[overlap])",
+        "factor": FLOOR_RELATIVE_FACTOR,
+    }
+
+
+@dataclass(frozen=True)
+class WiringCounterfactual:
+    """R0 and R2 built under the signed measurement object (amendment 1).
+
+    Attributes:
+        raw_r0: The selected substrate as the connectome stores it (synapse-count
+            weights), before any normalization.
+        raw_r2: The same graph, rewired, with every raw weight in place.
+        r0: R0 as the reservoir sees it: declared normalization + spectral rescale.
+        r2: R2 preprocessed IDENTICALLY -- same normalization, and R0's own scale
+            factor -- so the two differ in wiring only and share one weight scale.
+        report: The swap chain's report (C4.8).
+        conservation_raw: The raw-object conservations, measured.
+        composition_scale: R0's rescale factor, applied to both.
+        rho_r0, rho_r2: The two spectral radii after pre-processing. They differ,
+            and that difference is disclosed rather than hidden by a second rescale.
+    """
+
+    raw_r0: sp.csr_matrix
+    raw_r2: sp.csr_matrix
+    r0: sp.csr_matrix
+    r2: sp.csr_matrix
+    report: RewireReport
+    conservation_raw: dict[str, Any]
+    composition_scale: float
+    rho_r0: float
+    rho_r2: float
+
+
+def normalize_with_scale(matrix: sp.spmatrix, normalization: str, scale: float) -> sp.csr_matrix:
+    """Apply a declared DATA-3 normalization, then ONE explicit scale factor.
+
+    ``load_reservoir_topology_from_npz`` rescales to a target radius, which multiplies
+    each graph by its own constant. Under amendment 1 the two graphs must share ONE scale,
+    so the normalization is applied here and the caller passes R0's factor for both.
+    """
+    from drososense.reservoir.connectome_reservoir import ALLOWED_NORMALIZATIONS
+
+    if normalization not in ALLOWED_NORMALIZATIONS:
+        raise RewireError(
+            f"normalization {normalization!r} is not one of {list(ALLOWED_NORMALIZATIONS)}"
+        )
+    csr = matrix.tocsr()
+    if normalization == "n1_pre_l1":
+        column = np.asarray(np.abs(csr).sum(axis=0)).ravel()
+        column[column == 0] = 1.0
+        normalized = sp.diags(1.0 / column) @ csr
+    else:  # pragma: no cover - the other DATA-3 schemes are precomputed in the NPZ
+        raise RewireError(
+            f"amendment 1 requires a normalization that can be applied to a REWIRED graph; "
+            f"{normalization!r} is only available as a stored block of the delivered matrix"
+        )
+    return sp.csr_matrix(normalized * float(scale))
+
+
+def build_wiring_counterfactual(
+    raw_block: sp.spmatrix,
+    *,
+    normalization: str,
+    target_spectral_radius: float,
+    seed: int,
+    target_overlap: float = MIXING_OVERLAP_LIMIT,
+    time_budget_s: float = BUILD_TIME_BUDGET_S,
+    max_attempts: int | None = None,
+) -> WiringCounterfactual:
+    """Build R0 and R2 under the signed measurement object (v2 amendment 1).
+
+    The counterfactual is built on the **biological graph** -- the selected substrate with
+    its raw synapse-count weights -- because that is the object whose weights, degrees and
+    per-source weight structure the counterfactual is supposed to keep. The declared
+    normalization is then applied to BOTH graphs, with R0's scale factor, so the pair
+    differs in wiring only and shares one weight scale.
+
+    Why not rewire the normalized matrix (the first, failing design): normalizing changes a
+    column's weights by a function of that column's wiring, so preserving the *normalized*
+    multiset pins the wiring and collapses the swap space to ~5 edges per weight class.
+    Measured: overlap stalls at 0.858 over 4.3 M swaps. On the raw graph the classes hold
+    221.6 edges on average, the same chain reaches 0.200 in 14.4 s, and in-strength is
+    preserved exactly.
+
+    Args:
+        raw_block: The selected substrate's raw (un-normalized) matrix.
+        normalization: The declared DATA-3 normalization.
+        target_spectral_radius: R0's target ``rho``.
+        seed: Swap-chain seed.
+        target_overlap: C4.6's absolute ceiling.
+        time_budget_s: C4.7's budget.
+        max_attempts: Optional cap on swap proposals.
+
+    Returns:
+        A :class:`WiringCounterfactual`.
+    """
+    raw_r2, report = weight_preserving_degree_rewire(
+        raw_block,
+        seed=seed,
+        target_overlap=target_overlap,
+        time_budget_s=time_budget_s,
+        max_attempts=max_attempts,
+    )
+    raw_r0 = raw_block.tocsr()
+
+    # R0's scale factor, from R0 alone
+    unit = normalize_with_scale(raw_r0, normalization, 1.0)
+    rho_unit = _spectral_radius(unit)
+    scale = float(target_spectral_radius) / rho_unit if rho_unit > 0 else 1.0
+    r0 = normalize_with_scale(raw_r0, normalization, scale)
+    r2 = normalize_with_scale(raw_r2, normalization, scale)
+
+    raw_coo, rew_coo = raw_r0.tocoo(), raw_r2.tocoo()
+    out_a = np.bincount(raw_coo.row.astype(np.int64), minlength=raw_r0.shape[0])
+    out_b = np.bincount(rew_coo.row.astype(np.int64), minlength=raw_r0.shape[0])
+    in_a = np.bincount(raw_coo.col.astype(np.int64), minlength=raw_r0.shape[0])
+    in_b = np.bincount(rew_coo.col.astype(np.int64), minlength=raw_r0.shape[0])
+    conservation_raw = {
+        "degrees_exact": bool(np.array_equal(out_a, out_b) and np.array_equal(in_a, in_b)),
+        "max_abs_out_degree_delta": int(np.max(np.abs(out_a - out_b))) if out_a.size else 0,
+        "max_abs_in_degree_delta": int(np.max(np.abs(in_a - in_b))) if in_a.size else 0,
+        "out_degree_hash_R0": degree_sequence_hash(out_a),
+        "out_degree_hash_R2": degree_sequence_hash(out_b),
+        "in_degree_hash_R0": degree_sequence_hash(in_a),
+        "in_degree_hash_R2": degree_sequence_hash(in_b),
+        "weight_multiset_hash_R0": multiset_hash(raw_coo.data.astype(np.float64)),
+        "weight_multiset_hash_R2": multiset_hash(rew_coo.data.astype(np.float64)),
+        "per_source_hash_R0": per_source_multiset_hash(
+            raw_coo.row.astype(np.int64), raw_coo.data.astype(np.float64)
+        ),
+        "per_source_hash_R2": per_source_multiset_hash(
+            rew_coo.row.astype(np.int64), rew_coo.data.astype(np.float64)
+        ),
+        "object": "raw synapse-count graph of the selected substrate",
+    }
+    return WiringCounterfactual(
+        raw_r0=raw_r0,
+        raw_r2=raw_r2,
+        r0=r0,
+        r2=r2,
+        report=report,
+        conservation_raw=conservation_raw,
+        composition_scale=scale,
+        rho_r0=_spectral_radius(r0),
+        rho_r2=_spectral_radius(r2),
+    )
+
+
+def _spectral_radius(matrix: sp.spmatrix) -> float:
+    from drososense.reservoir.connectome_reservoir import spectral_radius
+
+    return float(spectral_radius(matrix.tocsr(), seed=0))

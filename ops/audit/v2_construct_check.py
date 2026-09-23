@@ -622,12 +622,11 @@ def measure_c4(
     from drososense.reservoir.connectome_reservoir import (
         load_reservoir_topology_from_npz,
         make_degree_rewired,
-        make_degree_rewired_weight_preserving,
     )
     from drososense.reservoir.r2_counterfactual import (
+        build_wiring_counterfactual,
         cell_type_pair_matrix,
         counterfactual_quality,
-        weight_preserving_degree_rewire,
     )
 
     matrix, node_ids = _load_graph(adjacency_path)
@@ -636,11 +635,35 @@ def measure_c4(
     selected_root_ids = node_ids[expansion.node_indices]
     selected_classes = annotation.class_of(selected_root_ids)
 
-    r0 = load_reservoir_topology_from_npz(
+    # v2 amendment 1: the counterfactual is built on the RAW synapse-count substrate and
+    # both graphs are then preprocessed identically (same normalization, R0's scale)
+    raw_block = matrix[expansion.node_indices][:, expansion.node_indices].tocsr()
+    reference = load_reservoir_topology_from_npz(
         adjacency_path, normalization=normalization, node_indices=expansion.node_indices
     )
-    r2 = make_degree_rewired_weight_preserving(r0, seed=seed)
-    report = r2.counterfactual["report"]
+    counterfactual = build_wiring_counterfactual(
+        raw_block,
+        normalization=normalization,
+        target_spectral_radius=float(reference.spectral_radius),
+        seed=seed,
+        time_budget_s=time_budget_s,
+    )
+    r0 = reference
+    r2 = type(reference)(
+        matrix=counterfactual.r2,
+        n_nodes=counterfactual.r2.shape[0],
+        n_edges=int(counterfactual.r2.nnz),
+        spectral_radius=counterfactual.rho_r2,
+        density=counterfactual.r2.nnz / counterfactual.r2.shape[0] ** 2,
+        kind="R2_degree_rewired",
+        normalization=None,
+        counterfactual={
+            "report": counterfactual.report.as_dict(),
+            "conservation_raw": counterfactual.conservation_raw,
+            "object": "raw synapse-count graph (v2 amendment 1)",
+        },
+    )
+    report = counterfactual.report
 
     # C4.5 measured through the INPUT PATHWAY, not by comparing an array with itself:
     # the ORN-aligned mapping is built independently on R0 and on R2 and its support
@@ -656,18 +679,32 @@ def measure_c4(
         and mapping_r0.describe()["w_in_sha256"] == mapping_r2.describe()["w_in_sha256"]
     )
 
-    rewired_matrix, raw_report = weight_preserving_degree_rewire(
-        r0.matrix, seed=seed, target_overlap=0.20, time_budget_s=time_budget_s
-    )
     quality = counterfactual_quality(
-        r0.matrix,
-        r2.matrix,
-        # the report the topology carries IS the chain's report; re-deriving it here
-        # would risk reporting a different run from the one the matrix came from
-        _ReportView(report),
+        # amendment 1: C4.1/C4.2/C4.3/C4.4/C4.6 are measured on the RAW object, the one
+        # whose weights and degrees the counterfactual is defined to keep
+        counterfactual.raw_r0,
+        counterfactual.raw_r2,
+        report,
         population_rows_r0=mapping_r0.support_rows,
         population_rows_r2=mapping_r2.support_rows,
     )
+    # the pre-processed pair, reported beside it: same overlap by construction, and the
+    # in-strength the reservoir actually sees under the shared scale
+    normalized_in_strength = _normalized_in_strength_error(counterfactual.r0, counterfactual.r2)
+    quality["normalized_pair"] = {
+        "object": "declared normalization + R0's scale factor, applied to both graphs",
+        "in_strength_median_relative_error": normalized_in_strength,
+        "spectral_radius_R0": counterfactual.rho_r0,
+        "spectral_radius_R2": counterfactual.rho_r2,
+        "spectral_radius_ratio": (
+            counterfactual.rho_r2 / counterfactual.rho_r0 if counterfactual.rho_r0 else float("nan")
+        ),
+        "shared_scale_factor": counterfactual.composition_scale,
+        "note": (
+            "R2 is NOT rescaled to R0's radius: matching the radius and preserving one "
+            "weight scale are mutually exclusive, so both radii are reported"
+        ),
+    }
     quality["C4.5_input_population_identical"]["population_mapping"] = {
         "support_rows_hash_R0": sparse_sha256(
             sp.csr_matrix(
@@ -700,10 +737,19 @@ def measure_c4(
             r2_coo.row.astype(np.int64), r2_coo.col.astype(np.int64), selected_classes
         ),
     }
-    # the same weight-preserving chain, measured twice from the same seed, must agree
+    # the same chain, run twice from the same seed, must agree -- measured rather than
+    # asserted, and cheap now that the raw-graph chain mixes in seconds
+    repeat = build_wiring_counterfactual(
+        raw_block,
+        normalization=normalization,
+        target_spectral_radius=float(reference.spectral_radius),
+        seed=seed,
+        time_budget_s=time_budget_s,
+    )
     deterministic = bool(
-        raw_report.overlap_final == report["overlap_final"]
-        and raw_report.swaps_accepted == report["swaps_accepted"]
+        repeat.report.swaps_accepted == report.swaps_accepted
+        and repeat.report.overlap_final == report.overlap_final
+        and np.array_equal(repeat.raw_r2.toarray(), counterfactual.raw_r2.toarray())
     )
 
     return {
@@ -723,11 +769,20 @@ def measure_c4(
             },
             "n_edges_R0": int(r0.matrix.nnz),
         },
+        "measurement_object": {
+            "criterion_object": "raw synapse-count graph of the selected substrate",
+            "amendment": "v2 amendment 1 (signed): C4.2/C4.3/C4.4/C4.6 measured on the raw object",
+            "preprocessing": (
+                "the declared normalization and R0's scale factor are applied identically "
+                "to both graphs, so the pair differs in wiring only"
+            ),
+        },
         "R0": {
             "n_nodes": int(r0.n_nodes),
             "n_edges": int(r0.n_edges),
             "spectral_radius": float(r0.spectral_radius),
             "normalization": r0.normalization,
+            "raw_n_edges": int(counterfactual.raw_r0.nnz),
         },
         "R2": {
             "n_nodes": int(r2.n_nodes),
@@ -758,6 +813,17 @@ def measure_c4(
             "localised."
         ),
     }
+
+
+def _normalized_in_strength_error(r0, r2) -> float:
+    """Median relative in-strength error on the PRE-PROCESSED pair."""
+    a = np.asarray(r0.tocsr().sum(axis=0)).ravel().astype(np.float64)
+    b = np.asarray(r2.tocsr().sum(axis=0)).ravel().astype(np.float64)
+    positive = a > 0
+    if not positive.any():
+        return float("nan")
+    rel = np.abs(b[positive] - a[positive]) / np.maximum(np.abs(a[positive]), 1e-12)
+    return float(np.median(rel))
 
 
 class _ReportView:
