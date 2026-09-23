@@ -12,8 +12,8 @@ Frozen 2026-09-23. Branch `m4-audit/v1.5-evidence-identity`.
 ## Status line — the one sentence that must not be lost
 
 > **M4-v1.4 is retained as an invalid test of the intended biological hypothesis
-> due to construct-validity failure; v1.5–v1.5.2 repair evidence identity and gate
-> semantics only, not the biological architecture.**
+> due to construct-validity failure; v1.5–v1.5.3 repair evidence identity, gate
+> semantics and the cluster unit only, not the biological architecture.**
 
 The evidence for the construct-validity failure — not a "negative result":
 
@@ -57,7 +57,7 @@ the committed sidecars (`v1.1` → `v1.5.2`, all SAME), and the local copy of
 
 ---
 
-## 2. Protocol chain v1.1 → v1.5.2 (frozen, sidecar-matched)
+## 2. Protocol chain v1.1 → v1.5.3 (frozen, sidecar-matched)
 
 An amendment **adds** a version file; it never edits a frozen one. Every file below
 is on disk byte-for-byte as frozen, with a `configs/<name>.sha256` sidecar whose
@@ -75,6 +75,7 @@ layered on it, and the runners' `PROTOCOL_VERSION` label carries the newest one.
 | `protocol_v1.5.yaml` | `c220a54fabcb1e042d526224c2004d3a72241e8bf7b04057739431d0b9c63ae2` | **evidence-unit identity, schema 2** (§3) |
 | `protocol_v1.5.1.yaml` | `8ed71ceeca7a4cf333b1148fd88b83ef1ef61ee319c424401de618550d91fb21` | **parameter evidence scope**, fail closed (§5) |
 | `protocol_v1.5.2.yaml` | `f9bee020fdd14179e9cd0d6070a10d6758b0e78881c6c6df13254d59b9155027` | **dataset-conditioned parameter gate semantics** (§5) |
+| `protocol_v1.5.3.yaml` | `85f64202e18d00dd025196f970d694c6844ab6a95fdeab0f2917175aeb901b67` | **the cluster unit is the specimen** (A9/D7, §5b) |
 
 ---
 
@@ -154,19 +155,65 @@ Wording that must be used for A2 (not the old single-value story):
 
 ---
 
+## 5b. D7 closure — the cluster unit is the specimen (v1.5.3)
+
+Committed by `configs/protocol_v1.5.3.yaml` (digest in §2), signed as **D7** in
+[`v2_preregistration.md`](v2_preregistration.md) §5, and closed here with the item
+**A9** it repairs. It changes the *independent unit* of the cluster-level statistics
+and nothing else: alpha, the exact two-sided sign test over cluster means, the
+bootstrap parameters, the equivalence margins, the multiplicity rule, the metrics,
+the gates and the narrative rules do not move.
+
+| | cluster unit | what a cluster mean averages |
+|---|---|---|
+| v1.4 / v1.x, measured | the fold **index** | ten **different** specimens (all 62 of 62 D3 `fold_id`s change specimen across the 10 seeds) |
+| **v1.5.3, measured** | the **specimen** | that specimen's ten seed evaluations |
+
+Measured on the **committed** evidence, before and after:
+
+| evidence | v1.x reported | v1.5.3 reports |
+|---|---|---|
+| `e1_main_d2_per_run.csv` (5 folds, 5 specimens, 1 per fold) | 5 clusters | **5 clusters**, 50 pairs, floor `0.0625 > α` |
+| `e1_main_d3_per_run.csv` (62 folds, 62 specimens, 1 per fold) | **5 clusters** (fold indices) | **62 clusters**, 620 pairs, `n_clusters_nonzero = 20`, floor `1.91e-06`, p = 0.263 |
+| `m1_benchmark_per_run.csv` D3 (5 folds over 62 fillets, **12–13 specimens per fold**) | 5 clusters | **`unpairable`** with the reason: *a fold whose test set holds several specimens cannot be attributed to one specimen* |
+
+Each cluster now carries a machine-checkable `cluster_provenance` naming the
+independent unit: `specimen_id`, `source_folds`, `source_seeds`, `n_rows`,
+`models_present`, `tasks_present`. For D3's `F1F1`, the ten seed evaluations sit
+under **ten different fold ids** — which is precisely why a fold index cannot be an
+identity.
+
+**The refused split is a finding, not a limitation.** A grouped k-fold cannot
+produce a cluster-level statement about specimens at all: it has no cross-seed-stable
+unit. The v1.x D3 cluster-level numbers were produced by clustering those folds by
+index and are retained as v1.x artefacts; they are **not comparable** with a v1.5.3
+run, and `results/tables/m1_benchmark_statistics.csv` (which reports D3
+`n_clusters = 5`) must be read that way.
+
+**Pairing completeness** is part of the same amendment: a specimen observed on a
+different set of `(seed, fold_id, window_length)` evaluations by the two sides — or
+by only one of them — has no paired cluster mean, so the contrast is UNEVALUABLE
+with the affected specimens named. Before v1.5.3 the inner join silently kept the
+overlap and reported the specimen as a full cluster. **Expect wider CIs and less
+significance; that is the correct cost of the fix, not a reason to defer.**
+
+---
+
 ## 6. Open — carried forward, not dropped
 
 These are **not** closed by v1.x and must not be lost when v2 starts:
 
-1. **A9 — the decisive test clusters by the wrong unit.** The frozen protocol
-   declares the cluster to be the fold *because*, verbatim, "For LOSO a fold is a single specimen, so the fold bootstrap IS a specimen bootstrap" (`pairing.resample_unit_detail`), on the stated premise that the ten seeds share
-   **one specimen partition**. The implementation clusters by the fold **index**,
-   and under a seeded LOSO permutation each seed gets a *different* partition —
-   all **62 of 62** D3 `fold_id`s hold a different specimen under each of the 10
-   seeds — so the premise fails. The repair (signed as D7 in
-   [`v2_preregistration.md`](v2_preregistration.md) §5) is to declare the cluster
-   unit as the **specimen**. It is a statistics amendment, needs no re-run, and
-   must be frozen before any formal v2 evaluation.
+1. **A9 — CLOSED by v1.5.3 (§5b).** The decisive test clustered by the fold
+   **index**; the frozen text justifies the fold *because* "For LOSO a fold is a
+   single specimen, so the fold bootstrap IS a specimen bootstrap"
+   (`pairing.resample_unit_detail`), on the stated premise that the ten seeds share
+   **one specimen partition**. Under a seeded LOSO permutation each seed gets a
+   *different* partition — measured: all **62 of 62** D3 `fold_id`s hold a different
+   specimen under each of the 10 seeds — so the premise failed. The repair (D7) is
+   the declaration of the cluster unit as the **specimen**, frozen before any formal
+   v2 evaluation. No data was re-run and no v1.x record was re-scored. What remains
+   open from it is only the *reporting* convention on the v1.x tables, covered by the
+   note in §5b: they are v1.x artefacts and are not comparable with a v1.5.3 run.
 2. **Run-record field truthfulness** — `params.reservoir_size = 200` while
    `topology.n_nodes = 250`; node-selection provenance (`target_n`, seed, sha256)
    is not recorded; `class_coverage` lives only in the git-ignored raw records, so
@@ -195,17 +242,17 @@ These are **not** closed by v1.x and must not be lost when v2 starts:
 
 ```bash
 python ops/audit/gate_a_scope_comparison.py     # Gate A, both terms, both resolutions
-python -m pytest tests/ -m "not slow"           # 540 passed, 8 skipped (local)
+python -m pytest tests/ -m "not slow"           # 557 passed, 8 skipped (local)
 ```
 
-On the GPU box the same suite reports **548 passed, 0 failed, 0 skipped**.
+On the GPU box the same suite reports **565 passed, 0 failed** (nothing skips there).
 
 ### Known local-suite qualifications
 
 Removing the local connectome data (moved to the box, verified, then deleted —
 12.2 GB freed) makes two real-NPZ tests **skip** with the reason *"olfactory_v1.npz
-not provisioned in this environment"*: the local suite is 540/8 rather than
-542/6. They run on the box. Three xgboost tests skip locally because `libomp` is
+not provisioned in this environment"*: the local suite is 557/8 rather than
+559/6. They run on the box. Three xgboost tests skip locally because `libomp` is
 absent.
 
 ---
@@ -215,6 +262,14 @@ absent.
 ```
 audit index (this file)  ->  v2 preregistration  ->  validation-only construct checks  ->  formal experiments
 ```
+
+**The D7 statistics amendment is now frozen (§5b), which is the gate the signed
+decision put in front of the construct phase.** The order for v2 is fixed and
+construct-validity-first: **C1 input mapping → C2 subgraph → C4 R2 counterfactual →
+C3 dynamics**, each a property of the *construction*, measured validation-only, before
+any formal inference. C3 depends on a valid R0 and a valid R2 graph, which is why it
+comes last. Formal experiments run only when **every** criterion passes; "close" is a
+failure.
 
 v2 is the biological architecture redesign. Its pre-registration draft is
 [`docs/v2_preregistration.md`](v2_preregistration.md) — written before any v2 code

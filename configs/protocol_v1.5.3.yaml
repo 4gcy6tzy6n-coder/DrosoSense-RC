@@ -1,0 +1,171 @@
+# =============================================================================
+# DrosoSense-RC — FROZEN PROTOCOL AMENDMENT v1.5.3
+# =============================================================================
+# Project : DrosoSense-RC (Drosophila Sensory Connectome Reservoir Computing)
+# Version : 1.5.3
+# Frozen  : 2026-09-23T12:00:00Z
+# Owner   : M4-Audit (Reservoir Integrity Audit) — cluster unit = specimen (item A9)
+# Supersedes: v1.5.2 (configs/protocol_v1.5.2.yaml, kept unchanged on disk)
+#
+# SCOPE. v1.5.3 changes the INDEPENDENT UNIT of the cluster-level statistics, and
+# nothing else. The decisive test remains the exact two-sided sign test over
+# cluster means; alpha, the bootstrap parameters, the equivalence margins, the
+# multiplicity method, the metrics, the gates and the narrative rules do not move.
+# It is a statistics amendment, not an architecture change, and it is deliberately
+# separate from the v2 biological redesign.
+#
+# WHY THIS FILE EXISTS. The frozen text it amends is `pairing.resample_unit_detail`
+# (v1.3), verbatim:
+#
+#   "The bootstrap resamples FOLD IDENTIFIERS -- the specimen-disjoint test blocks
+#    whose metrics actually enter the difference. It never resamples seeds: ten
+#    seeds on one specimen partition are ten model initialisations, not ten draws
+#    of specimens, and bootstrapping them produces an interval that is too narrow
+#    to support any claim about new food samples. For LOSO a fold is a single
+#    specimen, so the fold bootstrap IS a specimen bootstrap."
+#
+# That paragraph justifies the fold as the cluster ON A STATED PREMISE: that a fold
+# IS a specimen, which in turn requires the seeds to share ONE specimen partition
+# ("ten seeds on one specimen partition"). The implementation does not satisfy the
+# premise. Under the seeded LOSO permutation each seed receives a DIFFERENT
+# partition, so a given `fold_id` holds a different specimen under each seed --
+# measured on the delivered D3 evidence: all 62 of 62 `fold_id`s change specimen
+# across the 10 seeds, while each specimen is tested exactly once per seed.
+#
+# The consequence is not a mislabelled variable. The cluster mean is taken over the
+# ten seeds inside one cluster, so under the implementation a cluster mean is an
+# average over TEN DIFFERENT SPECIMENS, and the 62 clusters are 62 different
+# re-partitions of the same 62 specimens rather than 62 independent specimens. The
+# sign test over those clusters assumes an independence the design does not
+# provide. Clustering by the SPECIMEN is the faithful reading of the frozen text --
+# each specimen then contributes exactly one cluster, whose mean averages that
+# specimen's ten model initialisations, which is precisely what the paragraph
+# above describes.
+#
+# WHAT v1.5.3 CHANGES. The cluster unit is the SPECIMEN, declared explicitly rather
+# than inferred from `fold_id`. The pairing key keeps `(seed, fold_id,
+# window_length)` -- one evaluation is still one paired difference -- and the
+# specimen travels with it as the cluster key.
+#
+# THE RULES, verbatim as decided:
+#
+#   cluster_id = specimen_id, and is never inferred from fold_id.
+#   A specimen contributes exactly ONE cluster, however many seeds, fold indices or
+#   windows it appears in.
+#   n_clusters == number of distinct specimens tested.
+#   Resampling happens at the specimen level; seeds are model-initialisation
+#   repetitions within one specimen, never independent draws.
+#   A paired comparison is aligned on the same specimen.
+#   If a model is missing a valid result for a specimen, the contrast is
+#   UNEVALUABLE. There is no silent filling, and no downgrade to fold-level.
+#   Multiple windows of one specimen are not extra independent samples.
+#
+# ADMISSIBILITY OF A SPLIT. For the cluster unit to be a specimen, a fold's test
+# set must be a single specimen. Admissibility is a property of the SPLIT actually
+# used, not of a dataset name, and it is checked on the rows being paired -- the
+# delivered evidence measures as:
+#
+#   results/tables/e1_main_d2_per_run.csv      5 folds,  5 specimens, 1 per fold  -> admissible
+#   results/tables/e1_main_d3_per_run.csv     62 folds, 62 specimens, 1 per fold  -> admissible
+#   results/tables/m1_benchmark_per_run.csv    5 folds over D3's 62 fillet tokens,
+#                                             12-13 specimens per fold            -> NOT admissible
+#
+# A split whose folds hold several specimens (a grouped k-fold) is NOT admissible
+# for a cluster-level test under v1.5.3: its fold metric cannot be attributed to one
+# specimen, so the contrast is reported UNEVALUABLE with that reason rather than
+# clustered on the fold. The M1 benchmark's D3 rows are the measured example, and
+# the D3 cluster-level numbers on the v1.x line were produced by clustering those
+# folds by index -- they are retained as v1.x artefacts and are not comparable with
+# a v1.5.3 run.
+#
+# PAIRING COMPLETENESS. A specimen is the independent unit, so its evaluations must
+# be the same on both sides of a contrast. A specimen that only one side scored, or
+# that the two sides scored on a different set of (seed, fold_id, window_length)
+# evaluations, has no paired cluster mean: the contrast is UNEVALUABLE with the
+# affected specimens named, rather than scored on whatever happened to overlap.
+#
+# EXPECTED CLUSTER COUNTS, stated in advance as a check on the implementation
+# (they are a property of the datasets, not of any result):
+#
+#   d2_beef_uncontrolled   5 clusters   (TS1..TS5)
+#   d3_rainbow_trout      62 clusters   (the 62 fillet tokens)
+#
+# A run that reports a different count for either dataset is reporting a defect.
+
+protocol_version: "1.5.3"
+frozen: true
+frozen_at: "2026-09-23T12:00:00Z"
+supersedes: "1.5.2"
+owner: "M4-Audit (Reservoir Integrity Audit) — cluster unit = specimen (item A9)"
+
+scope_statement: >
+  v1.5.3 declares the specimen as the independent unit of the cluster-level
+  statistics; it changes no model, dataset, split, endpoint, metric, gate
+  expression, narrative rule, alpha, bootstrap parameter, equivalence margin or
+  multiplicity rule.
+
+cluster_unit:
+  unit: specimen
+  cluster_id: specimen_id
+  never_inferred_from: fold_id
+  pairing_key: [dataset, window_length, seed, fold_id]
+  resample_unit: specimen
+  seed_role: >
+    seeds are model-initialisation repetitions within one specimen; they are
+    averaged inside the specimen's cluster and are never resampled and never
+    counted as independent draws
+  one_specimen_one_cluster: true
+  windows_are_not_extra_samples: true
+  multi_specimen_fold: >
+    not admissible: a fold whose test set holds more than one specimen cannot be
+    attributed to one specimen, so the contrast is UNEVALUABLE under v1.5.3 rather
+    than clustered on the fold index
+  pairing_completeness: >
+    a specimen must be observed on the same (seed, fold_id, window_length)
+    evaluations by both sides of a contrast; otherwise it has no paired cluster
+    mean and the contrast is UNEVALUABLE with the affected specimens named
+  missing_result_policy: >
+    if a model has no valid result for a specimen, the contrast is UNEVALUABLE for
+    the affected unit. No silent filling, and no downgrade to fold-level clustering.
+  expected_cluster_counts:
+    d2_beef_uncontrolled: 5
+    d3_rainbow_trout: 62
+  invariants:
+    - "adding or removing seeds does not change the cluster count"
+    - "renumbering fold ids does not change any reported statistic"
+    - "n_clusters == the number of distinct specimens tested"
+
+change_log:
+  - item: S1
+    change: >
+      The cluster key is the specimen, taken from the record's test specimen, not
+      the fold id.
+  - item: S2
+    change: >
+      n_clusters is the number of distinct specimens, and the bootstrap resamples
+      specimens; seeds are averaged inside the cluster.
+  - item: S3
+    change: >
+      A fold whose test set holds several specimens makes the contrast UNEVALUABLE
+      rather than clustered on a fold index, and a missing per-specimen result is
+      never silently filled.
+  - item: S4
+    change: >
+      Every cluster-level result carries a machine-checkable cluster_provenance
+      naming the independent unit: specimen_id, source_folds, source_seeds, n_rows,
+      models_present, tasks_present.
+  - item: S5
+    change: >
+      A specimen observed on a different set of evaluations by the two sides (or by
+      only one of them) makes the contrast UNEVALUABLE, with the affected specimens
+      named, rather than scored on the observations that happen to overlap.
+
+non_changes:
+  - "the decisive test: still the exact two-sided sign test over cluster means"
+  - "alpha, the descriptive Wilcoxon, the bootstrap n/seed/ci_type/level"
+  - "the equivalence margins and the TOST-by-inclusion rule"
+  - "multiplicity: Holm, its families and the family rule"
+  - "the metrics, their directions, the AUROC empty-class policy"
+  - "the Gate A/B/C expressions and the narrative rules N1..N5"
+  - "datasets, splits (the delivered evidence stays LOSO-5 / LOSO-62), seeds, window lengths, preprocessing"
+  - "every v1.x record already on disk: not re-indexed, not re-labelled, not re-scored"

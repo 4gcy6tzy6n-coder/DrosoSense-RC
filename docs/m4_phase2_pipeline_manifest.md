@@ -66,7 +66,7 @@ The six output artefacts, one per bundle label:
 | artefact | content |
 |---|---|
 | `descriptive.csv` | per-(dataset, model, task): decision metric (the task's PRIMARY — `macro_f1` maximize / `mae` minimize), mean / SD, `n_folds`, the fold-cluster bootstrap 95 % CI, and the secondary-metric columns the task declares (`r2` / `rmse` — reported, never decided on). `n_auroc_defined` / `n_auroc_undefined` accompany every AUROC mean (M4 hard constraint 1). |
-| `contrast_statistics.csv` | every declared contrast of the frozen protocol, evaluated where both sides pair on the common `(seed, fold, window)` units; `unpairable` and `insufficient_data` rows are written out with a reason, never dropped. The `family` column names the owning multiplicity family; `p_holm` is the Holm-corrected decisive p within that family. |
+| `contrast_statistics.csv` | every declared contrast of the frozen protocol, evaluated where both sides pair on the common `(seed, fold, window)` units; `unpairable` and `insufficient_data` rows are written out with a reason, never dropped. Under protocol v1.5.3 the pair key also carries the **test specimen**, which is the cluster unit (D7): a specimen the two sides did not score identically makes the contrast `unpairable` with the specimen named, and `insufficient_data` reports the cluster count as well as the pair count. The `family` column names the owning multiplicity family; `p_holm` is the Holm-corrected decisive p within that family. |
 | `paired_differences.csv` | the per-`(seed, fold)` deltas for every pairable declared contrast, the audit trail the report needs next to the summary statistics. |
 | `gates.json` | Gate A / B / C verdicts. A gate that names a contrast the bundle does not carry is recorded `UNEVALUABLE` with the reason (protocol §13 gate_rules) — never a pass, never a fail. `unresolved_terms` lists the exact pending set for the next bundle. |
 | `narrative.json` | N1..N5 evaluation on the frozen triggers. More than one firing is reported as a conflict, never resolved by choice (protocol §14 evaluation_note). N5's dataset-availability term reads the dataset manifest, not whether this bundle carried the dataset. |
@@ -131,6 +131,16 @@ Run on the delivery line, exit 0:
 | `results/tables/e1_main_d3/gates.json` | Gate A / B / C all `UNEVALUABLE` with the reason (the stub carries no D2 dataset, and the reservoir contrasts it does carry are on D3 only) |
 | `results/tables/e1_main_d3/narrative.json` | N1–N4 unfired (contrast terms unresolvable on the stub), N5 unfired (manifest says all datasets available) |
 | `results/tables/e1_main_d3/audit.json` | `n_per_run=60`, `n_violations=0`, `n_distinct_config_hashes=4`, `bundle_prefix=stub_e1_main_d3`, `r2_secondary_only=true` |
+
+> **v1.5.3 re-run note (the artefact above predates it and is retained).** The stub
+> labels every row `test_specimens_joined = "STUB"`, so under protocol v1.5.3 (cluster
+> unit = specimen) the `R0_vs_R2` / `R0_vs_R4` rows are **one cluster**, not five:
+> they re-run as `insufficient_data` with *"1 cluster(s); the cluster bootstrap cannot
+> resample fewer than two; 10 paired observation(s) in 1 specimen cluster(s)"*. The
+> committed `ok` rows with `n_clusters = 5` are the v1.x **fold-index** clustering and
+> are not comparable. The stub still exercises the paths it was written for; the
+> demonstration that matters is the D2/D3 one in
+> [`docs/audit_index.md`](audit_index.md) §5b, on real specimen labels.
 
 Expected shape of the D3 output when the real bundle lands (values aside):
 12 contrast rows (6 declared contrasts × 2 tasks × 1 dataset); `unpairable`

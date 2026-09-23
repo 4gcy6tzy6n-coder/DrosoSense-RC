@@ -117,6 +117,12 @@ def _fabricated_rows(
                         "task": "classification",
                         "seed": seed,
                         "fold_id": fold,
+                        # Protocol v1.5.3 clusters on the SPECIMEN, and the builder's
+                        # "n_folds independent clusters" statement only holds if each
+                        # fold is a distinct specimen. One specimen per fold is the
+                        # LOSO shape the amendment assumes, so n_clusters == n_folds
+                        # here for the same reason it is 5 and 62 on the real data.
+                        "test_specimens_joined": f"sp{fold:02d}",
                         "window_length": 16,
                         "protocol_version": "1.2.0",
                         "evidence_class": "real",
@@ -193,9 +199,19 @@ def test_the_committed_benchmark_reaches_the_gates_without_a_namespace_error(pro
     # pipeline is not simply returning nothing.
     assert not table.empty
     assert "esn_vs_gru" in set(table["contrast_id"])
-    # And every decisive p-value in it is a cluster-level one.
-    assert set(table["test"]) == {"cluster_sign_test"}
-    assert set(table["paired_test"]) <= {"wilcoxon_signed_rank", "sign_test"}
+    # Every decisive p-value that was produced is a cluster-level one. The rows
+    # that produced none are D3's, and they say why: this table's D3 split is a
+    # 5-fold grouped split holding 12-13 fillet tokens per fold, so no fold metric
+    # can be attributed to one specimen, and protocol v1.5.3 refuses it rather than
+    # clustering on the fold INDEX -- which is what the v1.x line did with it.
+    evaluable = table[table["status"] == "ok"]
+    refused = table[table["status"] == "unpairable"]
+    assert not evaluable.empty
+    assert set(evaluable["dataset"]) == {DATASET_IDS["D2"]}
+    assert set(refused["dataset"]) == {DATASET_IDS["D3"]}
+    assert refused["note"].str.contains("cannot be attributed to one specimen").all()
+    assert set(evaluable["test"]) == {"cluster_sign_test"}
+    assert set(evaluable["paired_test"]) <= {"wilcoxon_signed_rank", "sign_test"}
 
 
 @pytest.mark.integration
@@ -254,7 +270,11 @@ def test_the_committed_benchmark_publishes_a_usable_effect_size_for_regression(p
 
     frame = pd.read_csv(COMMITTED_PER_RUN)
     table, _ = _run_pipeline(frame, protocol, {}, exploratory=[("esn", "gru")])
-    by_metric = table.groupby("metric")["effect_size_name"].unique().to_dict()
+    # Only the evaluable rows carry an estimator: D3 is reported `unpairable` under
+    # protocol v1.5.3 (one fold holds 12-13 specimens), and an estimator's NAME on a
+    # row with no estimate would be a claim about nothing.
+    evaluable = table[table["status"] == "ok"]
+    by_metric = evaluable.groupby("metric")["effect_size_name"].unique().to_dict()
     assert list(by_metric["mae"]) == ["hodges_lehmann"]
     assert list(by_metric["macro_f1"]) == ["rank_biserial"]
 
@@ -367,10 +387,21 @@ def test_the_effect_size_choice_follows_the_task_not_the_metric_name(protocol):
 
 @pytest.mark.integration
 def test_no_p_value_below_the_float_floor_is_published_as_a_number(protocol):
-    """A `1 - cdf` cancellation artefact is reported as '<1e-12', not as a value."""
+    """A `1 - cdf` cancellation artefact is reported as '<1e-12', not as a value.
+
+    Only the evaluable rows carry a p-value: the fixture carries R0 and R2, so the
+    declared contrasts naming R4/R3/GRU/R5/R1 are reported `unpairable` -- with a
+    reason, which is why they appear as rows at all -- and a p-value on such a row
+    would be a number about nothing.
+    """
     frame = _fabricated_rows(n_folds=10, model_delta={"R0": 0.9, "R2": 0.0})
     table, _ = _run_pipeline(frame, protocol, {"R0": 1000, "GRU": 50000})
-    reported = table["p_paired_wilcoxon_reported"]
+    evaluable = table[table["status"] == "ok"]
+    refused = table[table["status"] == "unpairable"]
+    assert not refused.empty and refused["note"].str.len().gt(0).all(), (
+        "a contrast that cannot be paired is written out with a reason, never dropped"
+    )
+    reported = evaluable["p_paired_wilcoxon_reported"]
     assert all(isinstance(value, str) for value in reported)
     assert any(value == "<1e-12" for value in reported)
 

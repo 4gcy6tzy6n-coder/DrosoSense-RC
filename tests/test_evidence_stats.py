@@ -101,7 +101,11 @@ def _write_bundle(tmp_path: Path, experiment: str = "test_exp", vary_metrics: bo
                             "n_test_windows": 20,
                             "n_train_specimens": 60,
                             "n_test_specimens": 2,
-                            "test_specimens_joined": "stub",
+                            # Protocol v1.5.3 clusters on the SPECIMEN, so a fixture
+                            # where every row shares one specimen would have a single
+                            # independent unit and no cluster-level test at all. One
+                            # specimen per fold is the LOSO shape the amendment assumes.
+                            "test_specimens_joined": f"sp{fold:02d}",
                             "n_train_sessions": 60,
                             "n_test_sessions": 2,
                             "duration_s": 1.0,

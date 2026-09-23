@@ -157,6 +157,10 @@ def test_a_successful_run_is_still_marked_ok(temporary_dataset, tmp_path):
 def _frame(rows: list[dict]) -> "object":
     """Build a per-run frame from explicit rows.
 
+    Protocol v1.5.3 clusters on the specimen, so a row without one cannot be
+    clustered. Rows that do not name a specimen get a distinct one per fold, which
+    is the LOSO shape the amendment assumes, rather than all sharing a placeholder.
+
     Args:
         rows: Row mappings.
 
@@ -165,32 +169,64 @@ def _frame(rows: list[dict]) -> "object":
     """
     import pandas as pd
 
-    return pd.DataFrame(rows)
+    frame = pd.DataFrame(rows)
+    if "test_specimens_joined" not in frame.columns:
+        if "fold_id" in frame.columns:
+            frame["test_specimens_joined"] = frame["fold_id"].map(
+                lambda fold: f"sp{int(fold):02d}"
+            )
+        else:
+            frame["test_specimens_joined"] = "sp00"
+    return frame
 
 
 @pytest.mark.unit
-def test_paired_observations_require_both_models_on_the_same_fold():
-    """A contrast is paired; an unpaired model pairing must produce fewer rows."""
+def test_an_unpaired_evaluation_makes_the_contrast_unevaluable_not_thinner():
+    """A contrast is paired, and v1.5.3 will not pair a specimen's overlap.
+
+    This test used to assert the opposite: the inner join dropped the missing
+    (seed 1, fold 1) evaluation of model `b` and reported the remaining 3 pairs as
+    if the contrast had been scored on a complete design. The specimen is the
+    independent unit, so a specimen the two models did not observe identically has
+    no paired cluster mean -- the contrast is reported UNEVALUABLE with the
+    specimen named, never silently thinned.
+    """
     analyze = _load_analyze()
-    rows = []
-    for seed in (0, 1):
-        for fold in (0, 1):
-            rows.append(
-                {
-                    "dataset": "D", "task": "classification", "seed": seed, "fold_id": fold,
-                    "window_length": 16, "model": "a", "macro_f1": 0.5 + 0.1 * fold,
-                }
-            )
-            if (seed, fold) != (1, 1):
-                rows.append(
-                    {
-                        "dataset": "D", "task": "classification", "seed": seed, "fold_id": fold,
-                        "window_length": 16, "model": "b", "macro_f1": 0.4 + 0.1 * fold,
-                    }
-                )
-    paired = analyze.observations(_frame(rows), "a", "b", "macro_f1")
-    assert len(paired) == 3, "the unpaired (seed 1, fold 1) evaluation must drop out"
-    assert np.allclose(paired["delta"], 0.1)
+
+    def build(*, drop_unpaired: bool) -> list[dict]:
+        rows = []
+        for seed in (0, 1):
+            for fold in (0, 1):
+                if not (drop_unpaired and (seed, fold) == (1, 1)):
+                    rows.append(
+                        {
+                            "dataset": "D", "task": "classification", "seed": seed,
+                            "fold_id": fold, "window_length": 16, "model": "a",
+                            "macro_f1": 0.5 + 0.1 * fold,
+                        }
+                    )
+                if (seed, fold) != (1, 1):
+                    rows.append(
+                        {
+                            "dataset": "D", "task": "classification", "seed": seed,
+                            "fold_id": fold, "window_length": 16, "model": "b",
+                            "macro_f1": 0.4 + 0.1 * fold,
+                        }
+                    )
+        return rows
+
+    partial = analyze.observations(_frame(build(drop_unpaired=False)), "a", "b", "macro_f1")
+    assert partial.empty, "the overlap is not a pair"
+    errors = partial.attrs["cluster_unit_errors"]
+    assert set(errors) == {"D"}, "the reason is reported per dataset"
+    assert "sp01" in errors["D"]
+    assert "v1.5.3" in errors["D"]
+
+    # With the (seed 1, fold 1) evaluation removed from BOTH sides the design is
+    # symmetric again, and the three remaining evaluations pair normally.
+    complete = analyze.observations(_frame(build(drop_unpaired=True)), "a", "b", "macro_f1")
+    assert len(complete) == 3
+    assert np.allclose(complete["delta"], 0.1)
 
 
 @pytest.mark.unit

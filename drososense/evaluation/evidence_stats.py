@@ -61,6 +61,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +76,12 @@ from drososense.evaluation.gates import (  # noqa: E402
     GateEvaluator,
     GateExpressionError,
     build_symbols,
+)
+from drososense.evaluation.clustering import (
+    SPECIMEN_COLUMN,
+    ClusterUnitError,
+    cluster_provenance,
+    specimen_ids,
 )
 from drososense.evaluation.stats import (  # noqa: E402
     DEFAULT_ALPHA,
@@ -372,6 +379,101 @@ def descriptive_rows(
 # ---------------------------------------------------------------------------
 
 
+#: The columns naming ONE evaluation. A specimen's cluster mean is the mean of
+#: its evaluations, so the two sides must agree on this set per specimen.
+_OBSERVATION_KEY_CANDIDATES: tuple[str, ...] = ("seed", "fold_id", "window_length")
+
+
+def _short(values: Sequence[str], limit: int = 3) -> str:
+    """A few names and an ellipsis, for a reason string."""
+    shown = list(values[:limit])
+    if len(values) > limit:
+        shown.append(f"+{len(values) - limit} more")
+    return ", ".join(shown)
+
+
+def specimen_pairing_asymmetry(
+    left: pd.DataFrame, right: pd.DataFrame, specimen_column: str = SPECIMEN_COLUMN
+) -> str:
+    """Why the two sides cannot be clustered on the specimen, or ``""``.
+
+    Protocol v1.5.3, ``cluster_unit.missing_result_policy``, verbatim: *"if a model
+    has no valid result for a specimen, the contrast is UNEVALUABLE for the affected
+    unit. No silent filling, and no downgrade to fold-level clustering."* The unit is
+    the specimen, so the failure this checks for is a specimen whose evaluations are
+    not the same on both sides: the inner join would keep whatever overlapped, and
+    that specimen's cluster mean would then be the mean of a DIFFERENT set of
+    evaluations than its partner's — a partial mean, silently, with the specimen
+    still counted as one independent cluster. That is the silent fill the amendment
+    forbids, so the contrast is refused and the affected specimens are named.
+
+    Args:
+        left: The first model's records, already carrying the specimen column.
+        right: The second model's records, with the same columns.
+        specimen_column: The column holding the specimen identity.
+
+    Returns:
+        A reason string naming every specimen observed differently (or by only one
+        side), or the empty string when the pairing is specimen-complete.
+    """
+    observation_key = [c for c in _OBSERVATION_KEY_CANDIDATES if c in left.columns]
+
+    def by_specimen(frame: pd.DataFrame) -> dict[str, set[tuple]]:
+        out: dict[str, set[tuple]] = {}
+        for specimen, group in frame.groupby(specimen_column, sort=True, dropna=False):
+            out[str(specimen)] = set(
+                group[observation_key].itertuples(index=False, name=None)
+            )
+        return out
+
+    left_keys = by_specimen(left)
+    right_keys = by_specimen(right)
+    if not left_keys or not right_keys:
+        empty_side = "the first" if not left_keys else "the second"
+        return (
+            f"{empty_side} side has no scored row at all ({len(left)} row(s) against "
+            f"{len(right)}), so there is no paired unit to cluster; the contrast is "
+            f"UNEVALUABLE rather than paired on nothing"
+        )
+    left_only = sorted(set(left_keys) - set(right_keys))
+    right_only = sorted(set(right_keys) - set(left_keys))
+    partial = sorted(
+        specimen
+        for specimen in set(left_keys) & set(right_keys)
+        if left_keys[specimen] != right_keys[specimen]
+    )
+    if not (left_only or right_only or partial):
+        return ""
+
+    units = ", ".join(observation_key) if observation_key else "the record unit"
+    parts: list[str] = []
+    if left_only:
+        parts.append(
+            f"{len(left_only)} specimen(s) scored by only one side ({_short(left_only)})"
+        )
+    if right_only:
+        parts.append(
+            f"{len(right_only)} specimen(s) scored by only one side, on the other "
+            f"model ({_short(right_only)})"
+        )
+    if partial:
+        example = ", ".join(
+            f"{specimen} ({len(left_keys[specimen] ^ right_keys[specimen])} "
+            f"evaluation(s) unpaired)"
+            for specimen in partial[:2]
+        )
+        parts.append(
+            f"{len(partial)} specimen(s) observed on a different set of ({units}) "
+            f"by the two sides (e.g. {example})"
+        )
+    return (
+        "; ".join(parts)
+        + "; a specimen whose evaluations are not identical on both sides has no "
+        "paired cluster mean, so the contrast is UNEVALUABLE under protocol v1.5.3 "
+        "rather than scored on the observations that happen to overlap"
+    )
+
+
 def _resolve_model_code(
     code: str, available_models: set[str], bindings: dict[str, str]
 ) -> str:
@@ -448,7 +550,40 @@ def contrast_row(
             "status": "unpairable",
             "note": f"metric {metric!r} absent from one side's records",
         }
-    key = [c for c in ("seed", "fold_id", "window_length") if c in left.columns]
+    # Protocol v1.5.3: the cluster key is the SPECIMEN, so it has to survive the
+    # pairing merge. It is functionally determined by (seed, fold_id) -- under a
+    # seeded LOSO permutation it is exactly what differs between seeds -- so
+    # carrying it in the key is free.
+    try:
+        left = left.assign(**{SPECIMEN_COLUMN: specimen_ids(left)})
+        right = right.assign(**{SPECIMEN_COLUMN: specimen_ids(right)})
+    except ClusterUnitError as exc:
+        return {
+            "contrast_id": contrast_id,
+            "metric": metric,
+            "dataset": dataset,
+            "task": task,
+            "status": "unpairable",
+            "note": str(exc),
+        }
+    # Protocol v1.5.3 missing_result_policy: a specimen is the independent unit, so
+    # it has to be observed IDENTICALLY on both sides. Checked before the merge,
+    # because the merge is what would hide it.
+    asymmetry = specimen_pairing_asymmetry(left, right)
+    if asymmetry:
+        return {
+            "contrast_id": contrast_id,
+            "metric": metric,
+            "dataset": dataset,
+            "task": task,
+            "status": "unpairable",
+            "note": asymmetry,
+        }
+    key = [
+        c
+        for c in ("seed", "fold_id", "window_length", SPECIMEN_COLUMN)
+        if c in left.columns
+    ]
     join = (
         left[key + [metric]]
         .rename(columns={metric: "a"})
@@ -476,11 +611,24 @@ def contrast_row(
     seed_arr = join["seed"].to_numpy() if "seed" in join.columns else np.zeros(
         len(deltas), dtype=int
     )
-    fold_arr = (
-        join["fold_id"].to_numpy()
-        if "fold_id" in join.columns
-        else np.zeros(len(deltas), dtype=int)
-    )
+    # The cluster key handed to the statistics layer is the SPECIMEN. The
+    # fold id stays in the pairing key (one evaluation is one paired difference)
+    # but is deliberately NOT the cluster.
+    if SPECIMEN_COLUMN in join.columns:
+        fold_arr = join[SPECIMEN_COLUMN].to_numpy()
+    else:
+        return {
+            "contrast_id": contrast_id,
+            "metric": metric,
+            "dataset": dataset,
+            "task": task,
+            "status": "unpairable",
+            "note": (
+                "no test-specimen column survived the pairing merge, so the contrast "
+                "cannot be clustered on the specimen; protocol v1.5.3 will not fall "
+                "back to the fold index"
+            ),
+        }
     spec = protocol_paired_spec(protocol, metric, task)
     try:
         result = paired_test(
@@ -492,43 +640,55 @@ def contrast_row(
             metric=metric,
             dataset=dataset,
         )
-    except InsufficientDataError:
+    except InsufficientDataError as exc:
+        # The statistic's own message, plus what was actually paired: with the
+        # specimen as the unit the common case is not "too few observations" but
+        # "too few SPECIMENS" -- a bundle that labels every row with one specimen
+        # has ten observations in one cluster, and no cluster-level test exists.
         return {
             "contrast_id": contrast_id,
             "metric": metric,
             "dataset": dataset,
             "task": task,
             "status": "insufficient_data",
-            "note": "fewer than 2 paired observations",
+            "n_pairs": int(deltas.size),
+            "n_clusters": int(np.unique(fold_arr).size),
+            "cluster_unit": "specimen",
+            "note": (
+                f"{exc}; {int(deltas.size)} paired observation(s) in "
+                f"{int(np.unique(fold_arr).size)} specimen cluster(s)"
+            ),
         }
-    n_clusters = int(
-        np.unique(join["fold_id"].to_numpy()).size
-        if "fold_id" in join.columns
-        else 1
+    n_clusters = int(np.unique(fold_arr).size)
+    # `result.as_dict()` is the frozen statistic's own published shape. It is the
+    # base of the row so that the two contrast paths (`evidence_stats` and
+    # `scripts/analyze.py`) publish the same columns -- without it this table had
+    # no `test` column at all, and "the decisive test is the exact two-sided sign
+    # test over cluster means" was not checkable from the row.
+    row: dict[str, Any] = dict(result.as_dict())
+    row.update(
+        {
+            "contrast_id": contrast_id,
+            "metric": metric,
+            "dataset": dataset,
+            "task": task,
+            "first": first,
+            "second": second,
+            "n_pairs": int(deltas.size),
+            "n_clusters": n_clusters,
+            "cluster_unit": "specimen",
+            # The join carries no model column (a pair IS both models), so the
+            # provenance is given them rather than reporting an empty field.
+            "cluster_provenance": cluster_provenance(
+                join, models=(first, second), tasks=(task,)
+            ),
+            "n_seeds": int(join["seed"].nunique()) if "seed" in join.columns else 1,
+            "status": "ok",
+            "minimum_achievable_p_over_clusters": float(
+                result.minimum_achievable_p_over_clusters
+            ),
+        }
     )
-    row: dict[str, Any] = {
-        "contrast_id": contrast_id,
-        "metric": metric,
-        "dataset": dataset,
-        "task": task,
-        "first": first,
-        "second": second,
-        "n_pairs": int(deltas.size),
-        "n_clusters": n_clusters,
-        "n_clusters_nonzero": int(result.n_clusters_nonzero),
-        "n_seeds": int(join["seed"].nunique()) if "seed" in join.columns else 1,
-        "status": "ok",
-        "delta": float(result.delta),
-        "delta_ci_low": float(result.delta_ci_low),
-        "delta_ci_high": float(result.delta_ci_high),
-        "p_value": float(result.p_value),
-        "p_paired_wilcoxon": float(result.p_paired_wilcoxon),
-        "effect_size": float(result.effect_size),
-        "effect_size_name": str(result.effect_size_name),
-        "minimum_achievable_p_over_clusters": float(
-            result.minimum_achievable_p_over_clusters
-        ),
-    }
     row["family"] = protocol_family_membership(protocol).get(
         (contrast_id, "full"), ""
     )

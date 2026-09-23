@@ -70,6 +70,12 @@ PROTOCOL_V1_5_1_PATH: Path = CONFIGS_DIR / "protocol_v1.5.1.yaml"
 # frozen gate expression text is unchanged.
 PROTOCOL_V1_5_2_PATH: Path = CONFIGS_DIR / "protocol_v1.5.2.yaml"
 
+# v1.5.3 (M4-Audit, item A9) declares the SPECIMEN as the independent unit of the
+# cluster-level statistics, replacing a fold-INDEX cluster whose ten seeds hold ten
+# different specimens. The decisive test, alpha, the bootstrap parameters, the
+# margins, the multiplicity rule and the metrics do not move.
+PROTOCOL_V1_5_3_PATH: Path = CONFIGS_DIR / "protocol_v1.5.3.yaml"
+
 # The active protocol. Everything that reads "the protocol" reads this.
 #
 # v1.2 supersedes v1.1 for the DECISION MACHINE only: v1.1's gate expressions
@@ -91,6 +97,7 @@ PROTOCOL_V1_4_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.4.sha256"
 PROTOCOL_V1_5_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.5.sha256"
 PROTOCOL_V1_5_1_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.5.1.sha256"
 PROTOCOL_V1_5_2_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.5.2.sha256"
+PROTOCOL_V1_5_3_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.5.3.sha256"
 
 
 def protocol_version_paths(version: str) -> tuple[Path, Path]:

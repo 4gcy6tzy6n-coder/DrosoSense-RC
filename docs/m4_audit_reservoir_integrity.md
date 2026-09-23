@@ -195,6 +195,17 @@ Verified from the committed `results/tables/e1_main_d{2,3}_per_run.csv` alone:
 
 This is fixable in the statistics layer alone, with no data re-run.
 
+> **CLOSED by protocol v1.5.3** (signed as D7, `docs/v2_preregistration.md` §5;
+> closure record in [`docs/audit_index.md`](audit_index.md) §5b). The cluster unit is
+> declared as the **specimen**, and the fix is measured on this same committed
+> evidence: D3 goes from **5 clusters by fold index** to **62 clusters by specimen**
+> (620 pairs, `n_clusters_nonzero = 20`, floor 1.91e-06, p = 0.263), each cluster
+> carrying a `cluster_provenance` whose `source_folds` for `F1F1` are ten *different*
+> fold ids. A split that cannot be attributed to one specimen — the committed
+> `m1_benchmark_per_run.csv` D3 rows, 12–13 fillets per fold — is reported
+> `unpairable` with that reason instead of being clustered on the fold. No model was
+> re-fit and no v1.x record was re-scored.
+
 Metric implementation itself is **clean**: `macro_f1 == 1.0` implies
 `auroc_defined` in **438/438** records; `macro_f1` has a hard floor of exactly
 0.25 on the 540 records that are perfect single-class folds; the fixed-label
@@ -599,7 +610,7 @@ still ≈ R2, that is the accepted answer.
 
 | Track | Content | Touches data? |
 |---|---|---|
-| **v1.5 (amendment)** | **DELIVERED — evidence identity only.** See the section below. Still open inside v1.5: (a) declare the clustering unit as the **specimen**, not `fold_id` (A9); (c) record the node-selection provenance and the true `reservoir_size` in the run record (`params.reservoir_size = 200` while `topology.n_nodes = 250` is a false statement in the delivered evidence) and commit `class_coverage`. No dataset, split, endpoint or decision rule changes. | No re-run |
+| **v1.5 (amendment)** | **DELIVERED — evidence identity, parameter scope, gate semantics and the cluster unit.** (a) the clustering unit is declared as the **specimen**, not `fold_id` (A9 / D7 / v1.5.3 — CLOSED, see the A9 section above); the remaining open sub-item is (c) record the node-selection provenance and the true `reservoir_size` in the run record (`params.reservoir_size = 200` while `topology.n_nodes = 250` is a false statement in the delivered evidence) and commit `class_coverage`. No dataset, split, endpoint or decision rule changes. | No re-run |
 | **v2 (re-operationisation)** | Architecture: an input stage that maps e-nose channels onto a **biological input population** (ORN→PN→KC/higher-order) rather than a dense random `W_in` over all nodes; an induced subgraph that is **connected and edge-retaining** (or a sub-sampling scheme that preserves in-block edges); a knob regime in which the recurrence is not 3 % of the drive; R2 made weight-preserving so it is a pure wiring control. Re-pre-registered before any test is touched. | Validation/synthetic first |
 | **Housekeeping** | Commit or hash the tree that produced the E2/E3/E9 numbers (10 uncommitted files on the GPU box, full diff preserved at `results/audit/m4_audit/server_evidence/prov.txt`), and bring the E2/E9 evidence onto the delivery line. | No re-run |
 

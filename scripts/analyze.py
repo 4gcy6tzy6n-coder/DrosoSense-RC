@@ -113,8 +113,16 @@ def observations(
 ) -> pd.DataFrame:
     """Build the paired differences for one contrast and metric.
 
-    Both models must appear on the same (dataset, seed, fold) with the same
-    window length — that pairing is what makes the difference a paired one.
+    Both models must appear on the same (dataset, task, seed, fold, window) — that
+    pairing is what makes the difference a paired one — and the specimen each row
+    was evaluated on travels with it, because protocol v1.5.3 clusters on the
+    specimen rather than on the fold index.
+
+    The specimen check is applied PER DATASET, because a contrast is computed per
+    dataset: a grouped k-fold split in one dataset must not make the same contrast
+    unevaluable in another. The datasets that could not be attributed to single
+    specimens are named in ``frame.attrs["cluster_unit_errors"]`` so the contrast
+    table can report them instead of dropping them silently.
 
     Args:
         frame: Per-run frame with one row per (dataset, model, task, seed, fold).
@@ -123,15 +131,72 @@ def observations(
         metric: Metric column to difference.
 
     Returns:
-        Frame with columns ``dataset``, ``seed``, ``fold_id``, ``delta``.
+        Frame with columns ``dataset``, ``seed``, ``fold_id``, ``delta`` and the
+        specimen cluster key, for the datasets whose rows are attributable.
     """
+    from drososense.evaluation.clustering import (
+        SPECIMEN_COLUMN,
+        SPECIMEN_COLUMN_CANDIDATES,
+        ClusterUnitError,
+        specimen_ids,
+    )
+    from drososense.evaluation.evidence_stats import specimen_pairing_asymmetry
+
     key = ["dataset", "task", "seed", "fold_id", "window_length"]
-    left = frame[frame["model"] == first][[*key, metric]].rename(columns={metric: "a"})
-    right = frame[frame["model"] == second][[*key, metric]].rename(columns={metric: "b"})
-    joined = left.merge(right, on=key, how="inner")
-    joined = joined.dropna(subset=["a", "b"])
-    joined["delta"] = joined["a"] - joined["b"]
-    return joined
+    present = next((c for c in SPECIMEN_COLUMN_CANDIDATES if c in frame.columns), None)
+    errors: dict[str, str] = {}
+    if present is None:
+        for dataset in sorted(frame["dataset"].unique()):
+            errors[str(dataset)] = (
+                f"no specimen column in the frame (looked for "
+                f"{list(SPECIMEN_COLUMN_CANDIDATES)}); protocol v1.5.3 clusters on the "
+                f"specimen and will not fall back to fold_id"
+            )
+        empty = frame.iloc[0:0].copy()
+        empty.attrs["cluster_unit_errors"] = errors
+        return empty
+
+    columns = [*key, metric, present]
+    left_all = frame[frame["model"] == first][columns].copy()
+    right_all = frame[frame["model"] == second][columns].copy()
+    if present != SPECIMEN_COLUMN:
+        left_all = left_all.rename(columns={present: SPECIMEN_COLUMN})
+        right_all = right_all.rename(columns={present: SPECIMEN_COLUMN})
+
+    usable: list[pd.DataFrame] = []
+    for dataset in sorted(set(left_all["dataset"]) | set(right_all["dataset"])):
+        left = left_all[left_all["dataset"] == dataset]
+        right = right_all[right_all["dataset"] == dataset]
+        try:
+            left = left.assign(**{SPECIMEN_COLUMN: specimen_ids(left)})
+            right = right.assign(**{SPECIMEN_COLUMN: specimen_ids(right)})
+        except ClusterUnitError as exc:
+            errors[str(dataset)] = str(exc)
+            continue
+        # Protocol v1.5.3 pairing_completeness: the specimen is the independent
+        # unit, so both models must have scored it on the SAME evaluations. The
+        # inner join below would otherwise keep the overlap and hand the statistics
+        # a partial cluster mean under a full specimen count.
+        asymmetry = specimen_pairing_asymmetry(left, right)
+        if asymmetry:
+            errors[str(dataset)] = asymmetry
+            continue
+        joined = left.rename(columns={metric: "a"}).merge(
+            right.rename(columns={metric: "b"}),
+            on=key + [SPECIMEN_COLUMN],
+            how="inner",
+        )
+        usable.append(joined)
+
+    if not usable:
+        empty = left_all.iloc[0:0].copy()
+        empty.attrs["cluster_unit_errors"] = errors
+        return empty
+    out = pd.concat(usable, ignore_index=True)
+    out = out.dropna(subset=["a", "b"])
+    out["delta"] = out["a"] - out["b"]
+    out.attrs["cluster_unit_errors"] = errors
+    return out
 
 
 def declared_contrasts(protocol: dict[str, Any]) -> list[tuple[str, str]]:
@@ -203,14 +268,51 @@ def build_contrast_table(
             spec = protocol_paired_spec(protocol, metric, task)
             paired_all = observations(frame, first, second, metric)
             if paired_all.empty:
+                errors = dict(paired_all.attrs.get("cluster_unit_errors") or {})
+                if not errors:
+                    errors = {
+                        str(dataset): paired_all.attrs["cluster_unit_error"]
+                        for dataset in sorted(frame["dataset"].unique())
+                    } if paired_all.attrs.get("cluster_unit_error") else {}
+                for dataset, reason in sorted(errors.items()):
+                    rows.append(
+                        {
+                            "contrast_id": contrast_id,
+                            "metric": metric,
+                            "dataset": dataset,
+                            "task": task,
+                            "family": "",
+                            "status": "unpairable",
+                            "note": reason,
+                        }
+                    )
                 continue
+            dropped = dict(paired_all.attrs.get("cluster_unit_errors") or {})
+            for dataset, reason in sorted(dropped.items()):
+                rows.append(
+                    {
+                        "contrast_id": contrast_id,
+                        "metric": metric,
+                        "dataset": dataset,
+                        "task": task,
+                        "family": "",
+                        "status": "unpairable",
+                        "note": reason,
+                    }
+                )
             for dataset in sorted(paired_all["dataset"].unique()):
                 paired = paired_all[paired_all["dataset"] == dataset]
                 try:
+                    from drososense.evaluation.clustering import SPECIMEN_COLUMN
+
+                    # Protocol v1.5.3: the cluster key is the SPECIMEN. The fold id
+                    # remains one of the pairing keys above, but is deliberately not
+                    # the cluster: under a seeded LOSO permutation a fold index holds
+                    # a different specimen under every seed.
                     result = paired_test(
                         paired["delta"].to_numpy(),
                         paired["seed"].to_numpy(),
-                        paired["fold_id"].to_numpy(),
+                        paired[SPECIMEN_COLUMN].to_numpy(),
                         spec,
                         contrast_id=contrast_id,
                         metric=metric,
