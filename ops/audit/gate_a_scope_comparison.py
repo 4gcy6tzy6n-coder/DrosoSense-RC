@@ -100,11 +100,16 @@ def main() -> int:
         frame = frame[frame["experiment"] == args.experiment]
     frame = frame[frame["status"] == "ok"]
 
-    from scripts.analyze import build_contrast_table, _metric_by_task
+    from scripts.analyze import build_contrast_table
 
-    table = build_contrast_table(
-        frame, protocol, _metric_by_task(protocol), [("R0", "R4")]
-    )
+    # The task -> primary-metric map comes from the protocol, exactly as
+    # analyze.py's own entry point builds it.
+    metric_by_task = {
+        task: str(definition["metrics"]["primary"])
+        for task, definition in protocol["tasks"].items()
+        if isinstance(definition, dict) and "metrics" in definition
+    }
+    table = build_contrast_table(frame, protocol, metric_by_task, [("R0", "R4")])
     rows = table[["dataset", "contrast_id", "metric", "status"]].to_dict("records")
     print(f"\ncontrast table rows for Gate_A's performance contrast R0_vs_R4: {len(rows)}")
     for row in rows[:6]:
