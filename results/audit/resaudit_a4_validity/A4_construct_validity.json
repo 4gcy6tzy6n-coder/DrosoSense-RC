@@ -1,0 +1,1224 @@
+{
+  "conventions": {
+    "gain": 1.0,
+    "leak": 1.0,
+    "note": "Applied to every family by the single declared scaling, before A3/A4/A5. Not to be re-chosen after seeing a family score.",
+    "parameter_sweep_performed": false,
+    "rho_target": 0.95,
+    "rho_target_provenance": "amendment 1 Section 0.1 (calibration-derived, not pre-registered)"
+  },
+  "families": [
+    {
+      "direction_ok": false,
+      "family_id": "C1",
+      "label": "ring+chords",
+      "ladder_applicable": true,
+      "monotone_nondecreasing": false,
+      "notes": [
+        "M_recurrent is NOT non-decreasing in rho: adding recurrence lowered it",
+        "A4 observable is non-positive at the operating point rho=0.95",
+        "M_recurrent is O(0.01) across the ladder: the ratio is noise-dominated"
+      ],
+      "observable_at_operating_rho": -0.12369343837428222,
+      "observable_positive_at_operating": false,
+      "points": [
+        {
+          "M_feedforward": 0.00803725686868635,
+          "M_recurrent": 0.00803725686868635,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.007672806477034977,
+          "M_recurrent": 0.007672806477034977,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.00970815370793585,
+          "M_recurrent": 0.00970815370793585,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.01239226688154364,
+          "M_recurrent": 0.01239226688154364,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.011346842415231737,
+          "M_recurrent": 0.011346842415231737,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.00803725686868635,
+          "M_recurrent": 0.009385607870407577,
+          "observable": 0.14366155291577012,
+          "rho": 0.25,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.007672806477034977,
+          "M_recurrent": 0.008065739853574748,
+          "observable": 0.048716346382734116,
+          "rho": 0.25,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.00970815370793585,
+          "M_recurrent": 0.009820025764356088,
+          "observable": 0.011392236548533595,
+          "rho": 0.25,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.01239226688154364,
+          "M_recurrent": 0.013146029383544536,
+          "observable": 0.05733765534895388,
+          "rho": 0.25,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.011346842415231737,
+          "M_recurrent": 0.012269585733209118,
+          "observable": 0.07520574353866441,
+          "rho": 0.25,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.00803725686868635,
+          "M_recurrent": 0.010375514054577636,
+          "observable": 0.22536302043363882,
+          "rho": 0.5,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.007672806477034977,
+          "M_recurrent": 0.011386079168333984,
+          "observable": 0.32612391292922427,
+          "rho": 0.5,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.00970815370793585,
+          "M_recurrent": 0.00835797856111796,
+          "observable": -0.16154326515014306,
+          "rho": 0.5,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.01239226688154364,
+          "M_recurrent": 0.013266077763891715,
+          "observable": 0.06586806574633979,
+          "rho": 0.5,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.011346842415231737,
+          "M_recurrent": 0.012171901602622383,
+          "observable": 0.0677839185959974,
+          "rho": 0.5,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.00803725686868635,
+          "M_recurrent": 0.011274042625096365,
+          "observable": 0.28710072012720894,
+          "rho": 0.75,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.007672806477034977,
+          "M_recurrent": 0.013875777851299988,
+          "observable": 0.44703593850660195,
+          "rho": 0.75,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.00970815370793585,
+          "M_recurrent": 0.007257831252304914,
+          "observable": -0.3376108331056569,
+          "rho": 0.75,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.01239226688154364,
+          "M_recurrent": 0.011945613045531822,
+          "observable": -0.03739061648065731,
+          "rho": 0.75,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.011346842415231737,
+          "M_recurrent": 0.011645301588676927,
+          "observable": 0.025629149333100176,
+          "rho": 0.75,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.00803725686868635,
+          "M_recurrent": 0.012579055457566025,
+          "observable": 0.3610603836035943,
+          "rho": 0.95,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.007672806477034977,
+          "M_recurrent": 0.012074429517808542,
+          "observable": 0.36454086996670304,
+          "rho": 0.95,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.00970815370793585,
+          "M_recurrent": 0.005373389721599915,
+          "observable": -0.806709397777548,
+          "rho": 0.95,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.01239226688154364,
+          "M_recurrent": 0.008164973271338022,
+          "observable": -0.5177351437321822,
+          "rho": 0.95,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.011346842415231737,
+          "M_recurrent": 0.011128458612508867,
+          "observable": -0.019623903931978243,
+          "rho": 0.95,
+          "seed": 83
+        }
+      ],
+      "spearman_rho_vs_observable": 0.39999999999999997
+    },
+    {
+      "direction_ok": false,
+      "family_id": "C2",
+      "label": "coprime cycles",
+      "ladder_applicable": true,
+      "monotone_nondecreasing": false,
+      "notes": [
+        "M_recurrent is NOT non-decreasing in rho: adding recurrence lowered it",
+        "M_recurrent is O(0.01) across the ladder: the ratio is noise-dominated"
+      ],
+      "observable_at_operating_rho": 0.049345183445480355,
+      "observable_positive_at_operating": true,
+      "points": [
+        {
+          "M_feedforward": 0.00787475500156173,
+          "M_recurrent": 0.00787475500156173,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.008764619027001135,
+          "M_recurrent": 0.008764619027001135,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.011873012378809989,
+          "M_recurrent": 0.011873012378809989,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.009516564513324725,
+          "M_recurrent": 0.009516564513324725,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.00893010218349995,
+          "M_recurrent": 0.00893010218349995,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.00787475500156173,
+          "M_recurrent": 0.008383174899764272,
+          "observable": 0.06064765488989592,
+          "rho": 0.25,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.008764619027001135,
+          "M_recurrent": 0.009407238702189185,
+          "observable": 0.06831119051316346,
+          "rho": 0.25,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.011873012378809989,
+          "M_recurrent": 0.011364213308492363,
+          "observable": -0.04477204505985516,
+          "rho": 0.25,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.009516564513324725,
+          "M_recurrent": 0.01065684526258998,
+          "observable": 0.10699984105691397,
+          "rho": 0.25,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.00893010218349995,
+          "M_recurrent": 0.009992599647116258,
+          "observable": 0.1063284331543225,
+          "rho": 0.25,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.00787475500156173,
+          "M_recurrent": 0.009193272795542854,
+          "observable": 0.14342202426761194,
+          "rho": 0.5,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.008764619027001135,
+          "M_recurrent": 0.011641694174690149,
+          "observable": 0.24713543445798247,
+          "rho": 0.5,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.011873012378809989,
+          "M_recurrent": 0.010492533175476295,
+          "observable": -0.1315677711232044,
+          "rho": 0.5,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.009516564513324725,
+          "M_recurrent": 0.011981442036750172,
+          "observable": 0.20572461276906676,
+          "rho": 0.5,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.00893010218349995,
+          "M_recurrent": 0.011127852828094817,
+          "observable": 0.19749997403327815,
+          "rho": 0.5,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.00787475500156173,
+          "M_recurrent": 0.009860473458754153,
+          "observable": 0.20138165428856727,
+          "rho": 0.75,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.008764619027001135,
+          "M_recurrent": 0.013385296061170907,
+          "observable": 0.34520544133303005,
+          "rho": 0.75,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.011873012378809989,
+          "M_recurrent": 0.009573729365993716,
+          "observable": -0.24016586691738143,
+          "rho": 0.75,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.009516564513324725,
+          "M_recurrent": 0.012331716900050877,
+          "observable": 0.22828551851644746,
+          "rho": 0.75,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.00893010218349995,
+          "M_recurrent": 0.011248303819251721,
+          "observable": 0.2060934406647265,
+          "rho": 0.75,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.00787475500156173,
+          "M_recurrent": 0.00964172143570097,
+          "observable": 0.183262547660482,
+          "rho": 0.95,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.008764619027001135,
+          "M_recurrent": 0.01376796868214358,
+          "observable": 0.36340507235693803,
+          "rho": 0.95,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.011873012378809989,
+          "M_recurrent": 0.008118427073316475,
+          "observable": -0.4624769393857128,
+          "rho": 0.95,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.009516564513324725,
+          "M_recurrent": 0.01010269536435401,
+          "observable": 0.058017274587667866,
+          "rho": 0.95,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.00893010218349995,
+          "M_recurrent": 0.009972396770263297,
+          "observable": 0.10451796200802667,
+          "rho": 0.95,
+          "seed": 83
+        }
+      ],
+      "spearman_rho_vs_observable": 0.7
+    },
+    {
+      "direction_ok": false,
+      "family_id": "C3",
+      "label": "single 2-cycle",
+      "ladder_applicable": true,
+      "monotone_nondecreasing": false,
+      "notes": [
+        "M_recurrent is NOT non-decreasing in rho: adding recurrence lowered it",
+        "A4 observable is non-positive at the operating point rho=0.95",
+        "M_recurrent is O(0.01) across the ladder: the ratio is noise-dominated"
+      ],
+      "observable_at_operating_rho": -0.16100706409318796,
+      "observable_positive_at_operating": false,
+      "points": [
+        {
+          "M_feedforward": 0.01351497737826389,
+          "M_recurrent": 0.01351497737826389,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.01220849699987906,
+          "M_recurrent": 0.01220849699987906,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.023174054325455593,
+          "M_recurrent": 0.023174054325455593,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.020718062897389262,
+          "M_recurrent": 0.020718062897389262,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.01226562762390975,
+          "M_recurrent": 0.01226562762390975,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.01351497737826389,
+          "M_recurrent": 0.013450890539435885,
+          "observable": -0.004764505267522065,
+          "rho": 0.25,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.01220849699987906,
+          "M_recurrent": 0.012369850471339327,
+          "observable": 0.013044092314140629,
+          "rho": 0.25,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.023174054325455593,
+          "M_recurrent": 0.023423565080638337,
+          "observable": 0.010652125512225592,
+          "rho": 0.25,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.020718062897389262,
+          "M_recurrent": 0.024119490392080695,
+          "observable": 0.14102401996885658,
+          "rho": 0.25,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.01226562762390975,
+          "M_recurrent": 0.011759916275104781,
+          "observable": -0.04300297187281313,
+          "rho": 0.25,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.01351497737826389,
+          "M_recurrent": 0.013673973385703201,
+          "observable": 0.011627637626203741,
+          "rho": 0.5,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.01220849699987906,
+          "M_recurrent": 0.010820852510232147,
+          "observable": -0.1282380005027112,
+          "rho": 0.5,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.023174054325455593,
+          "M_recurrent": 0.021325715883641586,
+          "observable": -0.08667181218670461,
+          "rho": 0.5,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.020718062897389262,
+          "M_recurrent": 0.024786026203491216,
+          "observable": 0.1641232552852286,
+          "rho": 0.5,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.01226562762390975,
+          "M_recurrent": 0.010827713360689575,
+          "observable": -0.13279943930179916,
+          "rho": 0.5,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.01351497737826389,
+          "M_recurrent": 0.015872750153654587,
+          "observable": 0.1485421714930627,
+          "rho": 0.75,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.01220849699987906,
+          "M_recurrent": 0.007526628447664037,
+          "observable": -0.6220406101842435,
+          "rho": 0.75,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.023174054325455593,
+          "M_recurrent": 0.017133912176351615,
+          "observable": -0.35252556958011244,
+          "rho": 0.75,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.020718062897389262,
+          "M_recurrent": 0.022735346065105636,
+          "observable": 0.08872894047619155,
+          "rho": 0.75,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.01226562762390975,
+          "M_recurrent": 0.011988688470593456,
+          "observable": -0.02310003750581945,
+          "rho": 0.75,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.01351497737826389,
+          "M_recurrent": 0.017811384866221365,
+          "observable": 0.2412169250300943,
+          "rho": 0.95,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.01220849699987906,
+          "M_recurrent": 0.009116965576546517,
+          "observable": -0.3390965335314569,
+          "rho": 0.95,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.023174054325455593,
+          "M_recurrent": 0.012431552840925205,
+          "observable": -0.8641319086997412,
+          "rho": 0.95,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.020718062897389262,
+          "M_recurrent": 0.020414012553484497,
+          "observable": -0.014894197948990051,
+          "rho": 0.95,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.01226562762390975,
+          "M_recurrent": 0.014811241555881437,
+          "observable": 0.17187039468415413,
+          "rho": 0.95,
+          "seed": 83
+        }
+      ],
+      "spearman_rho_vs_observable": -0.8999999999999998
+    },
+    {
+      "direction_ok": false,
+      "family_id": "C4",
+      "label": "zero input",
+      "ladder_applicable": true,
+      "monotone_nondecreasing": true,
+      "notes": [
+        "Spearman undefined: the recurrent memory was constant across rho",
+        "A4 observable is non-positive at the operating point rho=0.95",
+        "M_recurrent is O(0.01) across the ladder: the ratio is noise-dominated"
+      ],
+      "observable_at_operating_rho": 0.0,
+      "observable_positive_at_operating": false,
+      "points": [
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.25,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.25,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.25,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.25,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.25,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.5,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.5,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.5,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.5,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.5,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.75,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.75,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.75,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.75,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.75,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.95,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.95,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.95,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.95,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.0,
+          "M_recurrent": 0.0,
+          "observable": 0.0,
+          "rho": 0.95,
+          "seed": 83
+        }
+      ],
+      "spearman_rho_vs_observable": NaN
+    },
+    {
+      "direction_ok": false,
+      "family_id": "C5",
+      "label": "nilpotent chain",
+      "ladder_applicable": false,
+      "monotone_nondecreasing": false,
+      "notes": [
+        "ladder NOT APPLICABLE: base spectral radius is 0, so no recurrence-strength knob exists for this wiring. A4 cannot be tested for direction on it."
+      ],
+      "observable_at_operating_rho": NaN,
+      "observable_positive_at_operating": false,
+      "points": [],
+      "spearman_rho_vs_observable": NaN
+    },
+    {
+      "direction_ok": false,
+      "family_id": "C6",
+      "label": "20-cycle (A2 parent)",
+      "ladder_applicable": true,
+      "monotone_nondecreasing": false,
+      "notes": [
+        "M_recurrent is NOT non-decreasing in rho: adding recurrence lowered it",
+        "A4 observable is non-positive at the operating point rho=0.95",
+        "M_recurrent is O(0.01) across the ladder: the ratio is noise-dominated"
+      ],
+      "observable_at_operating_rho": -1.0235401633160814,
+      "observable_positive_at_operating": false,
+      "points": [
+        {
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.013514977378263893,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.012208496999879054,
+          "M_recurrent": 0.012208496999879054,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.02317405432545561,
+          "M_recurrent": 0.02317405432545561,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.02071806289738929,
+          "M_recurrent": 0.02071806289738929,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.012265627623909748,
+          "M_recurrent": 0.012265627623909748,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.01358594302352182,
+          "observable": 0.005223461127067945,
+          "rho": 0.25,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.012208496999879054,
+          "M_recurrent": 0.012266701606743402,
+          "observable": 0.0047449272616488,
+          "rho": 0.25,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.02317405432545561,
+          "M_recurrent": 0.02339076738304835,
+          "observable": 0.009264897300880997,
+          "rho": 0.25,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.02071806289738929,
+          "M_recurrent": 0.024188809724683825,
+          "observable": 0.1434856393017454,
+          "rho": 0.25,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.012265627623909748,
+          "M_recurrent": 0.011605058696407013,
+          "observable": -0.056920774360861286,
+          "rho": 0.25,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.01445872186464211,
+          "observable": 0.0652716398595428,
+          "rho": 0.5,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.012208496999879054,
+          "M_recurrent": 0.010350803800330625,
+          "observable": -0.17947332742304423,
+          "rho": 0.5,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.02317405432545561,
+          "M_recurrent": 0.02100640590487569,
+          "observable": -0.10318987600238637,
+          "rho": 0.5,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.02071806289738929,
+          "M_recurrent": 0.025132797414847755,
+          "observable": 0.17565631253011108,
+          "rho": 0.5,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.012265627623909748,
+          "M_recurrent": 0.01022733420228671,
+          "observable": -0.19929860326333138,
+          "rho": 0.5,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.017182333084049498,
+          "observable": 0.21343758660982082,
+          "rho": 0.75,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.012208496999879054,
+          "M_recurrent": 0.007244125940118898,
+          "observable": -0.6852960730937645,
+          "rho": 0.75,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.02317405432545561,
+          "M_recurrent": 0.01374297330691796,
+          "observable": -0.6862474959323552,
+          "rho": 0.75,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.02071806289738929,
+          "M_recurrent": 0.022750046760605547,
+          "observable": 0.08931778842472016,
+          "rho": 0.75,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.012265627623909748,
+          "M_recurrent": 0.015055058761997631,
+          "observable": 0.18528198276641986,
+          "rho": 0.75,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.015877484100706492,
+          "observable": 0.14879603767560856,
+          "rho": 0.95,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.012208496999879054,
+          "M_recurrent": 0.00423708037466508,
+          "observable": -1.8813465689434965,
+          "rho": 0.95,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.02317405432545561,
+          "M_recurrent": 0.005723064031170431,
+          "observable": -3.049239043847681,
+          "rho": 0.95,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.02071806289738929,
+          "M_recurrent": 0.013881093706435343,
+          "observable": -0.49253822036978934,
+          "rho": 0.95,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.012265627623909748,
+          "M_recurrent": 0.014543538051506405,
+          "observable": 0.15662697890495178,
+          "rho": 0.95,
+          "seed": 83
+        }
+      ],
+      "spearman_rho_vs_observable": -0.8999999999999998
+    },
+    {
+      "direction_ok": false,
+      "family_id": "C7",
+      "label": "20-cycle, reversal permutation",
+      "ladder_applicable": true,
+      "monotone_nondecreasing": false,
+      "notes": [
+        "M_recurrent is NOT non-decreasing in rho: adding recurrence lowered it",
+        "A4 observable is non-positive at the operating point rho=0.95",
+        "M_recurrent is O(0.01) across the ladder: the ratio is noise-dominated"
+      ],
+      "observable_at_operating_rho": -1.0235401633160808,
+      "observable_positive_at_operating": false,
+      "points": [
+        {
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.013514977378263893,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.012208496999879054,
+          "M_recurrent": 0.012208496999879054,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.02317405432545561,
+          "M_recurrent": 0.02317405432545561,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.02071806289738929,
+          "M_recurrent": 0.02071806289738929,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.012265627623909748,
+          "M_recurrent": 0.012265627623909748,
+          "observable": 0.0,
+          "rho": 0.0,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.013585943023521823,
+          "observable": 0.005223461127068199,
+          "rho": 0.25,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.012208496999879054,
+          "M_recurrent": 0.012266701606743398,
+          "observable": 0.004744927261648518,
+          "rho": 0.25,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.02317405432545561,
+          "M_recurrent": 0.02339076738304837,
+          "observable": 0.00926489730088188,
+          "rho": 0.25,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.02071806289738929,
+          "M_recurrent": 0.024188809724683836,
+          "observable": 0.1434856393017458,
+          "rho": 0.25,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.012265627623909748,
+          "M_recurrent": 0.011605058696407013,
+          "observable": -0.056920774360861286,
+          "rho": 0.25,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.014458721864642098,
+          "observable": 0.06527163985954203,
+          "rho": 0.5,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.012208496999879054,
+          "M_recurrent": 0.010350803800330625,
+          "observable": -0.17947332742304423,
+          "rho": 0.5,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.02317405432545561,
+          "M_recurrent": 0.021006405904875694,
+          "observable": -0.10318987600238619,
+          "rho": 0.5,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.02071806289738929,
+          "M_recurrent": 0.025132797414847766,
+          "observable": 0.1756563125301114,
+          "rho": 0.5,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.012265627623909748,
+          "M_recurrent": 0.010227334202286706,
+          "observable": -0.1992986032633318,
+          "rho": 0.5,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.0171823330840495,
+          "observable": 0.21343758660982098,
+          "rho": 0.75,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.012208496999879054,
+          "M_recurrent": 0.007244125940118886,
+          "observable": -0.6852960730937673,
+          "rho": 0.75,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.02317405432545561,
+          "M_recurrent": 0.013742973306917958,
+          "observable": -0.6862474959323555,
+          "rho": 0.75,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.02071806289738929,
+          "M_recurrent": 0.02275004676060554,
+          "observable": 0.08931778842471988,
+          "rho": 0.75,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.012265627623909748,
+          "M_recurrent": 0.015055058761997631,
+          "observable": 0.18528198276641986,
+          "rho": 0.75,
+          "seed": 83
+        },
+        {
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.015877484100706492,
+          "observable": 0.14879603767560856,
+          "rho": 0.95,
+          "seed": 20260923
+        },
+        {
+          "M_feedforward": 0.012208496999879054,
+          "M_recurrent": 0.004237080374665079,
+          "observable": -1.8813465689434972,
+          "rho": 0.95,
+          "seed": 11
+        },
+        {
+          "M_feedforward": 0.02317405432545561,
+          "M_recurrent": 0.005723064031170435,
+          "observable": -3.049239043847678,
+          "rho": 0.95,
+          "seed": 29
+        },
+        {
+          "M_feedforward": 0.02071806289738929,
+          "M_recurrent": 0.013881093706435347,
+          "observable": -0.492538220369789,
+          "rho": 0.95,
+          "seed": 47
+        },
+        {
+          "M_feedforward": 0.012265627623909748,
+          "M_recurrent": 0.014543538051506405,
+          "observable": 0.15662697890495178,
+          "rho": 0.95,
+          "seed": 83
+        }
+      ],
+      "spearman_rho_vs_observable": -0.8999999999999998
+    }
+  ],
+  "ladder": {
+    "control": "rho = 0.0 reproduces the A := 0 control exactly",
+    "knob": "spectral radius of the SAME wiring with the SAME input mapping",
+    "operating_rho": 0.95,
+    "rhos": [
+      0.0,
+      0.25,
+      0.5,
+      0.75,
+      0.95
+    ],
+    "seeds": [
+      20260923,
+      11,
+      29,
+      47,
+      83
+    ]
+  },
+  "n_directional": 0,
+  "n_families": 7,
+  "n_ladder_applicable": 6,
+  "n_ladder_not_applicable": 1,
+  "pre_declared_decision_rule": {
+    "declared_before_reading": true,
+    "directional": "every family: M_recurrent non-decreasing in rho, Spearman > 0, and the observable positive at the operating rho",
+    "not_directional": "any family failing that -> A4 is DESCRIPTIVE ONLY / RETIRED AS GATE by decision rule 6.2, reported and not repaired by moving the threshold"
+  },
+  "probe_protocol": {
+    "gain": 1.0,
+    "input_scale": 1.0,
+    "krylov_K": 16,
+    "leak": 1.0,
+    "length": 256,
+    "memory_lags": [
+      1,
+      4,
+      8,
+      16
+    ],
+    "seed": 20260923,
+    "washout": 16,
+    "windows": 48
+  },
+  "question": "As true recurrence strength increases, does the A4 observable move monotonically in the direction A4's definition requires?",
+  "report": "A4 construct-validity audit (calibration families only)",
+  "verdict": "NOT_DIRECTIONAL"
+}

@@ -1,0 +1,1468 @@
+{
+  "families": [
+    {
+      "construct_qualified": true,
+      "criteria": {
+        "A1": {
+          "applicable": true,
+          "criterion": "A1",
+          "detail": {
+            "isolated_fraction": 0.0,
+            "mean_out_degree": 2.45,
+            "n_edges": 147,
+            "n_nodes": 60,
+            "scc_count": 1,
+            "scc_largest": 60,
+            "scc_largest_fraction": 1.0,
+            "terms_met": {
+              "isolated_fraction": true,
+              "mean_out_degree": true,
+              "scc_largest_fraction": true
+            }
+          },
+          "expression": "largest_SCC/N >= 0.9 and isolated <= 0.02 and mean_out_degree >= 2.0",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 0.9,
+          "value": 1.0
+        },
+        "A2": {
+          "applicable": false,
+          "criterion": "A2",
+          "detail": {
+            "counterfactual_applicable": false,
+            "declared_parent": null
+          },
+          "expression": "degree/weight/per-source multisets exact; overlap <= 0.20",
+          "reason": "no wiring counterfactual parent is declared for this family, so A2's fairness conditions (degree sequence, global weight multiset, per-source weight multisets preserved exactly; overlap ceiling) are not defined for it. NOT_APPLICABLE is not a pass and not a failure: this family was never a counterfactual.",
+          "state": "not_applicable",
+          "threshold": null,
+          "value": null
+        },
+        "A3": {
+          "applicable": true,
+          "criterion": "A3",
+          "detail": {
+            "D_eff": 13.865002979130168,
+            "D_eff_over_threshold": 1.733125372391271,
+            "Din": 4,
+            "K": 16,
+            "caveat": "A3 PASS is neither sufficient evidence of recurrence nor of useful memory. A pure feed-forward chain passes A3, so A3 measures finite-horizon input-reachable state diversity, not recurrence quality.",
+            "criterion_name": "finite-horizon input-reachable state diversity",
+            "numerical_rank": 51,
+            "numerical_rank_relative": 51,
+            "power_norms": [
+              2.0,
+              1.2808694485331777,
+              0.9314281349598995,
+              0.6617783248254283,
+              0.48533048756215147,
+              0.40650853510022733,
+              0.3220495495393738,
+              0.2581673354062298,
+              0.2169206113954496,
+              0.18670269208273393,
+              0.16601850962260442,
+              0.14932521984596514,
+              0.1358902145112745,
+              0.12456223140357423,
+              0.11413827996311074,
+              0.10553777164011476,
+              0.09834553240791535
+            ],
+            "theoretical_columns": 68
+          },
+          "expression": "D_eff([B, A*B, ..., A^16*B]) >= 2.0 * Din",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 8.0,
+          "value": 13.865002979130168
+        },
+        "A4": {
+          "applicable": true,
+          "criterion": "A4",
+          "detail": {
+            "M_feedforward": 0.00803725686868635,
+            "M_recurrent": 0.012579055457566025,
+            "caveat": "A4 is DESCRIPTIVE ONLY, not a qualification gate. Its construct-validity audit (docs/resaudit_a4_construct_validity.md) found it is not directional in recurrence strength: the recurrent memory decreases as recurrence increases, is O(0.01) and does not separate rho=0 from rho=0.95, and is negative at the operating point on 5 of 6 ladder-applicable calibration families. Retired by pre-registration decision rule 6.2. The threshold was NOT moved.",
+            "definition": "(M_recurrent - M_A:=0) / M_recurrent",
+            "gate_status": "descriptive_only"
+          },
+          "expression": "(M_recurrent - M_A:=0) / M_recurrent >= 0.2",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 0.2,
+          "value": 0.3610603836035943
+        },
+        "A5": {
+          "applicable": true,
+          "criterion": "A5",
+          "detail": {
+            "D_eff_over_threshold": 2.285235798863328,
+            "D_eff_state": 13.711414793179967,
+            "Din": 4,
+            "states_shape": [
+              48,
+              256,
+              60
+            ]
+          },
+          "expression": "D_eff(state) >= 1.5 * Din",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 6.0,
+          "value": 13.711414793179967
+        }
+      },
+      "diagnostics": {
+        "A3_krylov": {
+          "Din": 4,
+          "K": 16,
+          "S1": 13.865002979130168,
+          "S1_over_min_capacity": 0.2310833829855028,
+          "S1_per_node": 0.2310833829855028,
+          "effective_rank": 13.865002979130168,
+          "krylov_capacity_used": 0.20389710263426716,
+          "n_nodes": 60,
+          "numerical_rank": 51,
+          "numerical_rank_relative": 51,
+          "power_norms": [
+            2.0,
+            1.2808694485331777,
+            0.9314281349598995,
+            0.6617783248254283,
+            0.48533048756215147,
+            0.40650853510022733,
+            0.3220495495393738,
+            0.2581673354062298,
+            0.2169206113954496,
+            0.18670269208273393,
+            0.16601850962260442,
+            0.14932521984596514,
+            0.1358902145112745,
+            0.12456223140357423,
+            0.11413827996311074,
+            0.10553777164011476,
+            0.09834553240791535
+          ],
+          "singular_values": [
+            1.4337317279157482,
+            1.004715385961787,
+            1.0002343091505341,
+            0.9139417392128381,
+            0.8587426851213189,
+            0.6920587353820046,
+            0.6041749962135559,
+            0.5611527918549775,
+            0.5275054267700091,
+            0.3963543084818786,
+            0.360026401947175,
+            0.3111506816661247,
+            0.2760070767485651,
+            0.24259693145703884,
+            0.18664445113768507,
+            0.1457262322697464
+          ],
+          "theoretical_columns": 68
+        },
+        "dynamics": {
+          "D_eff_state": 13.711414793179967,
+          "M_feedforward": 0.00803725686868635,
+          "M_recurrent": 0.012579055457566025,
+          "probe_protocol": {
+            "gain": 1.0,
+            "input_scale": 1.0,
+            "krylov_K": 16,
+            "leak": 1.0,
+            "length": 256,
+            "memory_lags": [
+              1,
+              4,
+              8,
+              16
+            ],
+            "seed": 20260923,
+            "washout": 16,
+            "windows": 48
+          }
+        }
+      },
+      "downstream_evaluated": true,
+      "downstream_not_evaluated_reason": "",
+      "family": {
+        "a2_applicable": false,
+        "construction": {
+          "k": 2,
+          "n": 60,
+          "n_chords": 30,
+          "normalized_to": 0.95,
+          "rho_before": 2.459886567242154,
+          "seed": 5
+        },
+        "counterfactual_parent": null,
+        "din": 4,
+        "family_id": "C1",
+        "label": "ring+chords, rho-normalised",
+        "n_edges": 147,
+        "n_nodes": 60,
+        "role": "calibration_qualified",
+        "seed": 20260923,
+        "wiring_hash": "dd120f8379bb2e21e6702f7497077e035795668e44421ca082b1d4b1b4604df4"
+      },
+      "food_eligible": true
+    },
+    {
+      "construct_qualified": false,
+      "criteria": {
+        "A1": {
+          "applicable": true,
+          "criterion": "A1",
+          "detail": {
+            "isolated_fraction": 0.0,
+            "mean_out_degree": 1.0,
+            "n_edges": 28,
+            "n_nodes": 28,
+            "scc_count": 5,
+            "scc_largest": 11,
+            "scc_largest_fraction": 0.39285714285714285,
+            "terms_met": {
+              "isolated_fraction": true,
+              "mean_out_degree": false,
+              "scc_largest_fraction": false
+            }
+          },
+          "expression": "largest_SCC/N >= 0.9 and isolated <= 0.02 and mean_out_degree >= 2.0",
+          "reason": "one or more A1 terms not met: scc_largest_fraction, mean_out_degree",
+          "state": "FAIL",
+          "threshold": 0.9,
+          "value": 0.39285714285714285
+        },
+        "A2": {
+          "applicable": false,
+          "criterion": "A2",
+          "detail": {
+            "counterfactual_applicable": false,
+            "declared_parent": null
+          },
+          "expression": "degree/weight/per-source multisets exact; overlap <= 0.20",
+          "reason": "no wiring counterfactual parent is declared for this family, so A2's fairness conditions (degree sequence, global weight multiset, per-source weight multisets preserved exactly; overlap ceiling) are not defined for it. NOT_APPLICABLE is not a pass and not a failure: this family was never a counterfactual.",
+          "state": "not_applicable",
+          "threshold": null,
+          "value": null
+        },
+        "A3": {
+          "applicable": true,
+          "criterion": "A3",
+          "detail": {
+            "D_eff": 25.435954172281726,
+            "D_eff_over_threshold": 2.5435954172281727,
+            "Din": 5,
+            "K": 16,
+            "caveat": "A3 PASS is neither sufficient evidence of recurrence nor of useful memory. A pure feed-forward chain passes A3, so A3 measures finite-horizon input-reachable state diversity, not recurrence quality.",
+            "criterion_name": "finite-horizon input-reachable state diversity",
+            "numerical_rank": 28,
+            "numerical_rank_relative": 28,
+            "power_norms": [
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979,
+              2.23606797749979
+            ],
+            "theoretical_columns": 85
+          },
+          "expression": "D_eff([B, A*B, ..., A^16*B]) >= 2.0 * Din",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 10.0,
+          "value": 25.435954172281726
+        },
+        "A4": {
+          "applicable": true,
+          "criterion": "A4",
+          "detail": {
+            "M_feedforward": 0.00787475500156173,
+            "M_recurrent": 0.008758538705486783,
+            "caveat": "A4 is DESCRIPTIVE ONLY, not a qualification gate. Its construct-validity audit (docs/resaudit_a4_construct_validity.md) found it is not directional in recurrence strength: the recurrent memory decreases as recurrence increases, is O(0.01) and does not separate rho=0 from rho=0.95, and is negative at the operating point on 5 of 6 ladder-applicable calibration families. Retired by pre-registration decision rule 6.2. The threshold was NOT moved.",
+            "definition": "(M_recurrent - M_A:=0) / M_recurrent",
+            "gate_status": "descriptive_only"
+          },
+          "expression": "(M_recurrent - M_A:=0) / M_recurrent >= 0.2",
+          "reason": "",
+          "state": "FAIL",
+          "threshold": 0.2,
+          "value": 0.10090538315157604
+        },
+        "A5": {
+          "applicable": true,
+          "criterion": "A5",
+          "detail": {
+            "D_eff_over_threshold": 3.580415299396215,
+            "D_eff_state": 26.85311474547161,
+            "Din": 5,
+            "states_shape": [
+              48,
+              256,
+              28
+            ]
+          },
+          "expression": "D_eff(state) >= 1.5 * Din",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 7.5,
+          "value": 26.85311474547161
+        }
+      },
+      "diagnostics": {
+        "A3_krylov": {
+          "Din": 5,
+          "K": 16,
+          "S1": 25.435954172281726,
+          "S1_over_min_capacity": 0.9084269347243473,
+          "S1_per_node": 0.9084269347243473,
+          "effective_rank": 25.435954172281726,
+          "krylov_capacity_used": 0.29924651967390264,
+          "n_nodes": 28,
+          "numerical_rank": 28,
+          "numerical_rank_relative": 28,
+          "power_norms": [
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979,
+            2.23606797749979
+          ],
+          "singular_values": [
+            3.0,
+            2.8284271247461903,
+            2.449489742783178,
+            2.449489742783178,
+            2.23606797749979,
+            2.0000000000000004,
+            2.0,
+            1.7320508075688774,
+            1.7320508075688774,
+            1.7320508075688772,
+            1.7320508075688772,
+            1.7320508075688772,
+            1.7320508075688772,
+            1.4142135623730951,
+            1.4142135623730951,
+            1.4142135623730951
+          ],
+          "theoretical_columns": 85
+        },
+        "dynamics": {
+          "D_eff_state": 26.85311474547161,
+          "M_feedforward": 0.00787475500156173,
+          "M_recurrent": 0.008758538705486783,
+          "probe_protocol": {
+            "gain": 1.0,
+            "input_scale": 1.0,
+            "krylov_K": 16,
+            "leak": 1.0,
+            "length": 256,
+            "memory_lags": [
+              1,
+              4,
+              8,
+              16
+            ],
+            "seed": 20260923,
+            "washout": 16,
+            "windows": 48
+          }
+        }
+      },
+      "downstream_evaluated": true,
+      "downstream_not_evaluated_reason": "",
+      "family": {
+        "a2_applicable": false,
+        "construction": {
+          "designed_verdicts": {
+            "A3": "PASS"
+          },
+          "lengths": [
+            2,
+            3,
+            5,
+            7,
+            11
+          ],
+          "measured": {
+            "D_eff": 25.436,
+            "gate": 10,
+            "theoretical_columns": 85
+          },
+          "why": "coprime rotation periods keep the Krylov columns independent"
+        },
+        "counterfactual_parent": null,
+        "din": 5,
+        "family_id": "C2",
+        "label": "coprime cycles",
+        "n_edges": 28,
+        "n_nodes": 28,
+        "role": "calibration_a3_only",
+        "seed": 20260923,
+        "wiring_hash": "c0259ef78e0abf86a6ace13416251ae8d2d93cf30bfefe54ab41a4764675417b"
+      },
+      "food_eligible": true
+    },
+    {
+      "construct_qualified": false,
+      "criteria": {
+        "A1": {
+          "applicable": true,
+          "criterion": "A1",
+          "detail": {
+            "isolated_fraction": 0.0,
+            "mean_out_degree": 1.0,
+            "n_edges": 2,
+            "n_nodes": 2,
+            "scc_count": 1,
+            "scc_largest": 2,
+            "scc_largest_fraction": 1.0,
+            "terms_met": {
+              "isolated_fraction": true,
+              "mean_out_degree": false,
+              "scc_largest_fraction": true
+            }
+          },
+          "expression": "largest_SCC/N >= 0.9 and isolated <= 0.02 and mean_out_degree >= 2.0",
+          "reason": "one or more A1 terms not met: mean_out_degree",
+          "state": "FAIL",
+          "threshold": 0.9,
+          "value": 1.0
+        },
+        "A2": {
+          "applicable": false,
+          "criterion": "A2",
+          "detail": {
+            "counterfactual_applicable": false,
+            "declared_parent": null
+          },
+          "expression": "degree/weight/per-source multisets exact; overlap <= 0.20",
+          "reason": "no wiring counterfactual parent is declared for this family, so A2's fairness conditions (degree sequence, global weight multiset, per-source weight multisets preserved exactly; overlap ceiling) are not defined for it. NOT_APPLICABLE is not a pass and not a failure: this family was never a counterfactual.",
+          "state": "not_applicable",
+          "threshold": null,
+          "value": null
+        },
+        "A3": {
+          "applicable": true,
+          "criterion": "A3",
+          "detail": {
+            "D_eff": 1.9982683969692432,
+            "D_eff_over_threshold": 0.9991341984846216,
+            "Din": 1,
+            "K": 16,
+            "caveat": "A3 PASS is neither sufficient evidence of recurrence nor of useful memory. A pure feed-forward chain passes A3, so A3 measures finite-horizon input-reachable state diversity, not recurrence quality.",
+            "criterion_name": "finite-horizon input-reachable state diversity",
+            "numerical_rank": 2,
+            "numerical_rank_relative": 2,
+            "power_norms": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "theoretical_columns": 17
+          },
+          "expression": "D_eff([B, A*B, ..., A^16*B]) >= 2.0 * Din",
+          "reason": "",
+          "state": "FAIL",
+          "threshold": 2.0,
+          "value": 1.9982683969692432
+        },
+        "A4": {
+          "applicable": false,
+          "criterion": "A4",
+          "detail": {
+            "primary_gate": "A3",
+            "skipped_because": "A3_FAIL"
+          },
+          "expression": "(M_recurrent - M_A:=0) / M_recurrent >= 0.2",
+          "reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+          "state": "not_applicable",
+          "threshold": null,
+          "value": null
+        },
+        "A5": {
+          "applicable": false,
+          "criterion": "A5",
+          "detail": {
+            "primary_gate": "A3",
+            "skipped_because": "A3_FAIL"
+          },
+          "expression": "D_eff(state) >= 1.5 * Din",
+          "reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+          "state": "not_applicable",
+          "threshold": null,
+          "value": null
+        }
+      },
+      "diagnostics": {
+        "A3_krylov": {
+          "Din": 1,
+          "K": 16,
+          "S1": 1.9982683969692432,
+          "S1_over_min_capacity": 0.9991341984846216,
+          "S1_per_node": 0.9991341984846216,
+          "effective_rank": 1.9982683969692432,
+          "krylov_capacity_used": 0.11754519982172018,
+          "n_nodes": 2,
+          "numerical_rank": 2,
+          "numerical_rank_relative": 2,
+          "power_norms": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "singular_values": [
+            3.0,
+            2.8284271247461903
+          ],
+          "theoretical_columns": 17
+        }
+      },
+      "downstream_evaluated": false,
+      "downstream_not_evaluated_reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+      "family": {
+        "a2_applicable": false,
+        "construction": {
+          "designed_verdicts": {
+            "A3": "FAIL"
+          },
+          "measured": {
+            "D_eff": 1.9983,
+            "gate": 2.0
+          },
+          "why": "a 2-cycle offers only Din independent propagated directions"
+        },
+        "counterfactual_parent": null,
+        "din": 1,
+        "family_id": "C3",
+        "label": "single 2-cycle (hairline)",
+        "n_edges": 2,
+        "n_nodes": 2,
+        "role": "calibration_a3_fail",
+        "seed": 20260923,
+        "wiring_hash": "ea62688e9d54b2ae5dc49381bc4d83e188f072409b93de9eb834306852c73645"
+      },
+      "food_eligible": false
+    },
+    {
+      "construct_qualified": false,
+      "criteria": {
+        "A1": {
+          "applicable": true,
+          "criterion": "A1",
+          "detail": {
+            "isolated_fraction": 0.0,
+            "mean_out_degree": 1.0,
+            "n_edges": 12,
+            "n_nodes": 12,
+            "scc_count": 1,
+            "scc_largest": 12,
+            "scc_largest_fraction": 1.0,
+            "terms_met": {
+              "isolated_fraction": true,
+              "mean_out_degree": false,
+              "scc_largest_fraction": true
+            }
+          },
+          "expression": "largest_SCC/N >= 0.9 and isolated <= 0.02 and mean_out_degree >= 2.0",
+          "reason": "one or more A1 terms not met: mean_out_degree",
+          "state": "FAIL",
+          "threshold": 0.9,
+          "value": 1.0
+        },
+        "A2": {
+          "applicable": false,
+          "criterion": "A2",
+          "detail": {
+            "counterfactual_applicable": false,
+            "declared_parent": null
+          },
+          "expression": "degree/weight/per-source multisets exact; overlap <= 0.20",
+          "reason": "no wiring counterfactual parent is declared for this family, so A2's fairness conditions (degree sequence, global weight multiset, per-source weight multisets preserved exactly; overlap ceiling) are not defined for it. NOT_APPLICABLE is not a pass and not a failure: this family was never a counterfactual.",
+          "state": "not_applicable",
+          "threshold": null,
+          "value": null
+        },
+        "A3": {
+          "applicable": true,
+          "criterion": "A3",
+          "detail": {
+            "D_eff": 0.0,
+            "D_eff_over_threshold": 0.0,
+            "Din": 2,
+            "K": 16,
+            "caveat": "A3 PASS is neither sufficient evidence of recurrence nor of useful memory. A pure feed-forward chain passes A3, so A3 measures finite-horizon input-reachable state diversity, not recurrence quality.",
+            "criterion_name": "finite-horizon input-reachable state diversity",
+            "numerical_rank": 0,
+            "numerical_rank_relative": 0,
+            "power_norms": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "theoretical_columns": 34
+          },
+          "expression": "D_eff([B, A*B, ..., A^16*B]) >= 2.0 * Din",
+          "reason": "",
+          "state": "FAIL",
+          "threshold": 4.0,
+          "value": 0.0
+        },
+        "A4": {
+          "applicable": false,
+          "criterion": "A4",
+          "detail": {
+            "primary_gate": "A3",
+            "skipped_because": "A3_FAIL"
+          },
+          "expression": "(M_recurrent - M_A:=0) / M_recurrent >= 0.2",
+          "reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+          "state": "not_applicable",
+          "threshold": null,
+          "value": null
+        },
+        "A5": {
+          "applicable": false,
+          "criterion": "A5",
+          "detail": {
+            "primary_gate": "A3",
+            "skipped_because": "A3_FAIL"
+          },
+          "expression": "D_eff(state) >= 1.5 * Din",
+          "reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+          "state": "not_applicable",
+          "threshold": null,
+          "value": null
+        }
+      },
+      "diagnostics": {
+        "A3_krylov": {
+          "Din": 2,
+          "K": 16,
+          "S1": 0.0,
+          "S1_over_min_capacity": 0.0,
+          "S1_per_node": 0.0,
+          "effective_rank": 0.0,
+          "krylov_capacity_used": 0.0,
+          "n_nodes": 12,
+          "numerical_rank": 0,
+          "numerical_rank_relative": 0,
+          "power_norms": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "singular_values": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "theoretical_columns": 34
+        }
+      },
+      "downstream_evaluated": false,
+      "downstream_not_evaluated_reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+      "family": {
+        "a2_applicable": false,
+        "construction": {
+          "designed_verdicts": {
+            "A3": "FAIL",
+            "A5": "FAIL"
+          },
+          "measured": {
+            "D_eff": 0.0,
+            "D_eff_state": 0.0,
+            "gate": 4
+          },
+          "why": "no input mapping at all: controllability rank is zero by construction"
+        },
+        "counterfactual_parent": null,
+        "din": 2,
+        "family_id": "C4",
+        "label": "recurrent graph, zero input",
+        "n_edges": 12,
+        "n_nodes": 12,
+        "role": "calibration_a3_fail_loud",
+        "seed": 20260923,
+        "wiring_hash": "b486057568fc6bad42a271cdc8a729bf528a55e372cd788e8030ee93d4a2c37a"
+      },
+      "food_eligible": false
+    },
+    {
+      "construct_qualified": false,
+      "criteria": {
+        "A1": {
+          "applicable": true,
+          "criterion": "A1",
+          "detail": {
+            "isolated_fraction": 0.025,
+            "mean_out_degree": 0.975,
+            "n_edges": 39,
+            "n_nodes": 40,
+            "scc_count": 40,
+            "scc_largest": 1,
+            "scc_largest_fraction": 0.025,
+            "terms_met": {
+              "isolated_fraction": false,
+              "mean_out_degree": false,
+              "scc_largest_fraction": false
+            }
+          },
+          "expression": "largest_SCC/N >= 0.9 and isolated <= 0.02 and mean_out_degree >= 2.0",
+          "reason": "one or more A1 terms not met: scc_largest_fraction, isolated_fraction, mean_out_degree",
+          "state": "FAIL",
+          "threshold": 0.9,
+          "value": 0.025
+        },
+        "A2": {
+          "applicable": false,
+          "criterion": "A2",
+          "detail": {
+            "counterfactual_applicable": false,
+            "declared_parent": null
+          },
+          "expression": "degree/weight/per-source multisets exact; overlap <= 0.20",
+          "reason": "no wiring counterfactual parent is declared for this family, so A2's fairness conditions (degree sequence, global weight multiset, per-source weight multisets preserved exactly; overlap ceiling) are not defined for it. NOT_APPLICABLE is not a pass and not a failure: this family was never a counterfactual.",
+          "state": "not_applicable",
+          "threshold": null,
+          "value": null
+        },
+        "A3": {
+          "applicable": true,
+          "criterion": "A3",
+          "detail": {
+            "D_eff": 17.0,
+            "D_eff_over_threshold": 8.5,
+            "Din": 1,
+            "K": 16,
+            "caveat": "A3 PASS is neither sufficient evidence of recurrence nor of useful memory. A pure feed-forward chain passes A3, so A3 measures finite-horizon input-reachable state diversity, not recurrence quality.",
+            "criterion_name": "finite-horizon input-reachable state diversity",
+            "numerical_rank": 17,
+            "numerical_rank_relative": 17,
+            "power_norms": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "theoretical_columns": 17
+          },
+          "expression": "D_eff([B, A*B, ..., A^16*B]) >= 2.0 * Din",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 2.0,
+          "value": 17.0
+        },
+        "A4": {
+          "applicable": true,
+          "criterion": "A4",
+          "detail": {
+            "M_feedforward": 0.013514977378263893,
+            "M_recurrent": 0.016372091508436118,
+            "caveat": "A4 is DESCRIPTIVE ONLY, not a qualification gate. Its construct-validity audit (docs/resaudit_a4_construct_validity.md) found it is not directional in recurrence strength: the recurrent memory decreases as recurrence increases, is O(0.01) and does not separate rho=0 from rho=0.95, and is negative at the operating point on 5 of 6 ladder-applicable calibration families. Retired by pre-registration decision rule 6.2. The threshold was NOT moved.",
+            "definition": "(M_recurrent - M_A:=0) / M_recurrent",
+            "gate_status": "descriptive_only"
+          },
+          "expression": "(M_recurrent - M_A:=0) / M_recurrent >= 0.2",
+          "reason": "",
+          "state": "FAIL",
+          "threshold": 0.2,
+          "value": 0.17451124852924424
+        },
+        "A5": {
+          "applicable": true,
+          "criterion": "A5",
+          "detail": {
+            "D_eff_over_threshold": 23.843088977676,
+            "D_eff_state": 35.764633466514,
+            "Din": 1,
+            "states_shape": [
+              48,
+              256,
+              40
+            ]
+          },
+          "expression": "D_eff(state) >= 1.5 * Din",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 1.5,
+          "value": 35.764633466514
+        }
+      },
+      "diagnostics": {
+        "A3_krylov": {
+          "Din": 1,
+          "K": 16,
+          "S1": 17.0,
+          "S1_over_min_capacity": 1.0,
+          "S1_per_node": 0.425,
+          "effective_rank": 17.0,
+          "krylov_capacity_used": 1.0,
+          "n_nodes": 40,
+          "numerical_rank": 17,
+          "numerical_rank_relative": 17,
+          "power_norms": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "singular_values": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "theoretical_columns": 17
+        },
+        "dynamics": {
+          "D_eff_state": 35.764633466514,
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.016372091508436118,
+          "probe_protocol": {
+            "gain": 1.0,
+            "input_scale": 1.0,
+            "krylov_K": 16,
+            "leak": 1.0,
+            "length": 256,
+            "memory_lags": [
+              1,
+              4,
+              8,
+              16
+            ],
+            "seed": 20260923,
+            "washout": 16,
+            "windows": 48
+          }
+        }
+      },
+      "downstream_evaluated": true,
+      "downstream_not_evaluated_reason": "",
+      "family": {
+        "a2_applicable": false,
+        "construction": {
+          "designed_verdicts": {
+            "A3": "PASS"
+          },
+          "measured": {
+            "D_eff": 17.0,
+            "gate": 2
+          },
+          "why": "A^k B are distinct standard basis vectors, so the Krylov block is orthonormal and D_eff = number of surviving powers"
+        },
+        "counterfactual_parent": null,
+        "din": 1,
+        "family_id": "C5",
+        "label": "nilpotent chain",
+        "n_edges": 39,
+        "n_nodes": 40,
+        "role": "calibration_a3_surprise",
+        "seed": 20260923,
+        "wiring_hash": "79a72c4418dea82705098c7ceb02a0f9bb4b23bde3d48e7b326db3871a055a9d"
+      },
+      "food_eligible": true
+    },
+    {
+      "construct_qualified": false,
+      "criteria": {
+        "A1": {
+          "applicable": true,
+          "criterion": "A1",
+          "detail": {
+            "isolated_fraction": 0.0,
+            "mean_out_degree": 1.0,
+            "n_edges": 20,
+            "n_nodes": 20,
+            "scc_count": 1,
+            "scc_largest": 20,
+            "scc_largest_fraction": 1.0,
+            "terms_met": {
+              "isolated_fraction": true,
+              "mean_out_degree": false,
+              "scc_largest_fraction": true
+            }
+          },
+          "expression": "largest_SCC/N >= 0.9 and isolated <= 0.02 and mean_out_degree >= 2.0",
+          "reason": "one or more A1 terms not met: mean_out_degree",
+          "state": "FAIL",
+          "threshold": 0.9,
+          "value": 1.0
+        },
+        "A2": {
+          "applicable": false,
+          "criterion": "A2",
+          "detail": {
+            "counterfactual_applicable": false,
+            "declared_parent": null
+          },
+          "expression": "degree/weight/per-source multisets exact; overlap <= 0.20",
+          "reason": "no wiring counterfactual parent is declared for this family, so A2's fairness conditions (degree sequence, global weight multiset, per-source weight multisets preserved exactly; overlap ceiling) are not defined for it. NOT_APPLICABLE is not a pass and not a failure: this family was never a counterfactual.",
+          "state": "not_applicable",
+          "threshold": null,
+          "value": null
+        },
+        "A3": {
+          "applicable": true,
+          "criterion": "A3",
+          "detail": {
+            "D_eff": 17.0,
+            "D_eff_over_threshold": 8.5,
+            "Din": 1,
+            "K": 16,
+            "caveat": "A3 PASS is neither sufficient evidence of recurrence nor of useful memory. A pure feed-forward chain passes A3, so A3 measures finite-horizon input-reachable state diversity, not recurrence quality.",
+            "criterion_name": "finite-horizon input-reachable state diversity",
+            "numerical_rank": 17,
+            "numerical_rank_relative": 17,
+            "power_norms": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "theoretical_columns": 17
+          },
+          "expression": "D_eff([B, A*B, ..., A^16*B]) >= 2.0 * Din",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 2.0,
+          "value": 17.0
+        },
+        "A4": {
+          "applicable": true,
+          "criterion": "A4",
+          "detail": {
+            "M_feedforward": 0.013514977378263893,
+            "M_recurrent": 0.013891782939253205,
+            "caveat": "A4 is DESCRIPTIVE ONLY, not a qualification gate. Its construct-validity audit (docs/resaudit_a4_construct_validity.md) found it is not directional in recurrence strength: the recurrent memory decreases as recurrence increases, is O(0.01) and does not separate rho=0 from rho=0.95, and is negative at the operating point on 5 of 6 ladder-applicable calibration families. Retired by pre-registration decision rule 6.2. The threshold was NOT moved.",
+            "definition": "(M_recurrent - M_A:=0) / M_recurrent",
+            "gate_status": "descriptive_only"
+          },
+          "expression": "(M_recurrent - M_A:=0) / M_recurrent >= 0.2",
+          "reason": "",
+          "state": "FAIL",
+          "threshold": 0.2,
+          "value": 0.02712434844663415
+        },
+        "A5": {
+          "applicable": true,
+          "criterion": "A5",
+          "detail": {
+            "D_eff_over_threshold": 12.458287133564639,
+            "D_eff_state": 18.687430700346958,
+            "Din": 1,
+            "states_shape": [
+              48,
+              256,
+              20
+            ]
+          },
+          "expression": "D_eff(state) >= 1.5 * Din",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 1.5,
+          "value": 18.687430700346958
+        }
+      },
+      "diagnostics": {
+        "A3_krylov": {
+          "Din": 1,
+          "K": 16,
+          "S1": 17.0,
+          "S1_over_min_capacity": 1.0,
+          "S1_per_node": 0.85,
+          "effective_rank": 17.0,
+          "krylov_capacity_used": 1.0,
+          "n_nodes": 20,
+          "numerical_rank": 17,
+          "numerical_rank_relative": 17,
+          "power_norms": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "singular_values": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "theoretical_columns": 17
+        },
+        "dynamics": {
+          "D_eff_state": 18.687430700346958,
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.013891782939253205,
+          "probe_protocol": {
+            "gain": 1.0,
+            "input_scale": 1.0,
+            "krylov_K": 16,
+            "leak": 1.0,
+            "length": 256,
+            "memory_lags": [
+              1,
+              4,
+              8,
+              16
+            ],
+            "seed": 20260923,
+            "washout": 16,
+            "windows": 48
+          }
+        }
+      },
+      "downstream_evaluated": true,
+      "downstream_not_evaluated_reason": "",
+      "family": {
+        "a2_applicable": false,
+        "construction": {
+          "mean_out_degree": 1.0,
+          "n": 20
+        },
+        "counterfactual_parent": null,
+        "din": 1,
+        "family_id": "C6",
+        "label": "20-cycle (A2 parent)",
+        "n_edges": 20,
+        "n_nodes": 20,
+        "role": "calibration_a2_parent",
+        "seed": 20260923,
+        "wiring_hash": "159199473d2d302853c4db2cb60beeb951109bc8a59e8136e555331f4e90b938"
+      },
+      "food_eligible": true
+    },
+    {
+      "construct_qualified": false,
+      "criteria": {
+        "A1": {
+          "applicable": true,
+          "criterion": "A1",
+          "detail": {
+            "isolated_fraction": 0.0,
+            "mean_out_degree": 1.0,
+            "n_edges": 20,
+            "n_nodes": 20,
+            "scc_count": 1,
+            "scc_largest": 20,
+            "scc_largest_fraction": 1.0,
+            "terms_met": {
+              "isolated_fraction": true,
+              "mean_out_degree": false,
+              "scc_largest_fraction": true
+            }
+          },
+          "expression": "largest_SCC/N >= 0.9 and isolated <= 0.02 and mean_out_degree >= 2.0",
+          "reason": "one or more A1 terms not met: mean_out_degree",
+          "state": "FAIL",
+          "threshold": 0.9,
+          "value": 1.0
+        },
+        "A2": {
+          "applicable": true,
+          "criterion": "A2",
+          "detail": {
+            "counterfactual_applicable": true,
+            "declared_parent": "C6",
+            "edge_overlap": 0.0,
+            "exact_terms": {
+              "degree_exact": true,
+              "global_weights_exact": true,
+              "per_source_weights_exact": true
+            },
+            "median_in_strength_err": 0.0,
+            "mixing_declared": true,
+            "overlap_ceiling": 0.2
+          },
+          "expression": "degree sequence, global weight multiset and per-source weight multisets preserved exactly; edge_overlap <= 0.2",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 0.2,
+          "value": 0.0
+        },
+        "A3": {
+          "applicable": true,
+          "criterion": "A3",
+          "detail": {
+            "D_eff": 17.0,
+            "D_eff_over_threshold": 8.5,
+            "Din": 1,
+            "K": 16,
+            "caveat": "A3 PASS is neither sufficient evidence of recurrence nor of useful memory. A pure feed-forward chain passes A3, so A3 measures finite-horizon input-reachable state diversity, not recurrence quality.",
+            "criterion_name": "finite-horizon input-reachable state diversity",
+            "numerical_rank": 17,
+            "numerical_rank_relative": 17,
+            "power_norms": [
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ],
+            "theoretical_columns": 17
+          },
+          "expression": "D_eff([B, A*B, ..., A^16*B]) >= 2.0 * Din",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 2.0,
+          "value": 17.0
+        },
+        "A4": {
+          "applicable": true,
+          "criterion": "A4",
+          "detail": {
+            "M_feedforward": 0.013514977378263893,
+            "M_recurrent": 0.013891782939253205,
+            "caveat": "A4 is DESCRIPTIVE ONLY, not a qualification gate. Its construct-validity audit (docs/resaudit_a4_construct_validity.md) found it is not directional in recurrence strength: the recurrent memory decreases as recurrence increases, is O(0.01) and does not separate rho=0 from rho=0.95, and is negative at the operating point on 5 of 6 ladder-applicable calibration families. Retired by pre-registration decision rule 6.2. The threshold was NOT moved.",
+            "definition": "(M_recurrent - M_A:=0) / M_recurrent",
+            "gate_status": "descriptive_only"
+          },
+          "expression": "(M_recurrent - M_A:=0) / M_recurrent >= 0.2",
+          "reason": "",
+          "state": "FAIL",
+          "threshold": 0.2,
+          "value": 0.02712434844663415
+        },
+        "A5": {
+          "applicable": true,
+          "criterion": "A5",
+          "detail": {
+            "D_eff_over_threshold": 12.458287133564637,
+            "D_eff_state": 18.687430700346955,
+            "Din": 1,
+            "states_shape": [
+              48,
+              256,
+              20
+            ]
+          },
+          "expression": "D_eff(state) >= 1.5 * Din",
+          "reason": "",
+          "state": "PASS",
+          "threshold": 1.5,
+          "value": 18.687430700346955
+        }
+      },
+      "diagnostics": {
+        "A3_krylov": {
+          "Din": 1,
+          "K": 16,
+          "S1": 17.0,
+          "S1_over_min_capacity": 1.0,
+          "S1_per_node": 0.85,
+          "effective_rank": 17.0,
+          "krylov_capacity_used": 1.0,
+          "n_nodes": 20,
+          "numerical_rank": 17,
+          "numerical_rank_relative": 17,
+          "power_norms": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "singular_values": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "theoretical_columns": 17
+        },
+        "dynamics": {
+          "D_eff_state": 18.687430700346955,
+          "M_feedforward": 0.013514977378263893,
+          "M_recurrent": 0.013891782939253205,
+          "probe_protocol": {
+            "gain": 1.0,
+            "input_scale": 1.0,
+            "krylov_K": 16,
+            "leak": 1.0,
+            "length": 256,
+            "memory_lags": [
+              1,
+              4,
+              8,
+              16
+            ],
+            "seed": 20260923,
+            "washout": 16,
+            "windows": 48
+          }
+        }
+      },
+      "downstream_evaluated": true,
+      "downstream_not_evaluated_reason": "",
+      "family": {
+        "a2_applicable": true,
+        "construction": {
+          "kind": "reversal_permutation",
+          "parent": "C6"
+        },
+        "counterfactual_parent": "C6",
+        "din": 1,
+        "family_id": "C7",
+        "label": "20-cycle, reversal permutation",
+        "n_edges": 20,
+        "n_nodes": 20,
+        "role": "calibration_a2_child",
+        "seed": 20260923,
+        "wiring_hash": "7f5753a83b4df0a110ddb5b6a7a7f54773992037b9ddc230540b26f555dbba0e"
+      },
+      "food_eligible": true
+    }
+  ],
+  "generated_utc": "2026-09-23T16:07:27.539595+00:00",
+  "note": "Calibration families from resaudit.toys, not the real F1-F5 substrates. A3 on these toys is measured WITHOUT spectral-radius normalisation except where the builder normalises explicitly.",
+  "provenance": {
+    "a4_caveat": "A4 is DESCRIPTIVE ONLY, not a qualification gate. Its construct-validity audit (docs/resaudit_a4_construct_validity.md) found it is not directional in recurrence strength: the recurrent memory decreases as recurrence increases, is O(0.01) and does not separate rho=0 from rho=0.95, and is negative at the operating point on 5 of 6 ladder-applicable calibration families. Retired by pre-registration decision rule 6.2. The threshold was NOT moved.",
+    "a4_gate_status": "descriptive_only",
+    "frozen_conventions": {
+      "gain": 1.0,
+      "leak": 1.0,
+      "note": "Applied to every family by the single declared scaling, before A3/A4/A5. Not to be re-chosen after seeing a family score.",
+      "parameter_sweep_performed": false,
+      "rho_target": 0.95,
+      "rho_target_provenance": "amendment 1 Section 0.1 (calibration-derived, not pre-registered)"
+    },
+    "git_head": "c0a13bebdaa58de8664377148d526c5e7af7c82b",
+    "primary_gate": "A3",
+    "primary_gate_caveat": "A3 PASS is neither sufficient evidence of recurrence nor of useful memory. A pure feed-forward chain passes A3, so A3 measures finite-horizon input-reachable state diversity, not recurrence quality.",
+    "primary_gate_name": "finite-horizon input-reachable state diversity",
+    "probe_protocol": {
+      "gain": 1.0,
+      "input_scale": 1.0,
+      "krylov_K": 16,
+      "leak": 1.0,
+      "length": 256,
+      "memory_lags": [
+        1,
+        4,
+        8,
+        16
+      ],
+      "seed": 20260923,
+      "washout": 16,
+      "windows": 48
+    },
+    "thresholds": {
+      "A1_isolated_fraction_max": 0.02,
+      "A1_mean_out_degree_min": 2.0,
+      "A1_scc_fraction_min": 0.9,
+      "A2_overlap_max": 0.2,
+      "A3_K": 16,
+      "A3_factor": 2.0,
+      "A4_min": 0.2,
+      "A5_factor": 1.5
+    }
+  },
+  "report": "ResAudit-Food Stage 1 reservoir admissibility audit",
+  "stage1_table_markdown": "| Family | A1 | A2 | A3 Krylov | A4 Memory | A5 State | Food eligible | Construct qualified |\n|---|---|---|---|---|---|---|---|\n| C1 ring+chords, rho-normalised | PASS | N/A | PASS | PASS | PASS | yes | yes |\n| C2 coprime cycles | FAIL | N/A | PASS | FAIL | PASS | yes | no |\n| C3 single 2-cycle (hairline) | FAIL | N/A | FAIL | N/A | N/A | no | no |\n| C4 recurrent graph, zero input | FAIL | N/A | FAIL | N/A | N/A | no | no |\n| C5 nilpotent chain | FAIL | N/A | PASS | FAIL | PASS | yes | no |\n| C6 20-cycle (A2 parent) | FAIL | N/A | PASS | FAIL | PASS | yes | no |\n| C7 20-cycle, reversal permutation | FAIL | PASS | PASS | FAIL | PASS | yes | no |\n\n`Food eligible` = cleared A3, so it may enter the food stage. `Construct qualified` = cleared every ADMISSION and evaluated criterion. They are independent: a family can be food-eligible without being construct-qualified. Neither column means \"Stage 1 passed\"."
+}
