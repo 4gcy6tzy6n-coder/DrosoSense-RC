@@ -537,14 +537,17 @@ def test_the_gate_outcome_does_not_depend_on_the_git_ignored_run_records(protoco
             assert entry["reason"], rule_id
             assert without_results[rule_id]["reason"], rule_id
 
-    # The scope's own counts agree model for model between the two trees: absent
-    # the rows there is no count at all, never a substituted one.
-    for model in with_scope.provenance()["terms"]:
-        assert (
-            with_scope.provenance()["terms"][model]["parameter_count"]
-            == without_scope.provenance()["terms"][model]["parameter_count"]
-        ), model
+    # The invariant a clean clone must satisfy is NOT "the same numbers" — with no
+    # rows there are no numbers — but "never a DIFFERENT number". It either agrees
+    # with the populated tree or it is silent; v1.5.1 forbids substitution.
     assert set(with_scope.provenance()["terms"]) == set(without_scope.provenance()["terms"])
+    for model in with_scope.provenance()["terms"]:
+        populated = with_scope.provenance()["terms"][model]["parameter_count"]
+        clean = without_scope.provenance()["terms"][model]["parameter_count"]
+        assert clean is None or clean == populated, (
+            f"{model}: a clean clone produced {clean} against the populated tree's "
+            f"{populated}; a count may be absent, never different"
+        )
 
 
 @pytest.mark.integration
