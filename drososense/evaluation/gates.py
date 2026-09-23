@@ -536,6 +536,7 @@ class GateEvaluator:
             # not resolve, that reason is the error — it is more specific than
             # "not recorded" and it names what would have to change.
             scope_reason = str(self.parameter_provenance.get("reason") or "")
+            scope_evaluable = self.parameter_provenance.get("evaluable")
             if not scope_reason:
                 # The analysis pipeline hands the evaluator the aggregate audit
                 # shape ({"declaration", "scopes", "unevaluable", ...}) rather
@@ -548,7 +549,18 @@ class GateEvaluator:
                     gate_scope = scopes.get(gate_id) or {}
                     if isinstance(gate_scope, Mapping):
                         scope_reason = str(gate_scope.get("reason") or "")
+                        scope_evaluable = gate_scope.get("evaluable")
             if scope_reason:
+                # When the whole scope is unevaluable, the blame must not be laid
+                # on the model this particular params(...) call named: another
+                # term may have resolved fine. The delivered gates.json is read by
+                # people, so the sentence has to be exact.
+                if scope_evaluable is False:
+                    raise GateExpressionError(
+                        f"{gate_id}: the declared parameter evidence scope (protocol v1.5.1) is "
+                        f"unevaluable, so no params(...) term can resolve and the name in this "
+                        f"call is incidental. {scope_reason}"
+                    )
                 raise GateExpressionError(
                     f"{gate_id}: params({model}) is unevaluable under the declared parameter "
                     f"evidence scope (protocol v1.5.1). {scope_reason}"
