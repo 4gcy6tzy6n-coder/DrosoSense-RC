@@ -333,6 +333,20 @@ threshold or a fixed defect: per the project rule, "close" is not a pass, and no
 formal experiment will run on a construction that demonstrably cannot produce
 recurrent dynamics. The next decision is the construction, not the gate.
 
+**Amendment 3 (C1.2 ceiling 0.10 → 0.16) and its bounded input-geometry curve are measured**
+— [`docs/v2_amendment_3_measurement.md`](v2_amendment_3_measurement.md),
+`results/audit/m5_structural_dynamics/M5b_input_geometry_curve.json`. The curve plateaus
+below both gates and **turns over**: R0's best D_eff factor rises 1.104 → 1.408 → 1.423
+(peak at 473 support) and then **falls to 1.354** at the full typed union (592 nodes), while
+memory drop reaches +0.057 against a 0.20 gate. Support 600/800 could not be realised — the
+typed union is exactly 592 nodes, so the input population, not the density budget, is the
+binding limit. **Verdict, per the rule declared in amendment 3 before the data: input
+geometry is excluded as sufficient.** Togeeper with M5 (the substrate *has* the cycles;
+the Krylov is bounded at ≈Din), this leaves the dynamics itself as the remaining candidate —
+with the caution that M5 measured gamma-only ≈ row-L1 in the linear Krylov, so v3-A's
+expected gain is small and it should be read as a test of the nonlinear saturation
+mechanism, not as a promising next attempt.
+
 **Amendment 2 (typed-aligned input) is measured** —
 [`docs/v2_amendment_2_measurement.md`](v2_amendment_2_measurement.md),
 `results/audit/v2_construct/C3_dynamics_amendment2.json`. Widening W_in's support from the
