@@ -1,5 +1,12 @@
 # M4-Audit / Reservoir Integrity Audit — findings
 
+> **Closure point.** The v1.x evidence chain is pinned to one state in
+> [`docs/audit_index.md`](audit_index.md): the `full-verify-20260923T063242Z`
+> backup and its verification state, the protocol chain v1.1 → v1.5.2 with
+> digests, the E9 migration disposition (350 adopted / 70 duplicate test-touch),
+> the permanent `e2_smoke` status, and Gate A's final closure with its evolution
+> chain (v1.4 `False` → v1.5.1 `UNEVALUABLE` → v1.5.2 `True`). Start there.
+
 **Status:** audit executed, verdicts recorded. No test split was touched, no
 frozen protocol file was edited, no large batch was started, and every M4
 result already on disk is left exactly as it is.
