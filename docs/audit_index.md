@@ -333,6 +333,15 @@ threshold or a fixed defect: per the project rule, "close" is not a pass, and no
 formal experiment will run on a construction that demonstrably cannot produce
 recurrent dynamics. The next decision is the construction, not the gate.
 
+**Correction to the M5 causal claim.** M5's `D_eff([B, A·B, …, A¹⁶·B]) ≈ Din` is a measured
+fact, but it must **not** be written as "because `span(B)` is small": every `B ∈ R^{N×Din}`
+has `rank(B) ≤ Din`, and a Krylov subspace can in principle grow far beyond the input
+dimension. The supported statement is narrower: on the current **substrate–input pair**, the
+directions `B` injects couple with `A`'s propagation/eigenstructure such that the Krylov
+effective dimension empirically saturates near the input dimension. That is an
+**eigenmode-accessibility / controllability-geometry** problem, not an input-support-count
+one — and M5b is what tests the support-count reading directly.
+
 **Amendment 3 (C1.2 ceiling 0.10 → 0.16) and its bounded input-geometry curve are measured**
 — [`docs/v2_amendment_3_measurement.md`](v2_amendment_3_measurement.md),
 `results/audit/m5_structural_dynamics/M5b_input_geometry_curve.json`. The curve plateaus

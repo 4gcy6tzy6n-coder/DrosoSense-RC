@@ -81,10 +81,10 @@ block don't carry independent information beyond the input shape.
 What this implies is a **constructional question about the INPUT GEOMETRY and the
 SUBSTRATE'S EIGENSTRUCTURE**, not about the existence of cycles:
 
-- (a) **Spread the input beyond the ORN rows.** The current W_in support is exactly the
-  ORN population (243 nodes) and the input dimension is 5. Adding PN or KC rows to
-  the support would increase `span(B)`, but only if those rows carry independent
-  signal directions.
+- (a) **Spread the input beyond the ORN rows.** Tested and **excluded as sufficient**
+  (M5b): 243 → 592 support nodes peaks at `D_eff` 1.42 and falls back to 1.35, so more
+  support does not buy independent directions on this substrate — the
+  eigenmode-accessibility statement, not a support-count one.
 - (b) **Use a substrate whose eigenstructure carries independent directions.** The
   C2 expansion is dense and uniform (mean out-degree 80 on a 1000-node induced
   block with the typed population drawn from one ORN-seeded frontier). Such a substrate
