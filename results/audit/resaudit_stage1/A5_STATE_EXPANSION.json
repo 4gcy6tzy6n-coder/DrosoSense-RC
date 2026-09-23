@@ -1,0 +1,111 @@
+{
+  "criterion": "A5",
+  "expression": "D_eff(state) >= 1.5*Din",
+  "git_head": "208475edf8593da327d77eef8e3be54ad0ff8c73",
+  "cells": {
+    "F1@Din6": {
+      "criterion": "A5",
+      "state": "not_applicable",
+      "applicable": false,
+      "value": null,
+      "threshold": null,
+      "expression": "D_eff(state) >= 1.5 * Din",
+      "reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+      "detail": {
+        "skipped_because": "A3_FAIL",
+        "primary_gate": "A3"
+      }
+    },
+    "F2@Din6": {
+      "criterion": "A5",
+      "state": "not_applicable",
+      "applicable": false,
+      "value": null,
+      "threshold": null,
+      "expression": "D_eff(state) >= 1.5 * Din",
+      "reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+      "detail": {
+        "skipped_because": "A3_FAIL",
+        "primary_gate": "A3"
+      }
+    },
+    "F3@Din6": {
+      "criterion": "A5",
+      "state": "not_applicable",
+      "applicable": false,
+      "value": null,
+      "threshold": null,
+      "expression": "D_eff(state) >= 1.5 * Din",
+      "reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+      "detail": {
+        "skipped_because": "A3_FAIL",
+        "primary_gate": "A3"
+      }
+    },
+    "F5@Din6": {
+      "criterion": "A5",
+      "state": "not_applicable",
+      "applicable": false,
+      "value": null,
+      "threshold": null,
+      "expression": "D_eff(state) >= 1.5 * Din",
+      "reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+      "detail": {
+        "skipped_because": "A3_FAIL",
+        "primary_gate": "A3"
+      }
+    },
+    "F1@Din8": {
+      "criterion": "A5",
+      "state": "not_applicable",
+      "applicable": false,
+      "value": null,
+      "threshold": null,
+      "expression": "D_eff(state) >= 1.5 * Din",
+      "reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+      "detail": {
+        "skipped_because": "A3_FAIL",
+        "primary_gate": "A3"
+      }
+    },
+    "F2@Din8": {
+      "criterion": "A5",
+      "state": "not_applicable",
+      "applicable": false,
+      "value": null,
+      "threshold": null,
+      "expression": "D_eff(state) >= 1.5 * Din",
+      "reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+      "detail": {
+        "skipped_because": "A3_FAIL",
+        "primary_gate": "A3"
+      }
+    },
+    "F3@Din8": {
+      "criterion": "A5",
+      "state": "not_applicable",
+      "applicable": false,
+      "value": null,
+      "threshold": null,
+      "expression": "D_eff(state) >= 1.5 * Din",
+      "reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+      "detail": {
+        "skipped_because": "A3_FAIL",
+        "primary_gate": "A3"
+      }
+    },
+    "F5@Din8": {
+      "criterion": "A5",
+      "state": "not_applicable",
+      "applicable": false,
+      "value": null,
+      "threshold": null,
+      "expression": "D_eff(state) >= 1.5 * Din",
+      "reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design.",
+      "detail": {
+        "skipped_because": "A3_FAIL",
+        "primary_gate": "A3"
+      }
+    }
+  }
+}

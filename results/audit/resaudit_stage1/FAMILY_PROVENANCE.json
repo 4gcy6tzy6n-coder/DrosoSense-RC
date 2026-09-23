@@ -1,0 +1,445 @@
+{
+  "git_head": "208475edf8593da327d77eef8e3be54ad0ff8c73",
+  "f1_status": "VERIFIED_FOR_STAGE1",
+  "widths": [
+    6,
+    8
+  ],
+  "width_to_datasets": {
+    "6": "FD1, FD3",
+    "8": "FD2"
+  },
+  "f4": {
+    "family": "F4",
+    "status": "BLOCKED / NOT EVALUATED",
+    "varied_factor": "cell-type connectivity (named)",
+    "reason": "the construction-feasibility gate does not pass; no stand-in is substituted, because amendment 1's design commitment forbids it and the pre-registration already contained F4"
+  },
+  "families": {
+    "F1@Din6": {
+      "family": {
+        "family_id": "F1",
+        "label": "Drosophila olfactory connectome (frozen S0)",
+        "role": "negative_biological_control",
+        "n_nodes": 1000,
+        "n_edges": 80443,
+        "din": 6,
+        "counterfactual_parent": null,
+        "a2_applicable": false,
+        "seed": 0,
+        "wiring_hash": "e0e6b393f6ea48e9483151d25d12555640f248edebfba727e93757d4884c8639",
+        "construction": {
+          "kind": "frozen_substrate",
+          "origin": "frozen S0 induced subgraph of the olfactory connectome",
+          "selection_rule": "v2 substrate: ORN-seeded deterministic expansion over ORN -> PN -> KC/higher_order -> MBON/DAN, frontier by cumulative synapse mass with ties by root id, induced edges kept",
+          "node_list_sha256": "77ec9bfd90d6ec7216f642e1860c815ca972fd7638f1bb464766b9053faccb1e",
+          "edge_list_sha256": "a840f45bd5c96ce654f8ff9c5957b0ec3eb158527a417ff635b462e03815740a",
+          "din": 6,
+          "allocation": {
+            "ORN": 3,
+            "PN": 2,
+            "KC": 1
+          }
+        }
+      },
+      "generation": null,
+      "food_eligible": false,
+      "construct_qualified": false,
+      "downstream_evaluated": false,
+      "downstream_not_evaluated_reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design."
+    },
+    "F2@Din6": {
+      "family": {
+        "family_id": "F2",
+        "label": "statistics-matched random control (10|E| accepted swaps)",
+        "role": "statistics_matched_random_control",
+        "n_nodes": 1000,
+        "n_edges": 80443,
+        "din": 6,
+        "counterfactual_parent": "F1",
+        "a2_applicable": true,
+        "seed": 20260924,
+        "wiring_hash": "38cff46c2cd1adb5c1752f162240180a8dfd4b4ca4ad15dacafbf78e35369979",
+        "construction": {
+          "generator": "f2_swaps_at_budget",
+          "swaps_per_edge": 10,
+          "accepted_target": 804430,
+          "accepted": 804430,
+          "attempts": 806558,
+          "acceptance_rate": 0.9973616280540271,
+          "edge_overlap": 0.20370945887149908,
+          "rejected": {
+            "shared_endpoint": 7629,
+            "self_loop": 6239,
+            "duplicate": 568212,
+            "no_partner": 999,
+            "no_legal_partner": 1128
+          },
+          "budget_reached": true
+        }
+      },
+      "generation": {
+        "family_id": "F2",
+        "generator": "f2_swaps_at_budget",
+        "seed": 20260924,
+        "invariants": {
+          "n_nodes": 1000,
+          "n_edges": 80443,
+          "degree_sequence_preserved": true,
+          "weight_multiset_preserved_exactly": true,
+          "weight_multiset_preserved_up_to_shared_scale": true,
+          "shared_weight_scale": 0.9999999999999993,
+          "weight_multiset_matches_reference": true,
+          "rho_target": 0.95,
+          "rho_realised": 0.8045074937976411,
+          "rho_gap_vs_target": 0.15315000652879884
+        },
+        "notes": [
+          "F2 shares F1's single weight scale, so the released matrices have IDENTICAL weight multisets. The cost is that F2's spectral radius lands slightly off rho_target (reported as rho_gap_vs_target); matching rho exactly and matching the weights exactly are mutually exclusive, and the weight invariant is the one the F2 contrast is defined by.",
+          "A2 is applicable to F2 (counterfactual_parent='F1') and is run AFTER generation as an audit. F2's budget is not retuned if A2 fails: the review fixed 10|E| accepted swaps as a randomization strength independent of A2."
+        ]
+      },
+      "food_eligible": false,
+      "construct_qualified": false,
+      "downstream_evaluated": false,
+      "downstream_not_evaluated_reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design."
+    },
+    "F3@Din6": {
+      "family": {
+        "family_id": "F3",
+        "label": "topology-destroyed directed G(n, m) control",
+        "role": "topology_destroyed_control",
+        "n_nodes": 1000,
+        "n_edges": 80443,
+        "din": 6,
+        "counterfactual_parent": "F1",
+        "a2_applicable": true,
+        "seed": 20260925,
+        "wiring_hash": "65170d3f0b09cdf67d47a42a37993cc484ccee12795a86a9bd865a29123e8e17",
+        "construction": {
+          "generator": "directed_G_n_m",
+          "n": 1000,
+          "m_target": 80443,
+          "m_realised": 80443,
+          "self_loops_in_reference": 0,
+          "self_loop_convention": "matched_to_f1",
+          "weights": "F1 multiset, randomly permuted onto new edges",
+          "rho_target": 0.95
+        }
+      },
+      "generation": {
+        "family_id": "F3",
+        "generator": "directed_G_n_m",
+        "seed": 20260925,
+        "invariants": {
+          "n_nodes": 1000,
+          "n_edges": 80443,
+          "mean_degree": 80.443,
+          "edge_count_matches_reference": true,
+          "degree_sequence_preserved": false,
+          "weight_multiset_preserved_exactly": true,
+          "weight_multiset_matches_reference": true,
+          "shared_weight_scale": 2.8998243455065986,
+          "rho_target": 0.95,
+          "rho_realised": 0.9499999999999998,
+          "rho_gap_vs_target": 1.1102230246251565e-16
+        },
+        "notes": [
+          "Disconnectedness, SCC collapse and cycle-poorness are EXPECTED and are not repaired. They are the mechanism by which F3 differs from F2, and reporting them is the result rather than a defect to fix.",
+          "F3 declares counterfactual_parent='F1', so A2 applies. A directed G(n,m) does not preserve F1's degree sequence, so A2's degree_exact term is expected to FAIL -- that is a fact about the design (F3 is not a wiring counterfactual in A2's sense) and must be reported, not engineered away."
+        ]
+      },
+      "food_eligible": false,
+      "construct_qualified": false,
+      "downstream_evaluated": false,
+      "downstream_not_evaluated_reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design."
+    },
+    "F5@Din6": {
+      "family": {
+        "family_id": "F5",
+        "label": "audit-qualified sparse construction (coprime-period blocks)",
+        "role": "deliberately_a3_qualified_construction",
+        "n_nodes": 1000,
+        "n_edges": 80443,
+        "din": 6,
+        "counterfactual_parent": "F1",
+        "a2_applicable": true,
+        "seed": 20260926,
+        "wiring_hash": "1cd4eb0e8ddcde7481c9d83127e750f2575da236eec0ed401369c26d4346a983",
+        "construction": {
+          "generator": "coprime_period_blocks",
+          "blocks": 8,
+          "block_lengths": [
+            95,
+            109,
+            113,
+            127,
+            131,
+            137,
+            139,
+            149
+          ],
+          "cycle_edges": 1000,
+          "extra_chords": 79443,
+          "m_target": 80443,
+          "m_realised": 80443,
+          "rho_target": 0.95,
+          "own_weight_scale": 0.011562924119466923,
+          "a3_status_origin": "construction_property",
+          "task_blind": true
+        }
+      },
+      "generation": {
+        "family_id": "F5",
+        "generator": "coprime_period_blocks",
+        "seed": 20260926,
+        "invariants": {
+          "n_nodes": 1000,
+          "n_edges": 80443,
+          "m_target": 80443,
+          "m_matched_exactly": true,
+          "block_lengths": [
+            95,
+            109,
+            113,
+            127,
+            131,
+            137,
+            139,
+            149
+          ],
+          "pairwise_coprime": true,
+          "a3_status_origin": "construction_property",
+          "rho_target": 0.95,
+          "rho_raw": 82.15914851509007,
+          "rho_realised": 0.9499999999999995,
+          "rho_gap_vs_target": 4.440892098500626e-16
+        },
+        "notes": [
+          "F5 uses its OWN rho normalisation, not F1's shared weight scale; see the comment on the scaling line. F2/F3 share F1's scale because their contrast is defined by an identical weight multiset, which F5 does not claim.",
+          "MEASURED LIMIT: at F1's edge budget (mean degree ~80) the coprime-block mechanism does NOT survive. The blocks supply only ~N cycle edges, so the remaining ~79k edges must be in-block chords, which raise rho to ~82; normalising rho back to 0.95 then collapses D_eff to ~7.9 against a gate of 10. The construction reaches D_eff ~ 80 at mean degree ~1. See F5's status in docs/resaudit_contrast_matrix.md.",
+          "A3 PASS is a CONSTRUCTION PROPERTY. The report field a3_status_origin exists so a reader cannot read it as an independent A3 experiment.",
+          "F5 may not be used to infer that A3 causes food performance: A3-FAIL families are never run on food data (rule 6.1), so that causal question is unidentifiable by design.",
+          "The block mechanism does not read A3. It reads a declared structural rule (coprime cycle lengths) and the verdict is measured afterwards."
+        ]
+      },
+      "food_eligible": false,
+      "construct_qualified": false,
+      "downstream_evaluated": false,
+      "downstream_not_evaluated_reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design."
+    },
+    "F1@Din8": {
+      "family": {
+        "family_id": "F1",
+        "label": "Drosophila olfactory connectome (frozen S0)",
+        "role": "negative_biological_control",
+        "n_nodes": 1000,
+        "n_edges": 80443,
+        "din": 8,
+        "counterfactual_parent": null,
+        "a2_applicable": false,
+        "seed": 0,
+        "wiring_hash": "442c9ec3eb54f22e67d9a3b1f5ac3dedaa285f958188ff7fc0413fa963eaeb74",
+        "construction": {
+          "kind": "frozen_substrate",
+          "origin": "frozen S0 induced subgraph of the olfactory connectome",
+          "selection_rule": "v2 substrate: ORN-seeded deterministic expansion over ORN -> PN -> KC/higher_order -> MBON/DAN, frontier by cumulative synapse mass with ties by root id, induced edges kept",
+          "node_list_sha256": "77ec9bfd90d6ec7216f642e1860c815ca972fd7638f1bb464766b9053faccb1e",
+          "edge_list_sha256": "a840f45bd5c96ce654f8ff9c5957b0ec3eb158527a417ff635b462e03815740a",
+          "din": 8,
+          "allocation": {
+            "ORN": 3,
+            "PN": 3,
+            "KC": 2
+          }
+        }
+      },
+      "generation": null,
+      "food_eligible": false,
+      "construct_qualified": false,
+      "downstream_evaluated": false,
+      "downstream_not_evaluated_reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design."
+    },
+    "F2@Din8": {
+      "family": {
+        "family_id": "F2",
+        "label": "statistics-matched random control (10|E| accepted swaps)",
+        "role": "statistics_matched_random_control",
+        "n_nodes": 1000,
+        "n_edges": 80443,
+        "din": 8,
+        "counterfactual_parent": "F1",
+        "a2_applicable": true,
+        "seed": 20260924,
+        "wiring_hash": "52505f0ed79e3085a52eaa2bba6b9812d203f3477b0c63fe04c9ce6d2e17a065",
+        "construction": {
+          "generator": "f2_swaps_at_budget",
+          "swaps_per_edge": 10,
+          "accepted_target": 804430,
+          "accepted": 804430,
+          "attempts": 806558,
+          "acceptance_rate": 0.9973616280540271,
+          "edge_overlap": 0.20370945887149908,
+          "rejected": {
+            "shared_endpoint": 7629,
+            "self_loop": 6239,
+            "duplicate": 568212,
+            "no_partner": 999,
+            "no_legal_partner": 1128
+          },
+          "budget_reached": true
+        }
+      },
+      "generation": {
+        "family_id": "F2",
+        "generator": "f2_swaps_at_budget",
+        "seed": 20260924,
+        "invariants": {
+          "n_nodes": 1000,
+          "n_edges": 80443,
+          "degree_sequence_preserved": true,
+          "weight_multiset_preserved_exactly": true,
+          "weight_multiset_preserved_up_to_shared_scale": true,
+          "shared_weight_scale": 0.9999999999999993,
+          "weight_multiset_matches_reference": true,
+          "rho_target": 0.95,
+          "rho_realised": 0.8045074937976411,
+          "rho_gap_vs_target": 0.15315000652879884
+        },
+        "notes": [
+          "F2 shares F1's single weight scale, so the released matrices have IDENTICAL weight multisets. The cost is that F2's spectral radius lands slightly off rho_target (reported as rho_gap_vs_target); matching rho exactly and matching the weights exactly are mutually exclusive, and the weight invariant is the one the F2 contrast is defined by.",
+          "A2 is applicable to F2 (counterfactual_parent='F1') and is run AFTER generation as an audit. F2's budget is not retuned if A2 fails: the review fixed 10|E| accepted swaps as a randomization strength independent of A2."
+        ]
+      },
+      "food_eligible": false,
+      "construct_qualified": false,
+      "downstream_evaluated": false,
+      "downstream_not_evaluated_reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design."
+    },
+    "F3@Din8": {
+      "family": {
+        "family_id": "F3",
+        "label": "topology-destroyed directed G(n, m) control",
+        "role": "topology_destroyed_control",
+        "n_nodes": 1000,
+        "n_edges": 80443,
+        "din": 8,
+        "counterfactual_parent": "F1",
+        "a2_applicable": true,
+        "seed": 20260925,
+        "wiring_hash": "b396eeb0a9afb389ea14bd59bce3891fdd353e833593424a40209f32b1affb71",
+        "construction": {
+          "generator": "directed_G_n_m",
+          "n": 1000,
+          "m_target": 80443,
+          "m_realised": 80443,
+          "self_loops_in_reference": 0,
+          "self_loop_convention": "matched_to_f1",
+          "weights": "F1 multiset, randomly permuted onto new edges",
+          "rho_target": 0.95
+        }
+      },
+      "generation": {
+        "family_id": "F3",
+        "generator": "directed_G_n_m",
+        "seed": 20260925,
+        "invariants": {
+          "n_nodes": 1000,
+          "n_edges": 80443,
+          "mean_degree": 80.443,
+          "edge_count_matches_reference": true,
+          "degree_sequence_preserved": false,
+          "weight_multiset_preserved_exactly": true,
+          "weight_multiset_matches_reference": true,
+          "shared_weight_scale": 2.8998243455065986,
+          "rho_target": 0.95,
+          "rho_realised": 0.9499999999999998,
+          "rho_gap_vs_target": 1.1102230246251565e-16
+        },
+        "notes": [
+          "Disconnectedness, SCC collapse and cycle-poorness are EXPECTED and are not repaired. They are the mechanism by which F3 differs from F2, and reporting them is the result rather than a defect to fix.",
+          "F3 declares counterfactual_parent='F1', so A2 applies. A directed G(n,m) does not preserve F1's degree sequence, so A2's degree_exact term is expected to FAIL -- that is a fact about the design (F3 is not a wiring counterfactual in A2's sense) and must be reported, not engineered away."
+        ]
+      },
+      "food_eligible": false,
+      "construct_qualified": false,
+      "downstream_evaluated": false,
+      "downstream_not_evaluated_reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design."
+    },
+    "F5@Din8": {
+      "family": {
+        "family_id": "F5",
+        "label": "audit-qualified sparse construction (coprime-period blocks)",
+        "role": "deliberately_a3_qualified_construction",
+        "n_nodes": 1000,
+        "n_edges": 80443,
+        "din": 8,
+        "counterfactual_parent": "F1",
+        "a2_applicable": true,
+        "seed": 20260926,
+        "wiring_hash": "124ffded34374a5149db5428bd8cab603c8c0da796b17d6dc5324863565181e9",
+        "construction": {
+          "generator": "coprime_period_blocks",
+          "blocks": 8,
+          "block_lengths": [
+            95,
+            109,
+            113,
+            127,
+            131,
+            137,
+            139,
+            149
+          ],
+          "cycle_edges": 1000,
+          "extra_chords": 79443,
+          "m_target": 80443,
+          "m_realised": 80443,
+          "rho_target": 0.95,
+          "own_weight_scale": 0.011562924119466923,
+          "a3_status_origin": "construction_property",
+          "task_blind": true
+        }
+      },
+      "generation": {
+        "family_id": "F5",
+        "generator": "coprime_period_blocks",
+        "seed": 20260926,
+        "invariants": {
+          "n_nodes": 1000,
+          "n_edges": 80443,
+          "m_target": 80443,
+          "m_matched_exactly": true,
+          "block_lengths": [
+            95,
+            109,
+            113,
+            127,
+            131,
+            137,
+            139,
+            149
+          ],
+          "pairwise_coprime": true,
+          "a3_status_origin": "construction_property",
+          "rho_target": 0.95,
+          "rho_raw": 82.15914851509007,
+          "rho_realised": 0.9499999999999995,
+          "rho_gap_vs_target": 4.440892098500626e-16
+        },
+        "notes": [
+          "F5 uses its OWN rho normalisation, not F1's shared weight scale; see the comment on the scaling line. F2/F3 share F1's scale because their contrast is defined by an identical weight multiset, which F5 does not claim.",
+          "MEASURED LIMIT: at F1's edge budget (mean degree ~80) the coprime-block mechanism does NOT survive. The blocks supply only ~N cycle edges, so the remaining ~79k edges must be in-block chords, which raise rho to ~82; normalising rho back to 0.95 then collapses D_eff to ~7.9 against a gate of 10. The construction reaches D_eff ~ 80 at mean degree ~1. See F5's status in docs/resaudit_contrast_matrix.md.",
+          "A3 PASS is a CONSTRUCTION PROPERTY. The report field a3_status_origin exists so a reader cannot read it as an independent A3 experiment.",
+          "F5 may not be used to infer that A3 causes food performance: A3-FAIL families are never run on food data (rule 6.1), so that causal question is unidentifiable by design.",
+          "The block mechanism does not read A3. It reads a declared structural rule (coprime cycle lengths) and the verdict is measured afterwards."
+        ]
+      },
+      "food_eligible": false,
+      "construct_qualified": false,
+      "downstream_evaluated": false,
+      "downstream_not_evaluated_reason": "A3 (the primary qualification gate) did not pass, so the downstream gates A4 and A5 were not evaluated. This is not a pass and not a failure for A4/A5: the pre-registration measures them only on a QUALIFIED reservoir. Consequently whether A3 failure predicts A4/A5 failure is UNOBSERVABLE by construction in this design."
+    }
+  },
+  "generated_utc": "2026-09-23T17:01:48.387232+00:00"
+}

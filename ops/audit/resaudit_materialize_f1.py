@@ -295,6 +295,20 @@ def main(argv: list[str] | None = None) -> int:
         adj_indptr=csr.indptr, adj_shape=np.asarray(csr.shape),
         node_ids=np.asarray(cand.root_ids, dtype=np.int64),
     )
+    # The RAW induced synapse-count adjacency. This is the substrate's A and the thing the
+    # edge-list hash identifies; the rho-scaled copies above and in F1_A.npz are scoring
+    # normalisations belonging to a particular run's convention (amendment 5), which is why
+    # the audit re-normalises to its own declared FROZEN_RHO_TARGET rather than reusing them.
+    raw_csr = sp.csr_matrix(cand.adjacency).tocsr()
+    raw_weight_sha = hashlib.sha256(
+        np.ascontiguousarray(np.sort(raw_csr.data), dtype=np.float64).tobytes()
+    ).hexdigest()
+    np.savez_compressed(
+        out_dir / "F1_A_raw.npz", adj_data=raw_csr.data, adj_indices=raw_csr.indices,
+        adj_indptr=raw_csr.indptr, adj_shape=np.asarray(raw_csr.shape),
+        node_ids=np.asarray(cand.root_ids, dtype=np.int64),
+    )
+    print(f"  raw A: nnz={raw_csr.nnz} weight_multiset_sha256={raw_weight_sha[:16]}...")
     for din, B in Bs.items():
         np.savez_compressed(out_dir / f"F1_B_Din{din}.npz", w_in=B, din=np.asarray(din),
                             node_ids=np.asarray(cand.root_ids, dtype=np.int64))
@@ -320,6 +334,12 @@ def main(argv: list[str] | None = None) -> int:
                 "N": int(cand.n_nodes),
                 "M": int(cand.n_edges),
                 "B5_sha256_historical": FROZEN_S0["B_hash"],
+                "raw_A_nnz": int(raw_csr.nnz),
+                "raw_weight_multiset_sha256": raw_weight_sha,
+                "raw_A_note": ("F1_A_raw.npz is the substrate identity alongside the node/edge "
+                               "list hashes; F1_A.npz is the legacy 0.9-targeted scoring copy "
+                               "and must NOT be fed to the audit, which has its own declared "
+                               "FROZEN_RHO_TARGET=0.95"),
                 "B_sha256": {d: v["w_in_sha256"] for d, v in b_stats.items()},
                 "B_stats": b_stats,
                 "allocation_rule": (

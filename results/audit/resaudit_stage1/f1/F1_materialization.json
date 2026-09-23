@@ -14,11 +14,14 @@
   "node_list_sha256": "77ec9bfd90d6ec7216f642e1860c815ca972fd7638f1bb464766b9053faccb1e",
   "edge_list_sha256": "a840f45bd5c96ce654f8ff9c5957b0ec3eb158527a417ff635b462e03815740a",
   "substrate_identity": "node-list hash + edge-list hash + raw weights/topology provenance (amendment 5); the legacy scaled-float A_hash is run provenance only",
-  "A_sha256_observed_legacy": "002bac2438452ce1578615dd9b38af7f6a9587c4c31c7985f965ce3a3fea3233",
+  "A_sha256_observed_legacy": "cf2dfdd9e2b0a0df35964f878bc61a2c87d49cc117b051e89d0a199a0e0d5a00",
   "A_sha256_frozen_NOT_AN_IDENTITY": "3aa95745aea38ea85b4750c51c5262bd3d79c64e3450cca9a07fa8ecb33dac20",
   "N": 1000,
   "M": 80443,
   "B5_sha256_historical": "3bd78eaca10cad865749a6bb1d04871d83a48af48b83ee5d1000e9ca39e7d968",
+  "raw_A_nnz": 80443,
+  "raw_weight_multiset_sha256": "631be3f61f24e8ff25f82c684fbd46a6f3b2353d17f6658610d05f700a6cdf47",
+  "raw_A_note": "F1_A_raw.npz is the substrate identity alongside the node/edge list hashes; F1_A.npz is the legacy 0.9-targeted scoring copy and must NOT be fed to the audit, which has its own declared FROZEN_RHO_TARGET=0.95",
   "B_sha256": {
     "5": "3bd78eaca10cad865749a6bb1d04871d83a48af48b83ee5d1000e9ca39e7d968",
     "6": "2b2ff2c97e978584c255e9c518c1b2ffe45e3b1d2efa8b0cf18ee33432648eea",
@@ -102,8 +105,8 @@
     "amendment_3": "655acc84effa19f6e9eb3dfab8ca9389485155aa96cd1826e5b6fdb24988dd11",
     "amendment_4": "9992d79f4ed524da0b13babd62345a6c2452b03c4b7f9ca9c0eb9bdc18ed9ac1",
     "amendment_5": "12a8d5c3b8017b6afeace0b12a0275a10a288024feccecfee87405a400cd45e4",
-    "amendment_6": "91d3d3e2ac4ca8e1b5ad1447e6f56327fe5a52dd0057a5cbf3dd17a0d9de6ed4"
+    "amendment_6": "PENDING_SIDECAR"
   },
-  "git_head": "4a0a6ad80fc008cc5929d04941c55ec84d86d2e2",
-  "generated_utc": "2026-09-23T16:44:14.611689+00:00"
+  "git_head": "208475edf8593da327d77eef8e3be54ad0ff8c73",
+  "generated_utc": "2026-09-23T16:45:45.344139+00:00"
 }

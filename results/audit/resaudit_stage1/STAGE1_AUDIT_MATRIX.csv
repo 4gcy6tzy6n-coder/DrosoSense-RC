@@ -1,0 +1,10 @@
+family,din,seed,N,M,input_mapping,rho_operating,A1_state,A2_state,A3_value,A3_threshold,A3_pass,A4_value,A4_pass,A5_value,A5_pass,eligible_for_food,construct_qualified,datasets,wiring_hash,status
+F1,6,0,1000,80443,frozen_substrate,0.95,PASS,not_applicable,7.821595007444395,12.0,FAIL,,not_applicable,,not_applicable,False,False,"FD1, FD3",e0e6b393f6ea48e9483151d25d12555640f248edebfba727e93757d4884c8639,
+F2,6,20260924,1000,80443,,0.95,PASS,FAIL,7.8841252753729165,12.0,FAIL,,not_applicable,,not_applicable,False,False,"FD1, FD3",38cff46c2cd1adb5c1752f162240180a8dfd4b4ca4ad15dacafbf78e35369979,
+F3,6,20260925,1000,80443,,0.95,PASS,FAIL,10.25556053520318,12.0,FAIL,,not_applicable,,not_applicable,False,False,"FD1, FD3",65170d3f0b09cdf67d47a42a37993cc484ccee12795a86a9bd865a29123e8e17,
+F5,6,20260926,1000,80443,,0.95,FAIL,FAIL,9.334102043011306,12.0,FAIL,,not_applicable,,not_applicable,False,False,"FD1, FD3",1cd4eb0e8ddcde7481c9d83127e750f2575da236eec0ed401369c26d4346a983,
+F1,8,0,1000,80443,frozen_substrate,0.95,PASS,not_applicable,10.513830047203566,16.0,FAIL,,not_applicable,,not_applicable,False,False,FD2,442c9ec3eb54f22e67d9a3b1f5ac3dedaa285f958188ff7fc0413fa963eaeb74,
+F2,8,20260924,1000,80443,,0.95,PASS,FAIL,10.296922838909456,16.0,FAIL,,not_applicable,,not_applicable,False,False,FD2,52505f0ed79e3085a52eaa2bba6b9812d203f3477b0c63fe04c9ce6d2e17a065,
+F3,8,20260925,1000,80443,,0.95,PASS,FAIL,13.62794118281065,16.0,FAIL,,not_applicable,,not_applicable,False,False,FD2,b396eeb0a9afb389ea14bd59bce3891fdd353e833593424a40209f32b1affb71,
+F5,8,20260926,1000,80443,,0.95,FAIL,FAIL,12.348832233844133,16.0,FAIL,,not_applicable,,not_applicable,False,False,FD2,124ffded34374a5149db5428bd8cab603c8c0da796b17d6dc5324863565181e9,
+F4,,,,,,,,,,,,,,,,,,,,BLOCKED / NOT EVALUATED
