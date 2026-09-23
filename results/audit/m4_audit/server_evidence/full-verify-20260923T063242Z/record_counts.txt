@@ -1,0 +1,11 @@
+_artifacts 0
+e1_main_d2 900
+e1_main_d3 11160
+e2_main_d2 700
+e2_main_d3 8680
+e9_size_d2 70
+e9_size_d2_n1000 70
+e9_size_d2_n2000 70
+e9_size_d2_n250 70
+e9_size_d2_n4000 70
+e9_size_d2_n500 70
