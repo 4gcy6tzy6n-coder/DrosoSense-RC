@@ -123,3 +123,30 @@ Construct phase gate: FAIL.
 The failure is a **measured finding**, not an implementation defect. The next action is
 not a code change to the gate but a design change to the construction — and that is a
 decision for the owner, not something to be made quietly in the construct check.
+
+## 6. What the next round is
+
+The failure is closed; what it does **not** close is whether the substrate has the
+*structure* to be a recurrent reservoir. Per the user's instruction, the next step is
+**M5 - Structural Dynamics Audit** (NOT a v3 redesign):
+
+1. SCC / cycle analysis (largest SCC fraction, number of SCCs, fraction of nodes in
+   non-trivial SCCs, fraction of edges participating in directed cycles, cycle-length
+   distribution);
+2. ORN-reachable recurrent core -- nodes reachable from any ORN that lie inside a
+   non-trivial SCC;
+3. Controllability effective rank, with `B = W_in` and the Krylov-style matrix
+   `[B, A·B, A²·B, ...]` for `K = 1, 2, 4, 8, 16`;
+4. Spectrum / singular values of A and of the Krylov blocks;
+5. A raw-vs-row-L1 comparison: rerun (1)-(4) with `A' = A` (no row normalization) and
+   `A' = γ · A` (only spectral scaling).
+
+Only after M5 produces one of the two boxed outcomes below does a v3 preregistration
+become the right move:
+
+```
+graph lacks recurrence               ->  change substrate
+graph has recurrence but suppressed ->  change dynamics (e.g. v3-A: raw + one gamma)
+```
+
+Until then, the C3 finding stands and the construct phase is closed.

@@ -320,6 +320,11 @@ every reservoir (R0/R2 x shared-scale/rho-matched):
 * **C3.3 (D_eff ≥ 1.5 · Din)** never passes — the state matrix's effective rank tops at
   ~1.1 · Din; the recurrent drive is too weak to spread the state space beyond the
   input dimensionality.
+
+The C3 failure is correlated with the substrate's density, but the data does not
+establish a causal link. The next round (M5 - Structural Dynamics Audit) separates
+"structure failure" (graph has no directed cycles to speak of) from "dynamics failure"
+(graph has cycles but the row-L1 normalization suppresses them).
 * **C3.1 (R_t in [0.20, 1.00])** does pass — R0 at gain=2/leak=1, R2 at gain=3/leak=0.5
   (heavy right tail: P90 ≈ 7.5–14). C3.1 alone is not enough: the C3 gate is the AND.
 
