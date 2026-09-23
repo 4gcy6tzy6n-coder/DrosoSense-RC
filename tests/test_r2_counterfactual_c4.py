@@ -160,22 +160,40 @@ def test_c4_4_weight_matching_makes_the_in_strength_error_exactly_zero(r0_topolo
 
 
 @pytest.mark.unit
-def test_c4_4_continuous_weights_still_pass_the_median_tolerance():
-    """A graph with NO duplicate weights falls back to near weights, and reports it."""
+def test_c4_4_continuous_weights_refuse_rather_than_drift():
+    """NO duplicate weights: exact matching refuses every proposal, and says why.
+
+    This is the honest failure mode. A near-weight exchange moves the two targets'
+    in-strength, and the drift accumulates over millions of swaps -- measured on the
+    delivered substrate: median relative error 0.32 with the fallback on, exactly 0 with
+    it off. So the default refuses a proposal with no exact-weight partner, and the
+    report shows zero accepted swaps rather than a quietly drifting graph.
+    """
     rng = np.random.default_rng(5)
     n = 200
     mask = rng.random((n, n)) < 0.10
     weights = rng.random((n, n)) * mask  # all distinct
     np.fill_diagonal(weights, 0.0)
     matrix = sp.csr_matrix(weights)
+
     rewired, report = weight_preserving_degree_rewire(matrix, seed=2, target_overlap=0.4)
+    assert report.swaps_accepted == 0
+    assert report.swaps_rejected_no_weight_partner > 0
+    assert report.overlap_final == pytest.approx(1.0)
+    assert report.allow_near_weights is False
+    assert np.array_equal(rewired.toarray(), matrix.toarray())
     quality = counterfactual_quality(matrix, rewired, report)
-    observed = quality["C4.4_in_strength_median_relative_error"]["observed"]
-    # the fallback is used, and its size is visible rather than assumed away
-    assert report.swaps_weight_matched_exact == 0
-    assert report.swaps_weight_matched_nearest > 0
-    assert np.isfinite(observed["median"])
-    assert observed["p90"] >= observed["median"]
+    assert quality["C4.4_in_strength_median_relative_error"]["observed"]["median"] == 0.0
+
+    # with the fallback EXPLICITLY enabled the chain moves, and the report says so --
+    # including how many accepted swaps actually exchanged different weights
+    _, near_report = weight_preserving_degree_rewire(
+        matrix, seed=2, target_overlap=0.4, allow_near_weights=True
+    )
+    assert near_report.swaps_accepted > 0
+    assert near_report.swaps_accepted_near_weight == near_report.swaps_accepted
+    assert near_report.allow_near_weights is True
+    assert near_report.as_dict()["fraction_of_accepted_swaps_that_moved_a_weight"] == 1.0
 
 
 # ---------------------------------------------------------------------------

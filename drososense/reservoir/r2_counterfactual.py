@@ -113,6 +113,9 @@ class RewireReport:
     swaps_weight_matched_exact: int
     swaps_weight_matched_nearest: int
     swaps_rejected_no_weight_partner: int
+    swaps_accepted_exact_weight: int
+    swaps_accepted_near_weight: int
+    allow_near_weights: bool
     mixing_curve: tuple[tuple[int, float], ...]
     n_edges: int
     n_self_loops: int
@@ -142,6 +145,14 @@ class RewireReport:
             "swaps_rejected_no_weight_partner": int(
                 self.swaps_rejected_no_weight_partner
             ),
+            "swaps_accepted_exact_weight": int(self.swaps_accepted_exact_weight),
+            "swaps_accepted_near_weight": int(self.swaps_accepted_near_weight),
+            "allow_near_weights": bool(self.allow_near_weights),
+            "fraction_of_accepted_swaps_that_moved_a_weight": (
+                self.swaps_accepted_near_weight / self.swaps_accepted
+                if self.swaps_accepted
+                else 0.0
+            ),
             # The mixing CURVE, not just its endpoint: without it a reader cannot tell
             # whether 20 % overlap is a plateau or an arbitrary stopping point.
             "mixing_curve": [
@@ -170,6 +181,7 @@ def weight_preserving_degree_rewire(
     target_overlap: float = MIXING_OVERLAP_LIMIT,
     max_attempts: int | None = None,
     time_budget_s: float = BUILD_TIME_BUDGET_S,
+    allow_near_weights: bool = False,
 ) -> tuple[sp.csr_matrix, RewireReport]:
     """Rewire the graph, preserving degree AND the weight structure (v2 R2).
 
@@ -181,6 +193,12 @@ def weight_preserving_degree_rewire(
             above what a graph of this density needs to mix.
         time_budget_s: Wall-time budget (C4.7). The chain stops and says so when it
             expires, rather than being silently truncated.
+        allow_near_weights: Whether a proposal whose edge has no EXACT-weight partner
+            may fall back to the nearest weights within
+            :data:`WEIGHT_MATCH_FALLBACK_TOLERANCE`. Default ``False``, and that
+            default is load-bearing: a near-weight exchange moves the two targets'
+            in-strength, and the drift accumulates over millions of swaps (measured:
+            median relative error 0.32 with the fallback on, exactly 0 with it off).
 
     Returns:
         ``(rewired, report)``.
@@ -247,6 +265,7 @@ def weight_preserving_degree_rewire(
     started = time.monotonic()
     accepted = rejected_dup = rejected_loop = rejected_shared = 0
     matched_exact = matched_nearest = rejected_no_partner = 0
+    accepted_exact = accepted_near = 0
     stopped = "attempts_exhausted"
     overlap_final = 1.0
     curve_targets = sorted({int(round(m * n_edges)) for m in MIXING_CURVE_MULTIPLES})
@@ -272,12 +291,17 @@ def weight_preserving_degree_rewire(
         # the partner comes from the same weight class: exchanging equal weights moves
         # no in-strength at all, which is what C4.4 asks for
         lo, hi = weight_class_window(w1)
+        near_weight = False
         if hi - lo < 2:
+            if not allow_near_weights:
+                rejected_no_partner += 1
+                continue
             lo, hi = weight_class_window(w1, tolerance=WEIGHT_MATCH_FALLBACK_TOLERANCE)
             if hi - lo < 2:
                 rejected_no_partner += 1
                 continue
             matched_nearest += 1
+            near_weight = True
         else:
             matched_exact += 1
         j = int(order[int(rng.integers(lo, hi))])
@@ -311,6 +335,10 @@ def weight_preserving_degree_rewire(
         if (c, b) in original:
             overlap += 1
         accepted += 1
+        if near_weight:
+            accepted_near += 1
+        else:
+            accepted_exact += 1
         while curve_next < len(curve_targets) and accepted >= curve_targets[curve_next]:
             curve.append((int(accepted), overlap / n_edges if n_edges else 1.0))
             curve_next += 1
@@ -348,6 +376,9 @@ def weight_preserving_degree_rewire(
         swaps_weight_matched_exact=int(matched_exact),
         swaps_weight_matched_nearest=int(matched_nearest),
         swaps_rejected_no_weight_partner=int(rejected_no_partner),
+        swaps_accepted_exact_weight=int(accepted_exact),
+        swaps_accepted_near_weight=int(accepted_near),
+        allow_near_weights=bool(allow_near_weights),
         mixing_curve=tuple(curve),
         n_edges=n_edges,
         n_self_loops=self_loops,

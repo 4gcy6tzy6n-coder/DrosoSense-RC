@@ -610,6 +610,7 @@ def measure_c4(
     target_n: int,
     normalization: str,
     seed: int,
+    time_budget_s: float = 600.0,
 ) -> dict:
     """C4.1-C4.8: R2 as a true wiring-only counterfactual, on the C2 substrate.
 
@@ -656,7 +657,7 @@ def measure_c4(
     )
 
     rewired_matrix, raw_report = weight_preserving_degree_rewire(
-        r0.matrix, seed=seed, target_overlap=0.20
+        r0.matrix, seed=seed, target_overlap=0.20, time_budget_s=time_budget_s
     )
     quality = counterfactual_quality(
         r0.matrix,
@@ -800,6 +801,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sizes", default=",".join(str(s) for s in DEFAULT_SIZES))
     parser.add_argument("--target-n", type=int, default=1000, help="C2 substrate size")
     parser.add_argument("--normalization", default="n1_pre_l1")
+    parser.add_argument(
+        "--c4-time-budget",
+        type=float,
+        default=600.0,
+        help="C4.7's wall-time budget for the R2 swap chain (the signed threshold)",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--input-scale", type=float, default=0.5)
     parser.add_argument("--out-dir", default=str(OUT_DIR))
@@ -829,6 +836,7 @@ def main(argv: list[str] | None = None) -> int:
             target_n=args.target_n,
             normalization=args.normalization,
             seed=args.seed,
+            time_budget_s=args.c4_time_budget,
         )
         report = {
             "report_schema": "c4_r2_counterfactual/1",
