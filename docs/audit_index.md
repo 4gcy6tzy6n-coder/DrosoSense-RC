@@ -456,6 +456,18 @@ floor-relative (`O ≤ min(0.20, 1.10 × E[overlap])`; v1's own numbers satisfy 
 **No formal inference may run while a construct criterion fails, and C3 must not start
 before C4 closes** — C3 measures the recurrence on a valid R0 *and* a valid R2.
 
+**v3 is pre-registered** — [`docs/v3_preregistration.md`](v3_preregistration.md) —
+**before any v3 measurement**: Controllability-Aware Biological Substrate Selection, with
+the candidate substrates defined by cell type and pathway (S0 the v2 substrate, S1 S0 +
+recurrent higher-order feedback, S2 MB/KC-centred recurrent, S3 S0 + DAN/MBON feedback,
+S4 the union), the scores declared (`S1` = Krylov `D_eff` **primary**, `S2` = eigenmode
+participation of B, `S3` = spectral diversity / non-normality), a selection gate of
+**`S1 ≥ 2·Din = 10`** with deliberate headroom above C3's 1.5·Din, and a **stop-loss**: if no
+candidate clears the gate, or the selected substrate still fails C3, the
+connectome-reservoir main line **stops and no v4 is opened** — the paper question changes
+instead. Selection may not touch any food label, any dataset metric, or the test split, and
+the choice is frozen before C1→C2→C4→C3 run.
+
 v2 is the biological architecture redesign. Its pre-registration draft is
 [`docs/v2_preregistration.md`](v2_preregistration.md) — written before any v2 code
 exists, with every "v1 defect" it quotes verified against the evidence JSON in
