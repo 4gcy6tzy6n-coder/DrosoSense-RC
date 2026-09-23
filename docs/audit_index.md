@@ -11,6 +11,12 @@ Frozen 2026-09-23. Branch `m4-audit/v1.5-evidence-identity`.
 
 ## Status line — the one sentence that must not be lost
 
+> **FROZEN 2026-09-23 — DrosoSense-RC is a completed negative construct study. No v4 will be
+> opened.** See [`docs/FROZEN_negative_construct_study.md`](FROZEN_negative_construct_study.md).
+> The methods and diagnostics carry forward into **ResAudit-Food**
+> ([pre-registration](resaudit_food_preregistration.md)), where this connectome becomes the
+> **negative biological control** rather than the subject.
+
 > **M4-v1.4 is retained as an invalid test of the intended biological hypothesis
 > due to construct-validity failure; v1.5–v1.5.3 repair evidence identity, gate
 > semantics and the cluster unit only, not the biological architecture.**
