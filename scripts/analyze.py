@@ -539,6 +539,7 @@ def evaluate_rules(
     availability: dict[str, dict[str, Any]] | None = None,
     model_params: dict[str, int] | None = None,
     parameter_provenance: dict[str, Any] | None = None,
+    parameter_counts_by_dataset: dict[str, dict[str, dict[str, int]]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Evaluate every gate and narrative rule against the contrast table.
 
@@ -589,6 +590,7 @@ def evaluate_rules(
         metrics=protocol_metric_properties(protocol),
         model_params=model_params or {},
         parameter_provenance=parameter_provenance,
+        parameter_counts_by_dataset=parameter_counts_by_dataset,
         symbols=build_symbols(
             protocol_model_symbols(protocol),
             metrics,
@@ -675,11 +677,22 @@ def main(argv: list[str] | None = None) -> int:
     # A gate is handed ONLY its own scope's counts. An unevaluable scope yields an
     # empty mapping, so `params(...)` raises with the scope's reason and the gate
     # is reported UNEVALUABLE rather than resolved from somewhere else.
+    # Protocol v1.5.2: a gate whose evaluated_on spans several registered datasets
+    # gets the counts DATASET BY DATASET, and the evaluator folds its parameter
+    # comparison over the datasets with AND. The flat mapping is kept for gates
+    # that are not dataset-conditioned, so a single-dataset scope behaves exactly
+    # as v1.5.1 left it.
+    parameter_counts_by_dataset = {
+        gate_id: scope.counts_by_dataset
+        for gate_id, scope in parameter_scopes.items()
+        if scope.evaluable and len(scope.datasets) > 1
+    }
     model_params = {
         model: count
         for scope in parameter_scopes.values()
-        if scope.evaluable
-        for model, count in scope.counts.items()
+        if scope.evaluable and len(scope.datasets) <= 1
+        for model, count in (scope.counts_by_dataset[scope.datasets[0]].items()
+                             if scope.datasets else [])
     }
     parameter_audit = {
         "declaration": "configs/protocol_v1.5.1.yaml",
@@ -750,7 +763,12 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     rules = evaluate_rules(
-        table, protocol, availability, model_params, parameter_audit
+        table,
+        protocol,
+        availability,
+        model_params,
+        parameter_audit,
+        parameter_counts_by_dataset=parameter_counts_by_dataset,
     )
     rules_path = RESULTS_TABLES_DIR / f"{args.experiment}_gates.json"
     rules_path.write_text(json.dumps(rules, indent=2, sort_keys=True, default=str), encoding="utf-8")

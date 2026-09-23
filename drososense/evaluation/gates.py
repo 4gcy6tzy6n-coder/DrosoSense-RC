@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from drososense.evaluation.stats import minimum_achievable_p
@@ -151,6 +152,7 @@ class GateEvaluator:
         metrics: Mapping[str, Mapping[str, Any]],
         model_params: Mapping[str, int] | None = None,
         parameter_provenance: Mapping[str, Any] | None = None,
+        parameter_counts_by_dataset: Mapping[str, Mapping[str, Mapping[str, int]]] | None = None,
         symbols: Mapping[str, Any] | None = None,
         available_datasets: Iterable[str] | None = None,
     ) -> None:
@@ -162,6 +164,13 @@ class GateEvaluator:
         #: conflicting values, unbound condition) instead of blaming the wrong
         #: thing, and so the gate result carries an auditable trail.
         self.parameter_provenance = dict(parameter_provenance or {})
+        #: Protocol v1.5.2: ``{gate: {dataset: {model: count}}}``. Present for a
+        #: gate whose evaluated_on spans several registered datasets, in which
+        #: case `params(...)` yields a DatasetVector and the comparison is folded.
+        self.parameter_counts_by_dataset = {
+            g: {d: dict(c) for d, c in per_ds.items()}
+            for g, per_ds in (parameter_counts_by_dataset or {}).items()
+        }
         self.symbols = dict(symbols or {})
         self.available_datasets = {
             str(d) for d in (available_datasets if available_datasets is not None else ())
@@ -284,7 +293,17 @@ class GateEvaluator:
             left = self._eval(node.left, gate_id)
             for op, comparator in zip(node.ops, node.comparators):
                 right = self._eval(comparator, gate_id)
-                if not _compare(op, left, right):
+                if isinstance(left, DatasetVector) or isinstance(right, DatasetVector):
+                    # Protocol v1.5.2: a dataset-conditioned parameter comparison.
+                    if not (isinstance(left, DatasetVector) and isinstance(right, DatasetVector)):
+                        raise GateExpressionError(
+                            f"{gate_id}: a params(...) term conditioned on several datasets "
+                            f"was compared against a scalar; both sides of a parameter "
+                            f"comparison must be dataset-resolved counts"
+                        )
+                    if not _compare_dataset_vector(op, left, right):
+                        return False
+                elif not _compare(op, left, right):
                     return False
                 left = right
             return True
@@ -293,6 +312,14 @@ class GateEvaluator:
         if isinstance(node, ast.Call):
             return self._eval_call(node, gate_id)
         raise GateExpressionError(f"{gate_id}: unsupported expression node {type(node).__name__}")
+
+    def _dataset_reason(self, gate_id: str, dataset: str, model: str) -> str:
+        """Why one dataset's count for one model is missing, in the scope's words."""
+        scopes = (self.parameter_provenance or {}).get("scopes")
+        gate_scope = scopes.get(gate_id) if isinstance(scopes, Mapping) else None
+        terms = ((gate_scope or {}).get("per_dataset") or {}).get(dataset) or {}
+        entry = terms.get(model) or {}
+        return str(entry.get("detail") or f"no resolved count for {model} on {dataset}")
 
     def _eval_call(self, node: ast.Call, gate_id: str) -> Any:
         """Evaluate a whitelisted function call.
@@ -514,7 +541,7 @@ class GateEvaluator:
                     continue
         return False
 
-    def _params(self, args: Sequence[Any], gate_id: str) -> int:
+    def _params(self, args: Sequence[Any], gate_id: str) -> Any:
         """``params(model)``.
 
         Args:
@@ -530,6 +557,19 @@ class GateEvaluator:
         if len(args) != 1:
             raise GateExpressionError(f"{gate_id}: params takes 1 argument")
         model = str(args[0])
+        # Protocol v1.5.2: for a gate conditioned on several registered datasets,
+        # the count is a per-dataset vector and the comparison is folded with AND.
+        conditioned = self.parameter_counts_by_dataset.get(gate_id) if self.parameter_counts_by_dataset else None
+        if conditioned:
+            values: dict[str, int | None] = {}
+            unresolved: dict[str, str] = {}
+            for dataset, counts in conditioned.items():
+                if model in counts:
+                    values[dataset] = int(counts[model])
+                else:
+                    values[dataset] = None
+                    unresolved[dataset] = self._dataset_reason(gate_id, dataset, model)
+            return DatasetVector(values=values, unresolved=unresolved)
         if model not in self.model_params:
             # Protocol v1.5.1: the count is read from matched result rows inside a
             # declared scope, with no fallback. When the scope says why it could
@@ -616,6 +656,53 @@ class GateEvaluator:
             f"An unknown name is a protocol/code namespace mismatch, NOT a missing contrast: "
             f"a declared dataset that has no result reports 'no result for contrast' instead."
         )
+
+
+@dataclass(frozen=True)
+class DatasetVector:
+    """A value that is only defined per registered dataset (protocol v1.5.2).
+
+    ``params(...)`` returns one of these for a gate whose ``evaluated_on`` spans
+    several datasets: the count is resolved inside each dataset's own matched
+    registered configuration, and the enclosing comparison is folded over the
+    datasets with AND. ``values`` maps a dataset to its count, or to ``None`` when
+    that dataset's scope did not resolve — the reason is carried in ``unresolved``
+    so the error can say which dataset and why.
+
+    The frozen gate expression is never rewritten: `params(R0) < params(GRU)`
+    keeps its text and this type supplies the dataset conditioning.
+    """
+
+    values: dict[str, int | None]
+    unresolved: dict[str, str] = field(default_factory=dict)
+
+    def reason(self) -> str:
+        return "; ".join(f"{d}: {why}" for d, why in sorted(self.unresolved.items()))
+
+
+def _compare_dataset_vector(op: ast.cmpop, left: "DatasetVector", right: "DatasetVector") -> bool:
+    """Fold a comparison over the datasets, AND-wise, failing closed.
+
+    Protocol v1.5.2 decision rule: PASS iff the inequality holds for every
+    dataset; FAIL iff it fails for some dataset; UNEVALUABLE iff some dataset's
+    scope did not resolve — and UNEVALUABLE takes precedence over FAIL, because
+    reporting FAIL would assert an inequality about a dataset whose count was
+    never established, and §13 already requires an unevaluable gate to be
+    reported UNEVALUABLE rather than passed or failed.
+    """
+    datasets = sorted(set(left.values) | set(right.values))
+    unresolved = {
+        d: why
+        for source in (left, right)
+        for d, why in source.unresolved.items()
+    }
+    if unresolved:
+        raise GateExpressionError(
+            "a parameter comparison is UNEVALUABLE because at least one dataset's "
+            "declared scope did not resolve, and v1.5.2 gives UNEVALUABLE precedence "
+            f"over FAIL. {DatasetVector({}, unresolved).reason()}"
+        )
+    return all(_compare(op, left.values[d], right.values[d]) for d in datasets)
 
 
 def _compare(op: ast.cmpop, left: Any, right: Any) -> bool:

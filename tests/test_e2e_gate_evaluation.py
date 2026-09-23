@@ -147,11 +147,13 @@ def _run_pipeline(
     exploratory: list[tuple[str, str]] | None = None,
     availability: dict | None = None,
     parameter_audit: dict | None = None,
+    parameter_counts_by_dataset: dict | None = None,
 ):
     frame = frame[frame["status"] == "ok"]
     table = build_contrast_table(frame, protocol, _metric_by_task(protocol), exploratory)
     rules = evaluate_rules(
-        table, protocol, availability or _availability(), model_params, parameter_audit
+        table, protocol, availability or _availability(), model_params, parameter_audit,
+        parameter_counts_by_dataset=parameter_counts_by_dataset,
     )
     return table, rules
 
@@ -501,10 +503,16 @@ def test_the_gate_outcome_does_not_depend_on_the_git_ignored_run_records(protoco
     with_scope = resolve_gate_parameter_scope(
         "Gate_A", results_module.load_records(), protocol=protocol, declaration=declaration
     )
-    params_with = with_scope.counts if with_scope.evaluable else {}
+    # Protocol v1.5.2: a scope conditioned on several datasets hands the
+    # evaluator counts PER DATASET; an unevaluable scope hands it nothing at all,
+    # never the datasets that happened to resolve.
+    by_dataset_with = (
+        {"Gate_A": with_scope.counts_by_dataset} if with_scope.evaluable else {}
+    )
     _, with_results = _run_pipeline(
-        frame, protocol, params_with, exploratory=[("esn", "gru")],
+        frame, protocol, {}, exploratory=[("esn", "gru")],
         parameter_audit={"scopes": {"Gate_A": with_scope.provenance()}},
+        parameter_counts_by_dataset=by_dataset_with,
     )
 
     # A clean clone: results/raw does not exist at all.
@@ -516,10 +524,13 @@ def test_the_gate_outcome_does_not_depend_on_the_git_ignored_run_records(protoco
         without_scope = resolve_gate_parameter_scope(
             "Gate_A", results_module.load_records(), protocol=protocol, declaration=declaration
         )
-        params_without = without_scope.counts if without_scope.evaluable else {}
+        by_dataset_without = (
+            {"Gate_A": without_scope.counts_by_dataset} if without_scope.evaluable else {}
+        )
         without_results = evaluate_rules(
-            table, protocol, _availability(), params_without,
+            table, protocol, _availability(), {},
             {"scopes": {"Gate_A": without_scope.provenance()}},
+            parameter_counts_by_dataset=by_dataset_without,
         )
     finally:
         monkeypatch_target.RESULTS_RAW_DIR = original
@@ -540,14 +551,18 @@ def test_the_gate_outcome_does_not_depend_on_the_git_ignored_run_records(protoco
     # The invariant a clean clone must satisfy is NOT "the same numbers" — with no
     # rows there are no numbers — but "never a DIFFERENT number". It either agrees
     # with the populated tree or it is silent; v1.5.1 forbids substitution.
-    assert set(with_scope.provenance()["terms"]) == set(without_scope.provenance()["terms"])
-    for model in with_scope.provenance()["terms"]:
-        populated = with_scope.provenance()["terms"][model]["parameter_count"]
-        clean = without_scope.provenance()["terms"][model]["parameter_count"]
-        assert clean is None or clean == populated, (
-            f"{model}: a clean clone produced {clean} against the populated tree's "
-            f"{populated}; a count may be absent, never different"
-        )
+    with_counts = with_scope.provenance()["per_dataset_counts"]
+    without_counts = without_scope.provenance()["per_dataset_counts"]
+    assert set(with_counts) == set(without_counts), "the same datasets are in scope"
+    for dataset in with_counts:
+        assert set(with_counts[dataset]) == set(without_counts[dataset])
+        for model in with_counts[dataset]:
+            populated = with_counts[dataset][model]
+            clean = without_counts[dataset][model]
+            assert clean is None or clean == populated, (
+                f"{dataset}/{model}: a clean clone produced {clean} against the populated "
+                f"tree's {populated}; a count may be absent, never different"
+            )
 
 
 @pytest.mark.integration

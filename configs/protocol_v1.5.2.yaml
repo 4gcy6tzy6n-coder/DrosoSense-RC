@@ -1,0 +1,145 @@
+# =============================================================================
+# DrosoSense-RC — FROZEN PROTOCOL AMENDMENT v1.5.2
+# =============================================================================
+# Project : DrosoSense-RC (Drosophila Sensory Connectome Reservoir Computing)
+# Version : 1.5.2
+# Frozen  : 2026-09-23T09:00:00Z
+# Owner   : M4-Audit (Reservoir Integrity Audit) — dataset-conditioned parameter gates
+# Supersedes: v1.5.1 (configs/protocol_v1.5.1.yaml, kept unchanged on disk)
+#
+# SCOPE. v1.5.2 fixes the SEMANTICS of a parameter-based gate predicate that spans
+# more than one registered dataset. No model, dataset, split, endpoint, metric,
+# gate expression text, narrative rule or statistical decision rule is altered:
+# the frozen expressions are kept verbatim, and only how a `params(...)` term is
+# resolved inside them changes.
+#
+# WHY THIS FILE EXISTS. v1.5.1 stopped `params(model)` from being read out of a
+# whole-tree scan and made it read matched result rows inside a declared scope,
+# failing closed. It then reported what the delivered evidence actually says:
+#
+#     Gate_A's declared scope is (e1_main_*/e2_main_*, condition "full",
+#     evaluated_on {D2, D3}), and within it
+#
+#         params(R0)  = 1004 on D2 and 1004 on D3   (resolved, unique)
+#         params(GRU) = 4452 on D2 and 4068 on D3   (NOT unique)
+#
+# GRU's trainable count differs between the two datasets because the GRU's
+# hyperparameters are selected per fold and per dataset, so its width genuinely
+# depends on the registered evaluation configuration. Gate_A's expression is
+#
+#     ... and params(R0) < params(GRU)
+#
+# one dataset-agnostic term, which therefore had NO unique value, and v1.5.1
+# correctly reported it UNEVALUABLE rather than resolving it by taking a maximum.
+# That left the semantics of a multi-dataset parameter predicate undefined, and
+# this amendment defines them. The alternative reading — require
+# params(GRU, D2) == params(GRU, D3) — is rejected below.
+#
+# THE DECISION, AND WHY.
+#
+#   For parameter-based gate predicates spanning multiple registered datasets,
+#   trainable-parameter counts shall be resolved within each dataset's matched
+#   registered evaluation configuration. The predicate passes only if the stated
+#   inequality holds for every dataset in evaluated_on. If any dataset-specific
+#   scope is missing, conflicting, or otherwise unresolved, the aggregate
+#   predicate is UNEVALUABLE. No averaging, extrema selection, cross-dataset
+#   fallback, or unscoped record search is permitted.
+#
+# The estimand Gate_A actually wants is "is R0 lighter than the GRU it is being
+# compared against, in each formal comparison setting?" — so conditioning on the
+# dataset is the natural form. The rejected alternative, requiring the count to
+# be dataset-invariant, would impose a cross-dataset equality assumption on a
+# model whose width legitimately follows its registered configuration (input
+# dimensionality and hidden width are chosen per dataset); it is formally tidier
+# and scientifically weaker. Dataset conditioning is also the more conservative
+# choice for a reader: it cannot be accused of having picked the dataset whose
+# numbers happened to favour the claim, because every dataset must independently
+# satisfy the predicate.
+#
+# THE DECISION RULE.
+#
+#     A2 = PASS          iff for every d in evaluated_on: params(R0,d) < params(GRU,d)
+#          FAIL          iff for some d: params(R0,d) >= params(GRU,d)
+#          UNEVALUABLE   iff for some d the dataset-specific scope is unresolved
+#
+# Where a dataset both fails and is unresolved, UNEVALUABLE wins: §13 of the
+# frozen protocol already states that a gate which cannot be evaluated is
+# reported UNEVALUABLE and never as passed or failed, and a FAIL would assert
+# something about a dataset whose count was never established. In particular
+# D2 PASS with D3 unresolved must NOT produce PASS.
+#
+# EFFECT ON THE OTHER GATES. Gate_B and Gate_C contain no `params(...)` term —
+# their expressions are `sig`/`sig_any` only — and neither references Gate_A, so
+# nothing in them changes: not a performance statistic, not a test-touch, not a
+# record. If a future amendment gives them a parameter predicate, this semantics
+# applies to it unchanged.
+
+protocol_version: "1.5.2"
+frozen: true
+frozen_at: "2026-09-23T09:00:00Z"
+supersedes: "1.5.1"
+owner: "M4-Audit (Reservoir Integrity Audit) — dataset-conditioned parameter gates"
+
+scope_statement: >
+  v1.5.2 fixes the semantics of a parameter-based gate predicate spanning more
+  than one registered dataset; it changes no model, dataset, split, endpoint,
+  metric, gate expression text, narrative rule or statistical decision rule.
+
+dataset_conditioned_parameter_predicates:
+  schema_version: "1"
+  applies_to: >
+    every gate predicate that contains a params(...) term and whose evaluated_on
+    carries more than one registered dataset
+  resolution: per_dataset_matched_rows
+  conjunction: all_of_evaluated_on
+  fallback: forbidden
+  averaging: forbidden
+  extrema_selection: forbidden
+  cross_dataset_fallback: forbidden
+  unscoped_search: forbidden
+  decision_rule:
+    pass: "for every d in evaluated_on: params(first, d) < params(second, d)"
+    fail: "for some d in evaluated_on: params(first, d) >= params(second, d)"
+    unevaluable: "for some d in evaluated_on the dataset-specific scope is unresolved"
+    precedence: >
+      UNEVALUABLE takes precedence over FAIL. Reporting FAIL would assert an
+      inequality about a dataset whose count was never established, and §13
+      already requires that a gate which cannot be evaluated is reported
+      UNEVALUABLE, never as passed or failed. A PASS requires every dataset.
+  rejected_alternative:
+    rule: "require params(model, d) to be equal across evaluated_on"
+    why: >
+      It imposes a cross-dataset equality assumption on a trainable count that
+      legitimately follows the registered configuration (a GRU's input
+      dimensionality and hidden width are selected per dataset: 4452 on D2,
+      4068 on D3). The estimand is per-setting lightness, not dataset invariance.
+  expression_text: >
+    unchanged. The gate expression stays `... and params(R0) < params(GRU)`
+    verbatim; `params(...)` resolves to a per-dataset vector for a conditioned
+    gate and the comparison is folded over evaluated_on with AND. Editing a frozen
+    expression would break the rule that an amendment adds a version file rather
+    than rewriting a frozen one.
+
+change_log:
+  - item: D1
+    change: >
+      A params(...) term in a gate whose evaluated_on spans several registered
+      datasets resolves per dataset inside each dataset's matched registered
+      configuration, and the enclosing comparison is folded over evaluated_on
+      with AND.
+  - item: D2
+    change: >
+      UNEVALUABLE takes precedence over FAIL, so D2 PASS with D3 unresolved is
+      UNEVALUABLE and never PASS.
+  - item: D3
+    change: >
+      The gate expression text and every other protocol field are untouched;
+      gates without a params(...) term (Gate_B, Gate_C) are unaffected in every
+      respect.
+
+non_changes:
+  - "the Gate A/B/C expressions, verbatim"
+  - "performance statistics, contrasts, alpha, the decisive sign test, Holm"
+  - "datasets, splits, seeds, window lengths, preprocessing, metrics"
+  - "the test-touch ledger: no test split is re-scored by this amendment"
+  - "every M4-v1.4 / v1.5 / v1.5.1 record already on disk"

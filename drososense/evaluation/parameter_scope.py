@@ -139,37 +139,58 @@ class ModelParameterEvidence:
 
 @dataclass(frozen=True)
 class GateParameterScope:
-    """The resolved parameter scope of one gate.
+    """The resolved parameter scope of one gate, DATASET BY DATASET.
+
+    Protocol v1.5.2 conditions a parameter predicate on the dataset: a count is
+    resolved inside each registered dataset's own matched configuration, and the
+    enclosing comparison must hold for every dataset in ``evaluated_on``. The
+    scope therefore carries one evidence set per dataset, and there is no
+    dataset-agnostic count to read.
 
     Attributes:
         gate_id: The gate.
         task: The task the parameter terms are read under.
-        datasets: The datasets the gate is evaluated on.
-        evidence: One :class:`ModelParameterEvidence` per declared term.
+        datasets: The datasets the gate is evaluated on, in protocol order.
+        per_dataset: ``{dataset: {model: ModelParameterEvidence}}``.
     """
 
     gate_id: str
     task: str
     datasets: tuple[str, ...]
-    evidence: dict[str, ModelParameterEvidence] = field(default_factory=dict)
+    per_dataset: dict[str, dict[str, ModelParameterEvidence]] = field(default_factory=dict)
 
     @property
     def evaluable(self) -> bool:
-        return bool(self.evidence) and all(e.resolved for e in self.evidence.values())
+        """True only when EVERY dataset resolved EVERY declared term.
+
+        The conjunction is the point: a PASS requires all of ``evaluated_on``.
+        """
+        if not self.per_dataset:
+            return False
+        return all(
+            evidence and all(e.resolved for e in evidence.values())
+            for evidence in self.per_dataset.values()
+        )
 
     @property
-    def counts(self) -> dict[str, int]:
-        """The resolved counts; raises when the scope is not evaluable."""
+    def counts_by_dataset(self) -> dict[str, dict[str, int]]:
+        """The resolved counts per dataset; raises when the scope is not evaluable."""
         if not self.evaluable:
             raise ParameterScopeError(self.reason)
-        return {m: int(e.parameter_count) for m, e in self.evidence.items()}  # type: ignore[arg-type]
+        return {
+            dataset: {m: int(e.parameter_count) for m, e in evidence.items()}  # type: ignore[arg-type]
+            for dataset, evidence in self.per_dataset.items()
+        }
 
     @property
     def reason(self) -> str:
-        if not self.evidence:
+        if not self.per_dataset:
             return f"{self.gate_id}: the parameter scope declares no terms"
         problems = [
-            f"{m}: {e.detail}" for m, e in sorted(self.evidence.items()) if not e.resolved
+            f"{dataset}/{m}: {e.detail}"
+            for dataset in self.datasets
+            for m, e in sorted((self.per_dataset.get(dataset) or {}).items())
+            if not e.resolved
         ]
         if not problems:
             return ""
@@ -180,9 +201,21 @@ class GateParameterScope:
             "gate": self.gate_id,
             "task": self.task,
             "datasets": list(self.datasets),
+            "conditioned_on_dataset": True,
             "evaluable": self.evaluable,
             "reason": self.reason,
-            "terms": {m: e.as_dict() for m, e in sorted(self.evidence.items())},
+            "per_dataset": {
+                dataset: {m: e.as_dict() for m, e in sorted(evidence.items())}
+                for dataset, evidence in self.per_dataset.items()
+            },
+            # A flat, honest summary of the question the gate actually asks.
+            "per_dataset_counts": {
+                dataset: {
+                    m: (e.parameter_count if e.resolved else None)
+                    for m, e in sorted(evidence.items())
+                }
+                for dataset, evidence in self.per_dataset.items()
+            },
         }
 
 
@@ -220,7 +253,11 @@ def resolve_gate_parameter_scope(
     declaration: Mapping[str, Any] | None = None,
     condition: str = "full",
 ) -> GateParameterScope:
-    """Resolve one gate's parameter terms from matched result rows.
+    """Resolve one gate's parameter terms from matched result rows, PER DATASET.
+
+    Protocol v1.5.2: a count is resolved inside each dataset's own matched
+    registered configuration, and the gate's comparison must hold for every
+    dataset in ``evaluated_on``. There is deliberately no dataset-agnostic count.
 
     Args:
         gate_id: The gate whose scope to resolve.
@@ -232,145 +269,155 @@ def resolve_gate_parameter_scope(
         condition: The condition to resolve under.
 
     Returns:
-        A :class:`GateParameterScope`. Its ``evaluable`` property says whether a
-        number exists; an unevaluable scope carries the reason and any
-        conflicting values rather than raising, so the gate can report
-        UNEVALUABLE with its provenance.
+        A :class:`GateParameterScope`. Its ``evaluable`` property says whether the
+        conjunction over datasets resolved; an unevaluable scope carries the
+        reason and any conflicting values rather than raising, so the gate can
+        report UNEVALUABLE with its provenance.
     """
     block = dict(declaration or load_parameter_scope_declaration())
     gates = block.get("gates") or {}
     spec = gates.get(gate_id)
     if not spec:
-        return GateParameterScope(gate_id=gate_id, task="", datasets=(), evidence={
-            "__scope__": ModelParameterEvidence(
-                model="__scope__",
-                status=MISSING_SCOPE,
-                parameter_count=None,
-                detail=(
-                    f"protocol v1.5.1 declares no parameter scope for {gate_id}; a gate "
-                    f"whose parameter source is undeclared cannot be evaluated"
-                ),
-            )
-        })
+        blank = ModelParameterEvidence(
+            model="__scope__",
+            status=MISSING_SCOPE,
+            parameter_count=None,
+            detail=(
+                f"protocol v1.5.1 declares no parameter scope for {gate_id}; a gate "
+                f"whose parameter source is undeclared cannot be evaluated"
+            ),
+        )
+        return GateParameterScope(
+            gate_id=gate_id, task="", datasets=(),
+            per_dataset={"__scope__": {"__scope__": blank}},
+        )
 
     task = str(spec.get("task", ""))
     datasets = tuple(str(d) for d in spec.get("datasets", ()))
     aliases = _protocol_aliases(protocol)
     rows = [r for r in records if getattr(r, "status", None) == "ok"]
 
-    evidence: dict[str, ModelParameterEvidence] = {}
-    for term in spec.get("terms", []):
-        model = str(term["model"])
-        bindings = term.get("condition_bindings") or {}
-        labels = tuple(str(x) for x in bindings.get(condition, ()))
-        common = {
-            "model": model,
-            "experiment_labels": labels,
-            "condition": condition,
-            "task": task,
-            "datasets": datasets,
-        }
-        if not labels:
-            evidence[model] = ModelParameterEvidence(
-                status=UNBOUND_CONDITION,
-                parameter_count=None,
-                detail=(
-                    f"condition {condition!r} is not bound to any experiment label for "
-                    f"{model}; the declaration binds {sorted(bindings)}"
-                ),
-                **common,
-            )
-            continue
+    per_dataset: dict[str, dict[str, ModelParameterEvidence]] = {}
+    for short in datasets:
+        long_name = _long_name(short, protocol)
+        evidence: dict[str, ModelParameterEvidence] = {}
+        for term in spec.get("terms", []):
+            model = str(term["model"])
+            bindings = term.get("condition_bindings") or {}
+            labels = tuple(str(x) for x in bindings.get(condition, ()))
+            common = {
+                "model": model,
+                "experiment_labels": labels,
+                "condition": condition,
+                "task": task,
+                "datasets": (short,),
+            }
+            if not labels:
+                evidence[model] = ModelParameterEvidence(
+                    status=UNBOUND_CONDITION,
+                    parameter_count=None,
+                    detail=(
+                        f"condition {condition!r} is not bound to any experiment label for "
+                        f"{model}; the declaration binds {sorted(bindings)}"
+                    ),
+                    **common,
+                )
+                continue
 
-        wanted = {model, aliases.get(model, model)}
-        matched = [
-            r
-            for r in rows
-            if str(getattr(r, "model", "")) in wanted
-            and str(getattr(r, "task", "")) == task
-            and str(getattr(r, "experiment", "")) in labels
-            and str(getattr(r, "dataset", "")) in {_long_name(d, protocol) for d in datasets}
-        ]
-        if not matched:
-            evidence[model] = ModelParameterEvidence(
-                status=NO_RECORDS,
-                parameter_count=None,
-                detail=(
-                    f"no ok {task} row for {model} in {list(labels)} on {list(datasets)}; "
-                    f"the term is unevaluable rather than substituted from elsewhere"
-                ),
-                **common,
-            )
-            continue
+            wanted = {model, aliases.get(model, model)}
+            matched = [
+                r
+                for r in rows
+                if str(getattr(r, "model", "")) in wanted
+                and str(getattr(r, "task", "")) == task
+                and str(getattr(r, "experiment", "")) in labels
+                and str(getattr(r, "dataset", "")) == long_name
+            ]
+            if not matched:
+                evidence[model] = ModelParameterEvidence(
+                    status=NO_RECORDS,
+                    parameter_count=None,
+                    detail=(
+                        f"no ok {task} row for {model} in {list(labels)} on {short}; the "
+                        f"term is unevaluable for this dataset rather than substituted "
+                        f"from another dataset or another experiment"
+                    ),
+                    **common,
+                )
+                continue
 
-        values = sorted({_trainable(r) for r in matched if _trainable(r) is not None})
-        if not values:
+            values = sorted({_trainable(r) for r in matched if _trainable(r) is not None})
+            if not values:
+                evidence[model] = ModelParameterEvidence(
+                    status=NO_RECORDS,
+                    parameter_count=None,
+                    detail=(
+                        f"{len(matched)} row(s) matched on {short} but none carries "
+                        f"model_description.n_trainable_parameters"
+                    ),
+                    n_source_records=len(matched),
+                    **common,
+                )
+                continue
+            if len(values) > 1:
+                by_value: dict[int, list[str]] = {}
+                for r in matched:
+                    value = _trainable(r)
+                    if value is not None:
+                        by_value.setdefault(value, []).append(str(getattr(r, "run_id", "")))
+                detail = "; ".join(
+                    f"{v} from {len(ids)} row(s) e.g. {ids[0]}"
+                    for v, ids in sorted(by_value.items())
+                )
+                evidence[model] = ModelParameterEvidence(
+                    status=CONFLICTING_VALUES,
+                    parameter_count=None,
+                    conflicting_values=tuple(values),
+                    n_source_records=len(matched),
+                    source_run_ids=tuple(sorted(str(getattr(r, "run_id", "")) for r in matched)),
+                    config_hashes=tuple(sorted({str(getattr(r, "config_hash", "")) for r in matched})),
+                    detail=(
+                        f"{len(values)} different trainable-parameter counts for {model} on "
+                        f"{short} inside the declared scope ({detail}); taking "
+                        f"max/min/first/last would be a silent choice of one configuration "
+                        f"over another"
+                    ),
+                    **common,
+                )
+                continue
+
+            sizes = sorted({_reservoir_size(r) for r in matched if _reservoir_size(r) is not None})
+            if len(sizes) > 1:
+                evidence[model] = ModelParameterEvidence(
+                    status=NO_RESERVOIR_SIZE,
+                    parameter_count=None,
+                    conflicting_values=tuple(values),
+                    n_source_records=len(matched),
+                    detail=(
+                        f"the scope mixes reservoir sizes {sizes} for {model} on {short}; a "
+                        f"count stated for one substrate cannot be reported for another"
+                    ),
+                    **common,
+                )
+                continue
+
             evidence[model] = ModelParameterEvidence(
-                status=NO_RECORDS,
-                parameter_count=None,
-                detail=(
-                    f"{len(matched)} row(s) matched but none carries "
-                    f"model_description.n_trainable_parameters"
-                ),
-                n_source_records=len(matched),
-                **common,
-            )
-            continue
-        if len(values) > 1:
-            by_value: dict[int, list[str]] = {}
-            for r in matched:
-                value = _trainable(r)
-                if value is not None:
-                    by_value.setdefault(value, []).append(str(getattr(r, "run_id", "")))
-            detail = "; ".join(
-                f"{v} from {len(ids)} row(s) e.g. {ids[0]}" for v, ids in sorted(by_value.items())
-            )
-            evidence[model] = ModelParameterEvidence(
-                status=CONFLICTING_VALUES,
-                parameter_count=None,
-                conflicting_values=tuple(values),
+                status=RESOLVED,
+                parameter_count=values[0],
+                reservoir_size=sizes[0] if sizes else None,
                 n_source_records=len(matched),
                 source_run_ids=tuple(sorted(str(getattr(r, "run_id", "")) for r in matched)),
                 config_hashes=tuple(sorted({str(getattr(r, "config_hash", "")) for r in matched})),
                 detail=(
-                    f"{len(values)} different trainable-parameter counts inside the declared "
-                    f"scope ({detail}); taking max/min/first/last would be a silent choice of "
-                    f"one configuration over another"
+                    f"{values[0]} trainable parameters on {short}, read from "
+                    f"{len(matched)} matched row(s)"
                 ),
                 **common,
             )
-            continue
-
-        sizes = sorted({_reservoir_size(r) for r in matched if _reservoir_size(r) is not None})
-        if len(sizes) > 1:
-            evidence[model] = ModelParameterEvidence(
-                status=NO_RESERVOIR_SIZE,
-                parameter_count=None,
-                conflicting_values=tuple(values),
-                n_source_records=len(matched),
-                detail=(
-                    f"the scope mixes reservoir sizes {sizes} for {model}; a count stated "
-                    f"for one substrate cannot be reported for another"
-                ),
-                **common,
-            )
-            continue
-
-        evidence[model] = ModelParameterEvidence(
-            status=RESOLVED,
-            parameter_count=values[0],
-            reservoir_size=sizes[0] if sizes else None,
-            n_source_records=len(matched),
-            source_run_ids=tuple(sorted(str(getattr(r, "run_id", "")) for r in matched)),
-            config_hashes=tuple(sorted({str(getattr(r, "config_hash", "")) for r in matched})),
-            detail=(
-                f"{values[0]} trainable parameters, read from {len(matched)} matched row(s)"
-            ),
-            **common,
-        )
+        per_dataset[short] = evidence
 
     return GateParameterScope(
-        gate_id=gate_id, task=task, datasets=datasets, evidence=evidence
+        gate_id=gate_id, task=task, datasets=datasets, per_dataset=per_dataset
     )
 
 
@@ -385,29 +432,33 @@ def _long_name(short: str, protocol: Mapping[str, Any] | None) -> str:
 
 def scope_from_provenance(payload: Mapping[str, Any]) -> GateParameterScope:
     """Rebuild a scope from a written provenance block (for audits)."""
-    evidence = {
-        m: ModelParameterEvidence(
-            model=t["model"],
-            status=t["status"],
+
+    def one(t: Mapping[str, Any]) -> ModelParameterEvidence:
+        return ModelParameterEvidence(
+            model=str(t["model"]),
+            status=str(t["status"]),
             parameter_count=t["parameter_count"],
             experiment_labels=tuple(t.get("experiment", ())),
-            condition=t.get("condition", ""),
-            task=t.get("task", ""),
+            condition=str(t.get("condition", "")),
+            task=str(t.get("task", "")),
             datasets=tuple(t.get("datasets", ())),
             reservoir_size=t.get("reservoir_size"),
-            n_source_records=t.get("n_source_records", 0),
+            n_source_records=int(t.get("n_source_records", 0) or 0),
             source_run_ids=tuple(t.get("source_run_ids", ())),
             config_hashes=tuple(t.get("config_hashes", ())),
             conflicting_values=tuple(t.get("conflicting_values", ())),
-            detail=t.get("detail", ""),
+            detail=str(t.get("detail", "")),
         )
-        for m, t in (payload.get("terms") or {}).items()
+
+    per_dataset = {
+        dataset: {m: one(entry) for m, entry in (terms or {}).items()}
+        for dataset, terms in (payload.get("per_dataset") or {}).items()
     }
     return GateParameterScope(
         gate_id=str(payload.get("gate", "")),
         task=str(payload.get("task", "")),
         datasets=tuple(payload.get("datasets", ())),
-        evidence=evidence,
+        per_dataset=per_dataset,
     )
 
 

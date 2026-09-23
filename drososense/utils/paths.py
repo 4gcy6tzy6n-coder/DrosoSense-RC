@@ -63,6 +63,13 @@ PROTOCOL_V1_5_PATH: Path = CONFIGS_DIR / "protocol_v1.5.yaml"
 # Another amendment record layered on the loadable v1.3 base.
 PROTOCOL_V1_5_1_PATH: Path = CONFIGS_DIR / "protocol_v1.5.1.yaml"
 
+# v1.5.2 (M4-Audit) fixes the SEMANTICS of a parameter-based gate predicate that
+# spans several registered datasets: params(...) resolves per dataset inside each
+# dataset's matched registered configuration, the enclosing comparison is folded
+# over `evaluated_on` with AND, and UNEVALUABLE takes precedence over FAIL. The
+# frozen gate expression text is unchanged.
+PROTOCOL_V1_5_2_PATH: Path = CONFIGS_DIR / "protocol_v1.5.2.yaml"
+
 # The active protocol. Everything that reads "the protocol" reads this.
 #
 # v1.2 supersedes v1.1 for the DECISION MACHINE only: v1.1's gate expressions
@@ -83,6 +90,7 @@ PROTOCOL_V1_3_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.3.sha256"
 PROTOCOL_V1_4_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.4.sha256"
 PROTOCOL_V1_5_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.5.sha256"
 PROTOCOL_V1_5_1_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.5.1.sha256"
+PROTOCOL_V1_5_2_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.5.2.sha256"
 
 
 def protocol_version_paths(version: str) -> tuple[Path, Path]:

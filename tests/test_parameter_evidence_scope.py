@@ -18,6 +18,11 @@ The five regressions the amendment promises, each one a test:
 
 plus a test that the declaration is anchored to the protocol rather than tuned
 to a wanted number.
+
+Protocol v1.5.2 conditions these scopes on the dataset, so the counts below are
+read per dataset: a difference BETWEEN datasets is the registered configuration
+showing through and is not a conflict, while a difference WITHIN one dataset
+still is. The tests below state v1.5.1's guarantees in that world.
 """
 
 from __future__ import annotations
@@ -115,7 +120,9 @@ def test_R1_unrelated_e9_records_do_not_change_the_scope(protocol, declaration):
     """
     scoped = [
         record(experiment="e2_main_d2", model="R0", n_params=1004, n_nodes=250),
+        record(experiment="e2_main_d3", model="R0", n_params=1004, n_nodes=250, dataset=D3),
         record(experiment="e1_main_d2", model="gru", n_params=4452, n_nodes=None),
+        record(experiment="e1_main_d3", model="gru", n_params=4068, n_nodes=None, dataset=D3),
     ]
     e9 = [
         record(experiment=f"e9_size_d2_n{n}", model="R0", n_params=(n + 1) * 4, n_nodes=n)
@@ -128,7 +135,10 @@ def test_R1_unrelated_e9_records_do_not_change_the_scope(protocol, declaration):
     assert without.provenance() == with_e9.provenance(), (
         "adding the E9 size study must not move Gate_A's parameter scope"
     )
-    assert with_e9.counts == {"R0": 1004, "GRU": 4452}
+    assert with_e9.counts_by_dataset == {
+        "D2": {"R0": 1004, "GRU": 4452},
+        "D3": {"R0": 1004, "GRU": 4068},
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -144,11 +154,14 @@ def test_R2_only_the_designated_reservoir_size_is_read(protocol, declaration):
         record(experiment="e1_main_d3", model="gru", n_params=4353, n_nodes=None, dataset=D3),
     ]
     scope = scope_for(records, protocol, declaration)
-    r0 = scope.evidence["R0"]
+    r0 = scope.per_dataset["D2"]["R0"]
     assert r0.status == RESOLVED
     assert r0.parameter_count == 1004
     assert r0.reservoir_size == 250, "the scope reports the size it read"
-    assert r0.n_source_records == 2
+    assert r0.n_source_records == 1
+    # the sizes are per dataset now, and the E9-style other sizes are not in scope
+    assert scope.counts_by_dataset["D2"]["R0"] == 1004
+    assert scope.counts_by_dataset["D3"]["R0"] == 1004
 
 
 @pytest.mark.unit
@@ -164,6 +177,7 @@ def test_R2b_a_scope_mixing_two_reservoir_sizes_is_unevaluable(protocol, declara
     assert not scope.evaluable
     assert "different trainable-parameter counts" in scope.reason or \
            "mixes reservoir sizes" in scope.reason
+    assert "on D2" in scope.reason, "the reason names the dataset it applies to"
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +188,9 @@ def test_R2b_a_scope_mixing_two_reservoir_sizes_is_unevaluable(protocol, declara
 def test_R3_an_unrelated_experiment_does_not_change_the_scope(protocol, declaration):
     base = [
         record(experiment="e2_main_d2", model="R0", n_params=1004, n_nodes=250),
+        record(experiment="e2_main_d3", model="R0", n_params=1004, n_nodes=250, dataset=D3),
         record(experiment="e1_main_d2", model="gru", n_params=4452, n_nodes=None),
+        record(experiment="e1_main_d3", model="gru", n_params=4068, n_nodes=None, dataset=D3),
     ]
     unrelated = [
         record(experiment="e7_efficiency_d2", model="R0", n_params=99999, n_nodes=250),
@@ -184,8 +200,9 @@ def test_R3_an_unrelated_experiment_does_not_change_the_scope(protocol, declarat
     before = scope_for(base, protocol, declaration).provenance()
     after = scope_for(base + unrelated, protocol, declaration).provenance()
     assert before == after
-    assert scope_for(base + unrelated, protocol, declaration).counts == {
-        "R0": 1004, "GRU": 4452,
+    assert scope_for(base + unrelated, protocol, declaration).counts_by_dataset == {
+        "D2": {"R0": 1004, "GRU": 4452},
+        "D3": {"R0": 1004, "GRU": 4068},
     }
 
 
@@ -199,8 +216,8 @@ def test_R4_missing_designated_source_fails_closed(protocol, declaration):
     only_r0 = [record(experiment="e2_main_d2", model="R0", n_params=1004, n_nodes=250)]
     scope = scope_for(only_r0, protocol, declaration)
     assert not scope.evaluable
-    assert scope.evidence["GRU"].status == NO_RECORDS
-    assert "unevaluable rather than substituted" in scope.reason
+    assert scope.per_dataset["D2"]["GRU"].status == NO_RECORDS
+    assert "unevaluable for this dataset rather than substituted" in scope.reason
 
     # an empty tree, and a tree with only the committed benchmar experiment
     assert not scope_for([], protocol, declaration).evaluable
@@ -230,33 +247,36 @@ def test_R4b_a_gate_reading_an_unevaluable_scope_reports_unevaluable(protocol, d
 # ---------------------------------------------------------------------------
 
 @pytest.mark.unit
-def test_R5_conflicting_counts_in_one_scope_are_unevaluable(protocol, declaration):
-    """`params(GRU)` is 4452 on D2 and 4068 on D3 in the delivered evidence.
+def test_R5_conflicting_counts_within_one_dataset_are_unevaluable(protocol, declaration):
+    """v1.5.1's rule, in the dataset-conditioned world v1.5.2 defines.
 
-    The term is dataset-agnostic, so there is no unique value to report. The
-    pre-v1.5.1 code took the maximum and published it as the model's size.
+    `params(GRU)` differing BETWEEN datasets is the registered configuration
+    showing through and is not a conflict (v1.5.2). Differing WITHIN one dataset
+    still is, and the pre-v1.5.1 code would have taken the maximum and published
+    it as the model's size.
     """
     records = [
         record(experiment="e2_main_d2", model="R0", n_params=1004, n_nodes=250),
         record(experiment="e2_main_d3", model="R0", n_params=1004, n_nodes=250, dataset=D3),
         record(experiment="e1_main_d2", model="gru", n_params=4452, n_nodes=None),
+        record(experiment="e1_main_d2", model="gru", n_params=4600, n_nodes=None,
+               run_id="d2-again", config_hash="second"),
         record(experiment="e1_main_d3", model="gru", n_params=4068, n_nodes=None, dataset=D3),
     ]
     scope = scope_for(records, protocol, declaration)
     assert not scope.evaluable
-    gru = scope.evidence["GRU"]
+    gru = scope.per_dataset["D2"]["GRU"]
     assert gru.status == CONFLICTING_VALUES
-    assert gru.conflicting_values == (4068, 4452), "both values are named, neither is chosen"
+    assert gru.conflicting_values == (4452, 4600), "both values are named, neither is chosen"
     assert "taking max/min/first/last would be a silent choice" in gru.detail
-    assert "no fallback" not in gru.detail  # the reason is specific, not boilerplate
+    assert scope.per_dataset["D3"]["GRU"].status == RESOLVED, "D3 is unaffected"
     with pytest.raises(Exception):
-        scope.counts  # no lazy resolution either
+        scope.counts_by_dataset  # no lazy resolution either
 
-    # and the gate says so rather than resolving
-    # both shapes must surface the conflict, not just the bare scope
+    # both provenance shapes must surface the conflict, not just the bare scope
     for provenance in (
         scope.provenance(),
-        {"declaration": "configs/protocol_v1.5.1.yaml",
+        {"declaration": "configs/protocol_v1.5.2.yaml",
          "scopes": {"Gate_A": scope.provenance()}},
     ):
         evaluator = GateEvaluator(
@@ -264,23 +284,29 @@ def test_R5_conflicting_counts_in_one_scope_are_unevaluable(protocol, declaratio
             symbols=build_symbols(["R0", "GRU"], [], [], [], aliases={}),
             parameter_provenance=provenance,
         )
-        with pytest.raises(GateExpressionError, match="different trainable-parameter counts"):
+        with pytest.raises(GateExpressionError, match="declared parameter evidence scope"):
             evaluator.evaluate("Gate_A", "params(R0) < params(GRU)")
 
 
 @pytest.mark.unit
-def test_R5b_the_conflict_is_reported_for_every_conflicting_model(protocol, declaration):
-    """More than one conflict must all appear, not just the first."""
+def test_R5b_conflicts_on_several_datasets_are_all_reported(protocol, declaration):
+    """Every unresolved dataset must appear in the reason, not just the first."""
     records = [
         record(experiment="e2_main_d2", model="R0", n_params=1004, n_nodes=250),
-        record(experiment="e2_main_d3", model="R0", n_params=1005, n_nodes=250, dataset=D3),
+        record(experiment="e2_main_d2", model="R0", n_params=1005, n_nodes=250,
+               run_id="d2-again", config_hash="second"),
+        record(experiment="e2_main_d3", model="R0", n_params=1004, n_nodes=250, dataset=D3),
+        record(experiment="e2_main_d3", model="R0", n_params=1006, n_nodes=250, dataset=D3,
+               run_id="d3-again", config_hash="third"),
         record(experiment="e1_main_d2", model="gru", n_params=4452, n_nodes=None),
         record(experiment="e1_main_d3", model="gru", n_params=4068, n_nodes=None, dataset=D3),
     ]
     scope = scope_for(records, protocol, declaration)
-    assert set(scope.provenance()["terms"]) == {"R0", "GRU"}
+    assert set(scope.provenance()["per_dataset"]) == {"D2", "D3"}
     assert scope.reason.count("different trainable-parameter counts") == 2
-    assert scope.evidence["R0"].conflicting_values == (1004, 1005)
+    assert "D2/R0" in scope.reason and "D3/R0" in scope.reason
+    assert scope.per_dataset["D2"]["R0"].conflicting_values == (1004, 1005)
+    assert scope.per_dataset["D3"]["R0"].conflicting_values == (1004, 1006)
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +325,7 @@ def test_a_resolved_count_carries_its_provenance(protocol, declaration):
                config_hash="c84d501b1a72", run_id="d2_beef_uncontrolled|gru|classification|seed00|fold00"),
     ]
     scope = scope_for(records, protocol, declaration)
-    prov = scope.provenance()["terms"]["R0"]
+    prov = scope.provenance()["per_dataset"]["D2"]["R0"]
     for key in ("model", "parameter_count", "experiment", "condition", "task",
                 "datasets", "reservoir_size", "n_source_records", "source_run_ids",
                 "config_hashes"):
@@ -307,9 +333,14 @@ def test_a_resolved_count_carries_its_provenance(protocol, declaration):
     assert prov["parameter_count"] == 1004
     assert prov["reservoir_size"] == 250
     assert prov["condition"] == "full"
-    assert prov["datasets"] == ["D2", "D3"]
-    assert prov["n_source_records"] == 2
-    assert set(prov["config_hashes"]) == {"07cd93e03295", "199df0376461"}
+    assert prov["datasets"] == ["D2"]
+    assert prov["n_source_records"] == 1
+    assert set(prov["config_hashes"]) == {"07cd93e03295"}
+    # and the scope carries every dataset, side by side
+    assert scope.provenance()["per_dataset_counts"] == {
+        "D2": {"R0": 1004, "GRU": 4452},
+        "D3": {"R0": 1004, "GRU": None},
+    }
 
 
 @pytest.mark.unit
@@ -317,18 +348,24 @@ def test_the_gate_result_carries_the_scope_it_used(protocol, declaration):
     scope = scope_for(
         [
             record(experiment="e2_main_d2", model="R0", n_params=1004, n_nodes=250),
+            record(experiment="e2_main_d3", model="R0", n_params=1004, n_nodes=250, dataset=D3),
             record(experiment="e1_main_d2", model="gru", n_params=4452, n_nodes=None),
+            record(experiment="e1_main_d3", model="gru", n_params=4068, n_nodes=None, dataset=D3),
         ],
         protocol, declaration,
     )
     evaluator = GateEvaluator(
-        contrasts={}, metrics={}, model_params=scope.counts,
+        contrasts={}, metrics={},
+        model_params={},
+        parameter_counts_by_dataset={"Gate_A": scope.counts_by_dataset},
         symbols=build_symbols(["R0", "GRU"], [], [], [], aliases={}),
         parameter_provenance=scope.provenance(),
     )
     evaluation = evaluator.evaluate("Gate_A", "params(R0) < params(GRU)")
     assert evaluation.result is True
-    assert evaluation.detail["parameter_scope"]["terms"]["R0"]["parameter_count"] == 1004
+    prov = evaluation.detail["parameter_scope"]["per_dataset"]
+    assert prov["D2"]["R0"]["parameter_count"] == 1004
+    assert prov["D3"]["GRU"]["parameter_count"] == 4068
 
 
 # ---------------------------------------------------------------------------
