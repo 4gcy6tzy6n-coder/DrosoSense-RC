@@ -48,7 +48,8 @@ from drososense.utils.config import (  # noqa: E402
 from drososense.utils.paths import PROTOCOL_PATH, RESULTS_RAW_DIR  # noqa: E402
 
 
-def _evaluate(gate_id, protocol, table, model_params, provenance=None):
+def _evaluate(gate_id, protocol, table, model_params, provenance=None,
+              counts_by_dataset=None):
     """Evaluate the gate through the DELIVERED pipeline (analyze.evaluate_rules).
 
     Using the production entry point rather than a bespoke evaluator is the point
@@ -64,7 +65,10 @@ def _evaluate(gate_id, protocol, table, model_params, provenance=None):
         if provenance
         else None
     )
-    rules = evaluate_rules(table, protocol, None, model_params, audit)
+    rules = evaluate_rules(
+        table, protocol, None, model_params, audit,
+        parameter_counts_by_dataset=counts_by_dataset,
+    )
     entry = rules.get(gate_id, {})
     return {
         "result": entry.get("result"),
@@ -121,8 +125,27 @@ def main() -> int:
     scope = resolve_gate_parameter_scope(
         "Gate_A", records, protocol=protocol, declaration=declaration
     )
-    post_params = scope.counts if scope.evaluable else {}
-    post = _evaluate("Gate_A", protocol, table, post_params, scope.provenance())
+    # v1.5.2: a scope conditioned on several datasets hands the evaluator counts
+    # per dataset; an unevaluable scope hands it nothing at all.
+    post_by_dataset = {"Gate_A": scope.counts_by_dataset} if scope.evaluable else {}
+    post = _evaluate(
+        "Gate_A", protocol, table, {}, scope.provenance(), post_by_dataset
+    )
+
+    # The two terms of the frozen expression, evaluated separately so the report
+    # can say WHICH one decides the gate. The engine computes both; nothing here
+    # is hand-written.
+    a1_expression = (
+        "sum([ci_contains_zero(R0, R4, macro_f1, D2) or noninferior(R0, R4, macro_f1, D2), "
+        "ci_contains_zero(R0, R4, macro_f1, D3) or noninferior(R0, R4, macro_f1, D3)]) == 2"
+    )
+    a2_expression = "params(R0) < params(GRU)"
+    a1 = _evaluate("Gate_A", protocol, table, {}, None, None, expression=a1_expression)
+    a2_pre = _evaluate("Gate_A", protocol, table, pre_params, None, None, expression=a2_expression)
+    a2_post = _evaluate(
+        "Gate_A", protocol, table, {}, scope.provenance(), post_by_dataset,
+        expression=a2_expression,
+    )
 
     print("\n" + "=" * 78)
     print("PARAMETER VALUES")
@@ -135,9 +158,22 @@ def main() -> int:
               f"[{ev.status if ev else 'no term'}]")
 
     print("\n" + "=" * 78)
-    print("GATE A")
+    print("GATE A TERMS  (the engine evaluates the frozen expression; nothing here is hand-written)")
     print("=" * 78)
-    for label, out in (("pre-v1.5.1", pre), ("post-v1.5.1", post)):
+    print(f"  A1  R0 not meaningfully worse than R4 on D2 and D3   = {a1['result']}")
+    print(f"  A2  pre-v1.5.1   params(R0) < params(GRU)            = {a2_pre['result']}")
+    print(f"  A2  post-v1.5.2  forall d in {{D2,D3}}: params(R0,d) < params(GRU,d) "
+          f"= {a2_post['result']}")
+    if scope.evaluable:
+        for dataset, counts in sorted(scope.counts_by_dataset.items()):
+            r0, gru = counts.get("R0"), counts.get("GRU")
+            verdict = "PASS" if (r0 is not None and gru is not None and r0 < gru) else "not PASS"
+            print(f"        {dataset}: params(R0)={r0} params(GRU)={gru}  -> {verdict}")
+
+    print("\n" + "=" * 78)
+    print("GATE A  (A1 and A2 combined by the frozen expression)")
+    print("=" * 78)
+    for label, out in (("pre-v1.5.1 ", pre), ("post-v1.5.2", post)):
         print(f"  {label:12s} result = {out['result']}")
         if out["reason"]:
             print(f"               reason = {out['reason'][:220]}")
