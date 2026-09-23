@@ -943,7 +943,17 @@ def measure_c3(
     def cell_metrics(name: str) -> dict[str, Any]:
         point = results[name]["chosen"]
         if point is None:
-            return {"all_points_failed": True}
+            payload = {"all_points_failed": True}
+            # always carry the rho, the closest-to-band point, and the full trace
+            payload["spectral_radius"] = results[name]["rho"]
+            payload["closest_to_band"] = results[name].get("closest_to_band", {})
+            payload["selection_trace"] = results[name]["selection_trace"]
+            payload["selection_trace_size"] = len(results[name]["selection_trace"])
+            payload["selection_grid"] = {
+                "gain_values": (0.1, 0.25, 0.5, 1.0, 2.0, 5.0),
+                "leak_values": (0.05, 0.1, 0.25, 0.5, 0.75, 1.0),
+            }
+            return payload
         m = results[name]["metrics_at_chosen"]
         return {
             "knobs": point,
