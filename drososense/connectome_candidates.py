@@ -108,6 +108,16 @@ def _frontier_order(matrix: sp.csr_matrix, root_ids: np.ndarray, selected: np.nd
     ]
 
 
+def _frontier_scores(matrix: sp.csr_matrix, selected: np.ndarray) -> np.ndarray:
+    """The declared frontier score for EVERY node: cumulative synapse mass to ``selected``."""
+    score = np.zeros(matrix.shape[0], dtype=np.float64)
+    csc = matrix.tocsc()
+    for row in selected.tolist():
+        score += np.asarray(matrix[row].todense()).ravel()
+        score += np.asarray(csc[:, row].todense()).ravel()
+    return score
+
+
 def _cap_by_frontier(
     matrix: sp.csr_matrix,
     root_ids: np.ndarray,
@@ -276,17 +286,21 @@ def generate_candidate(
                 f"{candidate_id}: the declared feedback closure admitted no node; the "
                 f"candidate cannot be generated as declared"
             )
-        merged = np.asarray(sorted(set(s0_rows.tolist()) | set(admitted.tolist())), dtype=np.int64)
-        # cap: keep S0's nodes plus the feedback nodes nearest the frontier, declared order
+        union = sorted(set(s0_rows.tolist()) | set(admitted.tolist()))
+        merged = np.asarray(union, dtype=np.int64)
+        # Cap by the DECLARED frontier rule applied to the union: every node competes on the
+        # same score, so a feedback neuron with real edges into the core can displace S0's
+        # weakest frontier node. (Keeping S0's nodes first would make S1/S3/S4 identical to
+        # S0 whenever S0 already fills the cap -- which is what the first v3 run measured.)
         if merged.size > target_n:
-            order = _frontier_order(raw_graph, root_ids, s0_rows)
-            keep = set(s0_rows.tolist())
-            for row in order:
-                if len(keep) >= target_n:
-                    break
-                if row in set(merged.tolist()):
-                    keep.add(row)
-            merged = np.asarray(sorted(keep), dtype=np.int64)
+            scores = _frontier_scores(raw_graph, s0_rows)
+            ranked = sorted(
+                union, key=lambda r: (-float(scores[r]), int(root_ids[r]))
+            )[:target_n]
+            merged = np.asarray(sorted(ranked), dtype=np.int64)
+            n_displaced = int(len(set(s0_rows.tolist()) - set(merged.tolist())))
+        else:
+            n_displaced = 0
         adjacency = raw_graph[merged][:, merged].tocsr()
         prov = _provenance(
             candidate_id=candidate_id,
@@ -309,7 +323,14 @@ def generate_candidate(
                 **{f"seed:{k}": int(v) for k, v in s0.detail.get("layer_counts", {}).items()},
                 **{rule: int(rows.size) for rule, rows in closures},
             },
-            extra={"n_merged_from_S0": int(s0_rows.size), "n_feedback_admitted": int(admitted.size)},
+            extra={
+                "n_merged_from_S0": int(s0_rows.size),
+                "n_feedback_admitted": int(admitted.size),
+                "n_S0_nodes_displaced_by_feedback": int(n_displaced),
+                "n_feedback_nodes_in_final_set": int(
+                    len(set(merged.tolist()) & set(admitted.tolist()))
+                ),
+            },
         )
         return CandidateSubstrate(
             candidate_id, merged, root_ids[merged], adjacency,
