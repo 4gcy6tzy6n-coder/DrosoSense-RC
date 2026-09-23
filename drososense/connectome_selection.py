@@ -201,6 +201,26 @@ LAYER_ALLOCATION_RULE = (
 )
 
 
+def class_floors(din: int) -> dict[str, int]:
+    """C1.4's floors for the classes it names INDIVIDUALLY.
+
+    ``max(20, 2*Din)`` ORNs, 20 PNs, ``max(50, 4*Din)`` Kenyon cells. The fourth
+    criterion is stated over a sum (MBON + DAN + higher-order >= 20) and stays a
+    group floor, because no individual class in it is named.
+
+    This exists because a GROUP floor is not enough: measured on the delivered graph,
+    the ``(KC, higher_order)`` group held 272 nodes of which only **21 were Kenyon
+    cells** -- the lateral-horn/higher-order neurons carry more synapses and won every
+    frontier tie -- while C1.4 asks for KC >= 50. The criteria name classes, so the
+    allocation has to as well.
+    """
+    return {
+        "ORN": ORN_FLOOR(din),
+        "PN": 20,
+        "KC": max(50, 4 * din),
+    }
+
+
 def layer_group_floors(din: int) -> tuple[int, ...]:
     """C1.4's population floors, aligned to ``[('ORN',)] + LAYER_EXPANSION_GROUPS``.
 
@@ -209,10 +229,11 @@ def layer_group_floors(din: int) -> tuple[int, ...]:
     all four. The expansion refuses below that rather than under-filling a layer the
     criteria name.
     """
+    named = class_floors(din)
     return (
-        ORN_FLOOR(din),
-        20,
-        max(50, 4 * din),
+        named["ORN"],
+        named["PN"],
+        named["KC"],
         20,
     )
 
@@ -396,30 +417,49 @@ def expand_from_orns(
     score[in_selection] = -np.inf
     self_loops = int(np.asarray(matrix.diagonal() != 0).sum())
 
+    named_floors = class_floors(din)
     layer_counts: dict[str, int] = {}
     layer_counts["ORN"] = int(in_selection.sum())
+
+    def add(row: int) -> None:
+        """Select one row and keep the frontier score current."""
+        nonlocal score
+        in_selection[row] = True
+        score += np.asarray(matrix[row].todense()).ravel()
+        score += np.asarray(csc[:, row].todense()).ravel()
+        score[row] = -np.inf
+
+    def by_frontier(candidates: np.ndarray) -> list[int]:
+        return sorted(
+            candidates.tolist(), key=lambda row: (-float(score[row]), int(root_ids[row]))
+        )
+
     for group_index, group in enumerate(groups, start=1):
-        mask = np.isin(classes, np.array(group, dtype=object))
-        candidates = np.flatnonzero(mask & ~in_selection)
-        if candidates.size == 0:
-            continue
+        group_mask = np.isin(classes, np.array(group, dtype=object))
         room = min(
-            allocation[group_index] - sum(
-                int((in_selection & (classes == c)).sum())
-                for c in group
-            ),
+            allocation[group_index]
+            - sum(int((in_selection & (classes == c)).sum()) for c in group),
             target_n - int(in_selection.sum()),
         )
         if room <= 0:
             continue
-        ordered = sorted(
-            candidates.tolist(), key=lambda row: (-float(score[row]), int(root_ids[row]))
-        )
-        for row in ordered[:room]:
-            in_selection[row] = True
-            score += np.asarray(matrix[row].todense()).ravel()
-            score += np.asarray(csc[:, row].todense()).ravel()
-            score[row] = -np.inf
+        # (1) the classes C1.4 names INDIVIDUALLY are filled to their floor first, so
+        #     a synapse-rich sibling class cannot take their slots
+        for cell_class in group:
+            need = named_floors.get(cell_class, 0) - int(
+                (in_selection & (classes == cell_class)).sum()
+            )
+            if need <= 0 or room <= 0:
+                continue
+            candidates = np.flatnonzero((classes == cell_class) & ~in_selection)
+            for row in by_frontier(candidates)[: min(need, room)]:
+                add(row)
+                room -= 1
+        # (2) then the rest of the group's allocation, by frontier score
+        candidates = np.flatnonzero(group_mask & ~in_selection)
+        if room > 0 and candidates.size:
+            for row in by_frontier(candidates)[:room]:
+                add(row)
         for cell_class in group:
             layer_counts[cell_class] = int((in_selection & (classes == cell_class)).sum())
 
@@ -446,6 +486,7 @@ def expand_from_orns(
             for group, cap in zip(group_specs, capacities)
         },
         "orn_floor_from_c1_4": int(ORN_FLOOR(din)),
+        "class_floors_from_c1_4": {k: int(v) for k, v in sorted(named_floors.items())},
         "group_floors_from_c1_4": {
             "+".join(group): int(floor)
             for group, floor in zip(group_specs, floors)
