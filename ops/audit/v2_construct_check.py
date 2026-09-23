@@ -852,6 +852,8 @@ def measure_c3(
     n_val_windows: int = 10,
     length: int = 16,
     autocorrelation: float = 0.6,
+    mapping_choice: str = "orn_aligned",
+    receiving_fraction: float = 0.85,
 ) -> dict:
     """C3.1-C3.3 on the C2 substrate, for the four reservoirs the owner asked for.
 
@@ -876,9 +878,33 @@ def measure_c3(
     # ORN-aligned input mapping: shared between R0 and R2 (same substrate) and
     # independent of the preprocessing -- W_in's magnitude only sets the absolute scale.
     raw_block = matrix[expansion.node_indices][:, expansion.node_indices].tocsr()
-    mapping_r0 = build_orn_aligned_mapping(
-        raw_block, selected_root_ids, annotation, din, seed=seed
-    )
+    if mapping_choice == "typed_aligned":
+        from drososense.reservoir.input_mapping import build_typed_aligned_mapping
+
+        mapping_r0 = build_typed_aligned_mapping(
+            selected_root_ids, annotation, din, seed=seed,
+            receiving_fraction=receiving_fraction,
+        )
+        # amendment 2, C1.5: every PN with direct input must also receive signal through
+        # a real ORN->PN edge of the substrate.
+        c1_5_violations = 0
+        if mapping_r0.pn_rows.size:
+            from drososense.reservoir.input_mapping import in_substrate_orn_to_pn_edges
+
+            selected_classes = annotation.class_of(selected_root_ids)
+            _, reached = in_substrate_orn_to_pn_edges(
+                raw_block,
+                np.flatnonzero(selected_classes == "ORN"),
+                np.flatnonzero(selected_classes == "PN"),
+            )
+            c1_5_violations = int(
+                len(set(mapping_r0.pn_rows.tolist()) - set(reached.tolist()))
+            )
+    else:
+        mapping_r0 = build_orn_aligned_mapping(
+            raw_block, selected_root_ids, annotation, din, seed=seed
+        )
+        c1_5_violations = 0
     W_in = mapping_r0.w_in.tocsr()
     bias = np.zeros(raw_block.shape[0])
 
@@ -995,6 +1021,9 @@ def measure_c3(
             "selection_knobs": ["gain", "leak"],
             "fixed_knobs": ["input_scale", "spectral_scaling"],
             "input_scale": input_scale,
+            "mapping": mapping_choice,
+            "receiving_fraction": float(receiving_fraction),
+            "C1_5_direct_input_pn_without_orn_edge": int(c1_5_violations),
             "validation_windows_source": (
                 "synthetic: 10 windows, length 16, Din, gaussian with AR(1)=0.6 so the "
                 "memory metric has a signal to surface. Real D2 fold-0 windows would "
@@ -1090,6 +1119,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target-n", type=int, default=1000, help="C2 substrate size")
     parser.add_argument("--normalization", default="n1_pre_l1")
     parser.add_argument(
+        "--mapping",
+        default="orn_aligned",
+        choices=("orn_aligned", "typed_aligned"),
+        help=(
+            "C3 input mapping: 'orn_aligned' (v2, support on ORN only) or "
+            "'typed_aligned' (amendment 2, support on ORN+PN+KC with per-layer Din)"
+        ),
+    )
+    parser.add_argument(
+        "--receiving-fraction",
+        type=float,
+        default=0.85,
+        help=(
+            "amendment 2: each layer keeps this fraction of its typed nodes as input "
+            "receivers, so density stays within C1.2's ceiling"
+        ),
+    )
+    parser.add_argument(
         "--c4-time-budget",
         type=float,
         default=600.0,
@@ -1123,6 +1170,8 @@ def main(argv: list[str] | None = None) -> int:
             din=args.din,
             target_n=args.target_n,
             seed=args.seed,
+            mapping_choice=args.mapping,
+            receiving_fraction=args.receiving_fraction,
         )
         report = {
             "report_schema": "c3_dynamics/1",
