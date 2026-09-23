@@ -75,6 +75,11 @@ _OVERLAP_CHECK_EVERY = 2_000
 #: to any model result.
 WEIGHT_MATCH_FALLBACK_TOLERANCE = 0.25
 
+#: How many candidates from the weight class are examined before a proposal is
+#: abandoned. The acceptance conditions are unchanged; this only avoids paying for
+#: candidates that are illegal by construction (shared endpoint, self-loop, duplicate).
+PARTNER_SEARCH_TRIES = 16
+
 #: Accepted-swap counts (as multiples of |E|) at which the mixing curve is sampled.
 MIXING_CURVE_MULTIPLES: tuple[float, ...] = (0.5, 1.0, 2.0, 5.0, 10.0)
 
@@ -113,6 +118,7 @@ class RewireReport:
     swaps_weight_matched_exact: int
     swaps_weight_matched_nearest: int
     swaps_rejected_no_weight_partner: int
+    swaps_rejected_no_legal_partner: int
     swaps_accepted_exact_weight: int
     swaps_accepted_near_weight: int
     allow_near_weights: bool
@@ -145,6 +151,7 @@ class RewireReport:
             "swaps_rejected_no_weight_partner": int(
                 self.swaps_rejected_no_weight_partner
             ),
+            "swaps_rejected_no_legal_partner": int(self.swaps_rejected_no_legal_partner),
             "swaps_accepted_exact_weight": int(self.swaps_accepted_exact_weight),
             "swaps_accepted_near_weight": int(self.swaps_accepted_near_weight),
             "allow_near_weights": bool(self.allow_near_weights),
@@ -265,6 +272,7 @@ def weight_preserving_degree_rewire(
     started = time.monotonic()
     accepted = rejected_dup = rejected_loop = rejected_shared = 0
     matched_exact = matched_nearest = rejected_no_partner = 0
+    rejected_no_legal = 0
     accepted_exact = accepted_near = 0
     stopped = "attempts_exhausted"
     overlap_final = 1.0
@@ -304,20 +312,36 @@ def weight_preserving_degree_rewire(
             near_weight = True
         else:
             matched_exact += 1
-        j = int(order[int(rng.integers(lo, hi))])
-        if j == i:
-            continue
+
+        # Search the weight class for a LEGAL partner instead of drawing one and
+        # rejecting: measured on the delivered substrate, 61 % of all proposals were
+        # thrown away because the two edges shared an endpoint, which is what made the
+        # chain slow rather than stuck. The acceptance conditions are unchanged -- this
+        # only stops paying for candidates that cannot be used.
         a, b = int(rows[i]), int(cols[i])
+        j = -1
+        for _ in range(PARTNER_SEARCH_TRIES):
+            if hi - lo < 2:
+                break
+            candidate = int(order[int(rng.integers(lo, hi))])
+            if candidate == i:
+                continue
+            c, d = int(rows[candidate]), int(cols[candidate])
+            if a == c or b == d:
+                rejected_shared += 1
+                continue
+            if a == d or c == b:
+                rejected_loop += 1
+                continue
+            if (a, d) in present or (c, b) in present:
+                rejected_dup += 1
+                continue
+            j = candidate
+            break
+        if j < 0:
+            rejected_no_legal += 1
+            continue
         c, d = int(rows[j]), int(cols[j])
-        if a == c or b == d:
-            rejected_shared += 1
-            continue
-        if a == d or c == b:
-            rejected_loop += 1
-            continue
-        if (a, d) in present or (c, b) in present:
-            rejected_dup += 1
-            continue
 
         # apply: both sources keep their own weight
         present.discard((a, b))
@@ -376,6 +400,7 @@ def weight_preserving_degree_rewire(
         swaps_weight_matched_exact=int(matched_exact),
         swaps_weight_matched_nearest=int(matched_nearest),
         swaps_rejected_no_weight_partner=int(rejected_no_partner),
+        swaps_rejected_no_legal_partner=int(rejected_no_legal),
         swaps_accepted_exact_weight=int(accepted_exact),
         swaps_accepted_near_weight=int(accepted_near),
         allow_near_weights=bool(allow_near_weights),
