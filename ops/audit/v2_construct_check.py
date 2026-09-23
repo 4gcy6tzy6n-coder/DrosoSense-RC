@@ -718,9 +718,13 @@ def measure_c4(
     quality["C4.5_input_population_identical"]["pass"] = population_identical
     quality["C4.5_input_population_identical"]["observed"] = population_identical
 
-    # the v1 control, measured on the same R0, so the defect the v2 factory repairs is
-    # in the record rather than in the prose
-    v1_r2 = make_degree_rewired(r0, seed=seed)
+    # The v1 control, measured on the same R0 so the defect the v2 factory repairs is in
+    # the record rather than in the prose. Its WIRING is not mixed here: v1's duplicate
+    # check is O(M) per attempt, which is the projection that reached 71 days at the full
+    # M, so calling it with its default 10 attempts per edge would spend hours proving a
+    # property about its WEIGHTS. With zero swap attempts it still applies its weight
+    # semantics (np.ones(n_edges), then rescale), which is exactly the property under test.
+    v1_r2 = make_degree_rewired(r0, seed=seed, n_swap_attempts=0)
     v1_weights_equal = bool(
         np.array_equal(
             np.sort(r0.matrix.tocoo().data.astype(np.float64)),
