@@ -307,6 +307,40 @@ Enrichment 2.29× vs **78.71×**. Three things are recorded rather than glossed:
   point. The composition (24.3 % ORNs against the connectome's 1.83 %) is a declared
   allocation, not a biological ratio.
 
+**C4 is implemented and measured, and the gate FAILS on mixing** —
+[`docs/v2_construct_c4_r2_counterfactual.md`](v2_construct_c4_r2_counterfactual.md),
+`results/audit/v2_construct/C4_r2_counterfactual.json`. The four conservations hold
+**exactly** (degree-sequence hashes, global and per-source weight-multiset hashes, and the
+ORN-aligned input mapping rebuilt independently on R0 and R2 agreeing on support rows and
+`w_in` digest) and the in-strength error is 7.7e-08 — but `edge_overlap` is 0.858 against a
+0.20 threshold and the 600 s budget is spent, so **C4 = FAIL**.
+
+The failure is **a specification question, not an algorithm defect**, and it is put to the
+owner rather than resolved here:
+
+- C4.6's "fully-mixed expectation" is substrate-dependent. Measured: **0.0570** on the v1
+  substrate it was calibrated on, **0.2022** on the C2 substrate — whose density is exactly
+  what makes C2.3–C2.5 pass. The threshold sits *below* the substrate's own mixing floor.
+- The multiset R2 must preserve is R0's **normalized, rescaled** weights, where the raw
+  quantization is gone: 15,277 distinct values over 80,443 edges (mean class **5.3**)
+  against 363 values (mean class 221.6) on the raw synapse counts. Exact weight matching —
+  which is what makes C4.4 exact — leaves each edge a 5.3-edge reachable set, and the
+  mixing curve is **flat** (1.0000 → 0.8608 → … → 0.8585 over 4.3 M swaps). Trapped, not
+  slow.
+- Three designs were measured (`C4_design_diagnostic.txt`): **A** (rewire the normalized
+  matrix, exact weights) conserves exactly and cannot mix; **B** (±25 % partners) mixes to
+  0.351 but drifts in-strength to 0.318; **C** (rewire the RAW matrix, then preprocess both
+  identically) conserves exactly on the raw object and reaches **0.19998 in 14.4 s**, at
+  the cost that the *normalized* pair no longer shares a weight multiset.
+
+**Recommendation put to the owner:** declare the measurement object (reading R2 — the
+criterion is about the biological graph, with the normalization applied identically to
+both), which admits design C and satisfies C4.1–C4.7 together, and optionally make C4.6
+floor-relative (`O ≤ min(0.20, 1.10 × E[overlap])`; v1's own numbers satisfy it at ratio
+1.02). **Not proposed:** relaxing C4.6 to what the chain reached, or dropping C4.2/C4.3.
+**No formal inference may run while a construct criterion fails, and C3 must not start
+before C4 closes** — C3 measures the recurrence on a valid R0 *and* a valid R2.
+
 v2 is the biological architecture redesign. Its pre-registration draft is
 [`docs/v2_preregistration.md`](v2_preregistration.md) — written before any v2 code
 exists, with every "v1 defect" it quotes verified against the evidence JSON in
