@@ -308,9 +308,9 @@ def probe_drives(
             "memory_drop": float(mem["drop_fraction"]),
             "D_eff": float(deff["D_eff"]),
             "D_eff_factor": float(deff["D_eff_factor"]),
-            "C3_1_in_band": bool(r["verdict"]["C3_1_R_t_band"]),
-            "C3_2_memory_drop": bool(r["verdict"]["C3_2_memory_drop"]),
-            "C3_3_D_eff_factor": bool(r["verdict"]["C3.3_D_eff_factor"]),
+            "C3_1_in_band": bool(r["criterion_lines"]["C3.1_R_t_in_band"]),
+            "C3_2_memory_drop": bool(r["criterion_lines"]["C3.2_memory_drop_>=_20pct"]),
+            "C3_3_D_eff_factor": bool(r["criterion_lines"]["C3.3_D_eff_>=_1.5*Din"]),
         })
     return out
 
