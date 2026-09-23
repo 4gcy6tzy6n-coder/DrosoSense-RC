@@ -33,7 +33,7 @@ from resaudit.f4_feasibility import (
     recurrence_preservation,
     type_pair_change,
 )
-from resaudit.battery import spectral_radius_of
+from resaudit.battery import scale_to_spectral_radius, spectral_radius_of
 from resaudit.contrast import CONTRAST_MATRIX, blocked_families
 
 pytestmark = pytest.mark.unit
