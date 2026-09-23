@@ -212,8 +212,10 @@ absent.
 audit index (this file)  ->  v2 preregistration  ->  validation-only construct checks  ->  formal experiments
 ```
 
-v2 is the biological architecture redesign, and its four hard constraints are
-pre-registered before any v2 code exists:
+v2 is the biological architecture redesign. Its pre-registration draft is
+[`docs/v2_preregistration.md`](v2_preregistration.md) — written before any v2 code
+exists, with every "v1 defect" it quotes verified against the evidence JSON in
+`results/audit/m4_audit/`. Its four hard constraints are:
 
 1. **ORN/PN-aligned input population** — not a dense random `W_in` over every node.
 2. **Connected olfactory subgraph with preserved biological edges** — not a
