@@ -179,6 +179,57 @@ ORN_DENSITY_LIMIT = 0.10
 ORN_FLOOR = lambda din: max(20, 2 * din)  # noqa: E731 - a declaration, not a lambda trick
 
 
+#: The declared per-group allocation rule: **equal share, with redistribution**.
+#:
+#: The first implementation of this expansion gave the ORN group the whole C1.2
+#: budget and then filled each later group to exhaustion. Measured at N=1000,
+#: Din=5 that produced ``{ORN: 500, PN: 500}`` -- **zero Kenyon cells, zero
+#: MBON/DAN** -- because the layer-staged frontier never reached the last two
+#: groups. C2.1 requires the typed populations (see C1.4), so "as many ORNs as the
+#: density limit allows" is not an admissible reading: it spends the substrate
+#: before the pathway is built.
+#:
+#: The rule below gives every group of the declared pathway an equal share of N,
+#: capped by what the group can supply and by C1.2 for the ORN group, and
+#: redistributes whatever a group cannot use to the later groups in the signed
+#: order. It is symmetric, deterministic, declared before any result, and contains
+#: no tuning constant.
+LAYER_ALLOCATION_RULE = (
+    "max(equal share of N, the group's C1.4 floor) per declared layer group, capped "
+    "by availability and by C1.2 for the ORN group, unspent shares redistributed in "
+    "the signed layer order"
+)
+
+
+def layer_group_floors(din: int) -> tuple[int, ...]:
+    """C1.4's population floors, aligned to ``[('ORN',)] + LAYER_EXPANSION_GROUPS``.
+
+    At Din=5: ORN >= max(20, 2*Din) = 20, PN >= 20, KC/higher_order >=
+    max(50, 4*Din) = 50, MBON/DAN >= 20 -- so a substrate needs N >= 110 to satisfy
+    all four. The expansion refuses below that rather than under-filling a layer the
+    criteria name.
+    """
+    return (
+        ORN_FLOOR(din),
+        20,
+        max(50, 4 * din),
+        20,
+    )
+
+
+def minimum_admissible_n(din: int, *, limit: float = ORN_DENSITY_LIMIT) -> int:
+    """The smallest N at which the declared allocation can satisfy C1.2 and C1.4.
+
+    Two constraints, both derived rather than hoped for: every group needs at least
+    its C1.4 floor (``sum(layer_group_floors)``), and C1.2's ceiling must be able to
+    cover the ORN floor (``0.10 * Din * N >= max(20, 2*Din)``).
+    """
+    floors = layer_group_floors(din)
+    orn_floor = floors[0]
+    from_ceiling = int(np.ceil(orn_floor / (limit * din))) if limit * din > 0 else 1 << 30
+    return int(max(sum(floors), from_ceiling))
+
+
 def orn_budget(target_n: int, din: int, n_orn_available: int, *, limit: float = ORN_DENSITY_LIMIT) -> int:
     """How many ORNs the substrate may hold, before the expansion runs.
 
@@ -283,17 +334,54 @@ def expand_from_orns(
     ).ravel()
     order = sorted(orn_rows.tolist(), key=lambda row: (-int(degree[row]), int(root_ids[row])))
     budget = orn_budget(target_n, din, orn_rows.size)
-    floor = ORN_FLOOR(din)
-    if budget < floor:
-        raise ValueError(
-            f"the ORN budget is {budget} (limit {ORN_DENSITY_LIMIT} x Din {din} x "
-            f"N {target_n}) but C1.4 requires at least {floor} ORNs: raising N or "
-            f"Din is a protocol decision, not a selection one"
-        )
 
-    selected = order[:budget]
-    if len(selected) > target_n:
-        selected = selected[:target_n]
+    # The declared allocation: one group per stage of the pathway, equal share of N,
+    # capped by availability and by C1.2, unspent share passed on in layer order.
+    group_specs: list[tuple[str, ...]] = [("ORN",)] + [tuple(g) for g in groups]
+    # the ORN group's capacity is capped by C1.2's ceiling, not only by availability
+    capacities: list[int] = [min(len(order), budget)]
+    for group in groups:
+        mask = np.isin(classes, np.array(group, dtype=object))
+        capacities.append(int(mask.sum()))
+    floors = layer_group_floors(din)
+    minimum_n = minimum_admissible_n(din)
+    if int(target_n) < minimum_n:
+        raise ValueError(
+            f"N={target_n} cannot satisfy the declared allocation at Din={din}: the "
+            f"C1.4 floors sum to {sum(floors)} and C1.2's ceiling needs N >= "
+            f"{minimum_n}. A smaller substrate is a protocol decision, not a "
+            f"selection one"
+        )
+    # 1) every group gets its C1.4 floor first: a layer the criteria name is never
+    #    starved by a layer that merely came earlier in the frontier
+    allocation = []
+    for index, group in enumerate(group_specs):
+        take = min(floors[index], capacities[index])
+        if take < floors[index]:
+            raise ValueError(
+                f"{'+'.join(group)} needs {floors[index]} nodes for C1.4 and the graph "
+                f"offers {capacities[index]}: no allocation rule can fix a graph that "
+                f"does not contain the population"
+            )
+        allocation.append(take)
+    # 2) the rest is shared equally among the groups that still have room, in rounds
+    #    -- equal share, capped by availability, deterministic and tuning-free
+    remaining = int(target_n) - sum(allocation)
+    while remaining > 0:
+        open_groups = [
+            index for index in range(len(group_specs)) if allocation[index] < capacities[index]
+        ]
+        if not open_groups:
+            break
+        per = max(1, remaining // len(open_groups))
+        for index in open_groups:
+            if remaining <= 0:
+                break
+            take = min(capacities[index] - allocation[index], per, remaining)
+            allocation[index] += take
+            remaining -= take
+
+    selected = order[: allocation[0]]
     in_selection = np.zeros(n_full, dtype=bool)
     in_selection[selected] = True
 
@@ -309,16 +397,21 @@ def expand_from_orns(
     self_loops = int(np.asarray(matrix.diagonal() != 0).sum())
 
     layer_counts: dict[str, int] = {}
-    for cell_class in ("ORN",):
-        layer_counts[cell_class] = int(in_selection.sum())
-    for group in groups:
+    layer_counts["ORN"] = int(in_selection.sum())
+    for group_index, group in enumerate(groups, start=1):
         mask = np.isin(classes, np.array(group, dtype=object))
         candidates = np.flatnonzero(mask & ~in_selection)
         if candidates.size == 0:
             continue
-        room = target_n - int(in_selection.sum())
+        room = min(
+            allocation[group_index] - sum(
+                int((in_selection & (classes == c)).sum())
+                for c in group
+            ),
+            target_n - int(in_selection.sum()),
+        )
         if room <= 0:
-            break
+            continue
         ordered = sorted(
             candidates.tolist(), key=lambda row: (-float(score[row]), int(root_ids[row]))
         )
@@ -343,7 +436,21 @@ def expand_from_orns(
     detail = {
         "layer_groups": [list(group) for group in groups],
         "orn_budget": int(budget),
-        "orn_floor_from_c1_4": int(floor),
+        "allocation_rule": LAYER_ALLOCATION_RULE,
+        "allocation": {
+            "+".join(group): int(count)
+            for group, count in zip(group_specs, allocation)
+        },
+        "capacities": {
+            "+".join(group): int(cap)
+            for group, cap in zip(group_specs, capacities)
+        },
+        "orn_floor_from_c1_4": int(ORN_FLOOR(din)),
+        "group_floors_from_c1_4": {
+            "+".join(group): int(floor)
+            for group, floor in zip(group_specs, floors)
+        },
+        "minimum_admissible_n": int(minimum_n),
         "orn_density_limit": float(ORN_DENSITY_LIMIT),
         "din": int(din),
         "layer_counts": {k: int(v) for k, v in sorted(layer_counts.items())},

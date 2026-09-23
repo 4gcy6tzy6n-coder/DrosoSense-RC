@@ -480,18 +480,37 @@ def measure_c2(
     except InputMappingError as exc:
         v1_mapping_refusal = str(exc)
 
+    # C2.1 is C1.4 applied to THIS substrate: measured from the classes of the nodes
+    # actually selected, not from the allocation the expansion intended.
+    selected_classes = annotation.class_of(node_ids[expansion.node_indices])
+    composition: dict[str, int] = {}
+    for value in selected_classes.tolist():
+        composition[str(value)] = composition.get(str(value), 0) + 1
+    composition["MBON+DAN+higher_order"] = sum(
+        composition.get(name, 0) for name in ("MBON", "DAN", "higher_order")
+    )
+    c2_1_checks = {
+        name: {
+            "observed": int(composition.get(name, 0)),
+            "threshold": int(threshold_fn(din)),
+            "pass": bool(composition.get(name, 0) >= threshold_fn(din)),
+        }
+        for name, threshold_fn in C1_4_THRESHOLDS.items()
+    }
+    c2_1_pass = all(check["pass"] for check in c2_1_checks.values())
+
     rows = [
         criterion(
             "C2.1",
-            "input population present and typed in the selected subgraph",
-            dict(expansion.detail["layer_counts"]),
-            "see C1.4",
-            None,
+            "input population present and typed in the selected subgraph (C1.4)",
+            {"composition": composition, "checks": c2_1_checks},
+            {name: threshold_fn(din) for name, threshold_fn in C1_4_THRESHOLDS.items()},
+            c2_1_pass,
             f"{adjacency_path} + {node_meta}",
             note=(
-                "the expansion draws its seeds from the declared ORN population and "
-                "never adds an untyped node; C1.4's thresholds are checked in the C1 "
-                "report against the same substrate populations"
+                "measured from the classes of the nodes actually selected; the "
+                "expansion never adds an untyped node, and it assigns every declared "
+                "layer group at least its C1.4 floor before sharing the remainder"
             ),
         ),
         criterion(
@@ -567,6 +586,7 @@ def measure_c2(
             "mapping_seed": int(seed),
         },
         "expansion": {
+            "composition": composition,
             "selection": expansion.describe(),
             "quality": quality,
             "retention_after_the_declared_normalization": retention_after_build,

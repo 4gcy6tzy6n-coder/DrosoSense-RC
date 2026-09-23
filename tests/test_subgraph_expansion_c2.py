@@ -39,6 +39,7 @@ from drososense.connectome_selection import (  # noqa: E402
     METHOD_ORN_EXPANSION,
     ORN_DENSITY_LIMIT,
     expand_from_orns,
+    layer_group_floors,
     orn_budget,
     subgraph_quality,
 )
@@ -49,14 +50,20 @@ DELIVERED_ORN = 2267
 
 
 def _classes(n: int) -> dict[int, str]:
-    """A typed graph layout: ORN, PN, KC, higher_order, MBON, DAN, then other."""
+    """A typed graph layout that can satisfy C1.4 at Din <= 5.
+
+    ORN 30, PN 60, KC 40, higher_order 20, MBON 20, DAN 15, rest other: the
+    KENYON-cell floor (max(50, 4*Din) = 50 at Din=5) needs 50 of KC + higher_order,
+    which is why the fixture carries 60. A fixture that cannot satisfy the criteria
+    could only test the refusals.
+    """
     layout = (
-        ("ORN", 20),
-        ("PN", 40),
-        ("KC", 20),
-        ("higher_order", 10),
-        ("MBON", 10),
-        ("DAN", 10),
+        ("ORN", 30),
+        ("PN", 60),
+        ("KC", 40),
+        ("higher_order", 20),
+        ("MBON", 20),
+        ("DAN", 15),
         ("other", 40),
     )
     out: dict[int, str] = {}
@@ -93,7 +100,7 @@ def _two_clusters(n: int = 200, *, seed: int = 1) -> sp.csr_matrix:
 
 @pytest.fixture()
 def typed_graph():
-    n = 150
+    n = 240
     return _graph(n, density=0.06), np.arange(n), annotation_from_mapping(_classes(n))
 
 
@@ -102,29 +109,31 @@ def typed_graph():
 # ---------------------------------------------------------------------------
 @pytest.mark.unit
 def test_c2_1_the_seeds_are_the_declared_orn_population(typed_graph):
-    """Every ORN the budget allows is selected, and nothing untyped is."""
+    """The ORN allocation is filled from the declared population, and nothing untyped."""
     matrix, roots, annotation = typed_graph
-    selection = expand_from_orns(matrix, roots, annotation, 80, din=3)
-    classes = annotation.class_of(roots)
-    selected_classes = classes[selection.node_indices]
-    n_orn_expected = orn_budget(80, 3, 20)
-    assert int((selected_classes == "ORN").sum()) == n_orn_expected
+    selection = expand_from_orns(matrix, roots, annotation, 120, din=5)
+    selected_classes = annotation.class_of(roots)[selection.node_indices]
+    assert int((selected_classes == "ORN").sum()) == selection.detail["allocation"]["ORN"]
+    assert int((selected_classes == "ORN").sum()) >= 20
     assert "other" not in set(selected_classes.tolist())
     assert set(selected_classes.tolist()) <= {"ORN", "PN", "KC", "higher_order", "MBON", "DAN"}
 
 
 @pytest.mark.unit
-def test_c2_1_the_expansion_follows_the_declared_layer_order(typed_graph):
-    """PN first, then KC/LH, then MBON/DAN — no later layer appears if room ran out."""
+def test_c2_1_every_declared_layer_gets_at_least_its_c1_4_floor(typed_graph):
+    """The first implementation starved KC and MBON/DAN completely; this pins the fix.
+
+    Measured on the delivered graph before the allocation existed: ``{ORN: 500,
+    PN: 500}`` -- zero Kenyon cells and zero MBON/DAN, which FAILS C2.1.
+    """
     matrix, roots, annotation = typed_graph
-    # 20 ORN + 40 PN = 60, so a 70-node substrate holds 10 of the KC/LH group and
-    # none of the MBON/DAN group
-    selection = expand_from_orns(matrix, roots, annotation, 70, din=3)
+    selection = expand_from_orns(matrix, roots, annotation, 120, din=5)
     counts = selection.detail["layer_counts"]
-    assert counts["ORN"] == 20
-    assert counts["PN"] == 40
-    assert counts["KC"] + counts["higher_order"] == 10
-    assert counts.get("MBON", 0) == 0 and counts.get("DAN", 0) == 0
+    floors = selection.detail["group_floors_from_c1_4"]
+    assert counts["ORN"] >= floors["ORN"] >= 20
+    assert counts["PN"] >= floors["PN"] >= 20
+    assert counts["KC"] + counts["higher_order"] >= floors["KC+higher_order"] == 50
+    assert counts.get("MBON", 0) + counts.get("DAN", 0) >= floors["MBON+DAN"] == 20
     assert selection.detail["consumes_randomness"] is False
     assert selection.method == METHOD_ORN_EXPANSION
     assert [list(g) for g in LAYER_EXPANSION_GROUPS] == [
@@ -152,9 +161,15 @@ def test_c2_1_a_budget_below_c1_4_is_refused_not_under_filled():
     matrix = _graph(n)
     roots = np.arange(n)
     annotation = annotation_from_mapping({int(i): ("ORN" if i < 2 else "PN") for i in range(n)})
-    with pytest.raises(ValueError, match="C1.4 requires at least"):
-        # budget = floor(0.10 * 1 * 40) = 4, and C1.4 wants max(20, 2*1) = 20
+    with pytest.raises(ValueError, match="cannot satisfy the declared allocation"):
+        # C1.4's floors sum to 110 at Din=1 and C1.2's ceiling needs N >= 200
         expand_from_orns(matrix, roots, annotation, 40, din=1)
+    # and a graph that simply does not contain a population is refused by name
+    thin = annotation_from_mapping(
+        {**{int(i): "ORN" for i in range(30)}, **{int(i): "PN" for i in range(30, 240)}}
+    )
+    with pytest.raises(ValueError, match="needs 50 nodes for C1.4"):
+        expand_from_orns(_graph(240), np.arange(240), thin, 200, din=5)
 
 
 @pytest.mark.unit
@@ -170,10 +185,10 @@ def test_c2_1_a_graph_without_orns_is_refused():
 def test_c2_1_a_shortfall_is_reported_never_padded(typed_graph):
     """Typed populations exhausted → shortfall with its reason, not 'other' filler."""
     matrix, roots, annotation = typed_graph
-    # typed nodes are 110 (20+40+20+10+10+10) of 150
-    selection = expand_from_orns(matrix, roots, annotation, 140, din=3)
-    assert selection.node_indices.size == 110
-    assert selection.detail["shortfall"] == 30
+    # typed nodes are 185 (30+60+40+20+20+15) of 240
+    selection = expand_from_orns(matrix, roots, annotation, 200, din=5)
+    assert selection.node_indices.size == 185
+    assert selection.detail["shortfall"] == 15
     assert "other" in selection.detail["shortfall_reason"]
     assert selection.detail["covered_all_typed_layers"] is False
     assert "other" not in set(annotation.class_of(roots)[selection.node_indices].tolist())
@@ -185,19 +200,20 @@ def test_c2_1_a_shortfall_is_reported_never_padded(typed_graph):
 @pytest.mark.unit
 def test_c2_6_the_selection_is_deterministic_and_declared(typed_graph):
     matrix, roots, annotation = typed_graph
-    first = expand_from_orns(matrix, roots, annotation, 90, din=4)
-    second = expand_from_orns(matrix, roots, annotation, 90, din=4)
+    first = expand_from_orns(matrix, roots, annotation, 140, din=4)
+    second = expand_from_orns(matrix, roots, annotation, 140, din=4)
     assert np.array_equal(first.node_indices, second.node_indices)
     assert first.sha256 == second.sha256
 
     described = first.describe()
     assert described["method"] == METHOD_ORN_EXPANSION
-    assert described["target_n"] == 90
+    assert described["target_n"] == 140
     assert described["n_selected"] == first.node_indices.size
     assert described["sha256_sorted_root_ids"] == first.sha256
     assert described["node_index_sha256"]
     detail = described["detail"]
-    assert detail["orn_budget"] == orn_budget(90, 4, 20)
+    assert detail["orn_budget"] == orn_budget(140, 4, 30)
+    assert detail["allocation_rule"].startswith("max(equal share of N")
     assert detail["frontier_order"].startswith("cumulative synapse mass")
     assert detail["consumes_randomness"] is False
 
@@ -228,27 +244,33 @@ def test_c2_6_the_frontier_prefers_the_stronger_connection(typed_graph):
     np.fill_diagonal(dense, 0.0)
     weighted = sp.csr_matrix(dense)
 
-    selection = expand_from_orns(weighted, roots, annotation, 70, din=3)
+    selection = expand_from_orns(weighted, roots, annotation, 120, din=5)
     counts = selection.detail["layer_counts"]
-    assert counts["ORN"] == 20
-    assert counts["PN"] == 40
-    assert counts["KC"] + counts["higher_order"] == 10
+    assert counts["KC"] + counts["higher_order"] >= 50
     assert 60 in selection.node_indices.tolist(), "the connected KC must win the frontier"
 
 
 @pytest.mark.unit
-def test_c2_1_the_smallest_admissible_substrate_is_200_over_din(typed_graph):
-    """C1.2 and C1.4 together force ``N >= 200/Din``.
+def test_c2_1_the_smallest_admissible_substrate_is_derived(typed_graph):
+    """C1.2 and C1.4 together fix a minimum N, and the expansion refuses below it.
 
-    The budget is ``floor(0.10*Din*N)`` and C1.4's floor is ``max(20, 2*Din)``; for
-    ``Din <= 10`` the binding term is 20, so the two can only both hold when
-    ``N >= 200/Din``. At the primary N=1000 that is satisfied with room to spare --
-    but it is a derivation, not a hope, and a substrate below it is refused.
+    Two derivations, not a hope: every layer group needs its C1.4 floor
+    (``sum(floors)`` = 110 at Din=5), and C1.2's ceiling must be able to cover the
+    ORN floor (``N >= max(20,2*Din)/(0.10*Din)`` = 200/Din). The admissible N is the
+    larger of the two.
     """
+    from drososense.connectome_selection import minimum_admissible_n
+
     for din in (3, 5, 7):
-        minimum = int(np.ceil(200 / din))
-        assert orn_budget(minimum, din, 10_000) >= max(20, 2 * din)
-        assert orn_budget(minimum - 1, din, 10_000) < max(20, 2 * din) or minimum - 1 < 20
+        floors = sum(layer_group_floors(din))
+        from_ceiling = int(np.ceil(max(20, 2 * din) / (0.10 * din)))
+        assert minimum_admissible_n(din) == max(floors, from_ceiling)
+        assert minimum_admissible_n(din) >= 110
+
+    matrix, roots, annotation = typed_graph
+    below = minimum_admissible_n(5) - 1
+    with pytest.raises(ValueError, match="cannot satisfy the declared allocation"):
+        expand_from_orns(matrix, roots, annotation, below, din=5)
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +279,7 @@ def test_c2_1_the_smallest_admissible_substrate_is_200_over_din(typed_graph):
 @pytest.mark.unit
 def test_c2_2_retention_denominator_is_the_induced_eligible_set(typed_graph):
     matrix, roots, annotation = typed_graph
-    selection = expand_from_orns(matrix, roots, annotation, 80, din=3)
+    selection = expand_from_orns(matrix, roots, annotation, 120, din=3)
     quality = subgraph_quality(matrix, selection.node_indices)
     # the denominator is the induced eligible set, NOT the whole graph's edge count
     assert quality["induced_eligible_edges"] < quality["n_full_edges"]
@@ -265,7 +287,7 @@ def test_c2_2_retention_denominator_is_the_induced_eligible_set(typed_graph):
     # the construction keeps what biology provides
     assert quality["eligible_edge_retention"] == pytest.approx(1.0)
     assert quality["eligible_edges_kept"] == quality["induced_eligible_edges"]
-    assert quality["n_nodes"] == 80
+    assert quality["n_nodes"] == 120
 
 
 @pytest.mark.unit
