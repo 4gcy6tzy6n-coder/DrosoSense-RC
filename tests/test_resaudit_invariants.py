@@ -820,10 +820,22 @@ _FORBIDDEN_IN_SOURCE = (
 #: lists it. The guard's behaviour is checked separately by
 #: ``test_construction_record_rejects_task_metric_keys``.
 def _source_without_the_guard_list(text: str) -> str:
-    block = re.search(
-        r"FORBIDDEN_KEY_PARTS[^\n]*=\s*\((?:[^)]*\)){1}", text, re.S
+    """Remove the guard DECLARATION and any comment explaining it.
+
+    ``family.py`` necessarily contains the forbidden names -- they ARE its rules -- so the
+    scan removes the guard block plus contiguous comment lines that discuss it, and then
+    looks for a genuine reference elsewhere.
+    """
+    out = text
+    for name in ("FORBIDDEN_KEY_PARTS", "FORBIDDEN_KEY_WORDS"):
+        block = re.search(rf"{name}[^\n]*=\s*\((?:[^)]*\))+", out, re.S)
+        if block:
+            out = out.replace(block.group(0), "")
+    # drop comment lines that name the rules, since they are documentation of the guard
+    out = "\n".join(
+        line for line in out.split("\n") if not line.lstrip().startswith("#")
     )
-    return text.replace(block.group(0), "") if block else text
+    return out
 
 
 def test_no_food_dataset_or_task_metric_is_referenced_in_the_package():
