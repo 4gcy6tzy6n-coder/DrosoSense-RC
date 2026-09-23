@@ -331,8 +331,26 @@ establish a causal link. The next round (M5 - Structural Dynamics Audit) separat
 This is the construct phase gate closing on a **measured finding**, not on a relaxed
 threshold or a fixed defect: per the project rule, "close" is not a pass, and no
 formal experiment will run on a construction that demonstrably cannot produce
-recurrent dynamics. The next decision is the construction, not the gate: see the C3
-record for the route.
+recurrent dynamics. The next decision is the construction, not the gate.
+
+**M5 - Structural Dynamics Audit** ([`docs/v2_construct_m5_structural_dynamics.md`](v2_construct_m5_structural_dynamics.md),
+[`results/audit/m5_structural_dynamics/M5_structural_dynamics.json`](../results/audit/m5_structural_dynamics/M5_structural_dynamics.json))
+separates the two structural causes the C3 failure leaves open:
+
+* **"graph lacks recurrence"**: REJECTED -- the C2 substrate is one giant SCC with every
+  node in a non-trivial cycle, every ORN-reachable node in the recurrent core. WCC = 100
+  %, SCC = 100 %, cycle_edges = 100 %, orn_reach_core = 100 %.
+* **"graph has cycles but row-L1 normalization suppresses them"**: REJECTED -- gamma-only
+  rescaling (no row normalization) gives essentially the same Krylov D_eff as row-L1
+  (5.68 vs 5.35 at K=16). The normalization is not the bottleneck.
+
+The data surfaces a **third cause**: the linear Krylov `span(A^k · B)` is bounded by
+`≈Din` on this substrate and this input geometry, for any preprocessing that keeps
+tanh in its linear regime. The cycles exist; the algebraic collapse is because the
+same weight pattern that fills the SCC also makes `span(A)` concentrate on the
+directions `span(B)` already occupies. The next decision is the **input geometry /
+substrate eigenstructure / drop-the-reservoir-claim** -- not a code change to the
+construct check.
 
 **C4 is implemented and measured, and the gate PASSES under AMENDMENT 1** —
 [`docs/v2_preregistration_amendment_1.md`](v2_preregistration_amendment_1.md),
