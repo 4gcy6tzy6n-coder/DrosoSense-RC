@@ -1,0 +1,65 @@
+{
+  "adopted_records_are_not_yet_admissible_evidence": "This migration removes the identity collision, which was the FIRST of two blockers. The second is that a pre-v1.5 record remains in the legacy ledger, so until the E2/E1 records are migrated too, a v1.5 re-run of an already scored unit is still conservatively refused. Migration does not admit the records to any gate by itself.",
+  "artifact": "E9 evidence-identity migration (v1.4 schema 1 -> v1.5 schema 2)",
+  "closure": {
+    "by_disposition": {
+      "adopted": 350,
+      "duplicate_test_touch": 70,
+      "invalid": 0,
+      "missing": 0,
+      "superseded": 0
+    },
+    "closed": true,
+    "identity": "adopted=350 + superseded=0 + duplicate_test_touch=70 + invalid=0 + missing=0 = 420",
+    "records_total": 420
+  },
+  "correction_to_the_first_report": "The first repair-audit report said '280 adoptable, 70 inadmissible', which leaves 70 of the 420 records unexplained. 280 counts UNITS holding a single record, not records: the 70 duplicated units each contribute one adoptable and one rejected record, so the record-level partition is 350 adopted / 70 rejected / 420 total. No unit and no record is unaccounted for.",
+  "derivation_sources": {
+    "condition": "batch command line: ops/e1/run_e9_size_d2.sh passes no --train-fraction, so the condition is the default 'full'",
+    "dataset": "record",
+    "fold_fingerprint": "record",
+    "input_mapping": "implementation constant: INPUT_MAPPING_DENSE_RANDOM is the only input mapping this code has; these records predate the field",
+    "model": "record",
+    "normalization": "batch command line: ops/e1/run_e9_size_d2.sh passes --normalization n1_pre_l1 for every size arm",
+    "reservoir_size": "record: model_description.topology.n_nodes",
+    "rewire_seed": "runner rule: the reservoir runner pins the rewiring seed to the run seed, and the batch ran --seeds 0",
+    "task": "record",
+    "topology_variant": "record: model_description.topology.kind",
+    "window_length": "record"
+  },
+  "designation_rule": "kept = the record with the earliest timestamp_utc; ties broken by the lexicographically smaller config_hash. Chosen without reference to any metric: selecting the better-scoring touch would be choosing the design after knowing which way the result leans.",
+  "dispositions_are_a_partition": "one state per record; the states sum to the record count",
+  "is_a_migration_not_an_experiment": {
+    "metrics_recomputed": false,
+    "models_refit": false,
+    "note": "every adopted record carries the sha256 of the file it came from, so a reader can prove the numbers were not re-derived",
+    "records_carry_origin_sha256": true,
+    "test_splits_touched": false
+  },
+  "not_a_disposition": {
+    "fingerprint_collision_only": "a unit-level diagnosis, not a record disposition; carried as unit_identity_collided=true on every E9 record"
+  },
+  "structure": {
+    "adopted_by_reservoir_size": {
+      "1000": 70,
+      "2000": 70,
+      "250": 70,
+      "4000": 70,
+      "500": 70
+    },
+    "duplicated_unit": "N=250 was scored twice, in e9_size_d2 (config 2b681f4040fc, 06:07:31Z) and again in e9_size_d2_n250 (config e2dbcef1dad6, 06:52:35Z)",
+    "evidence_units": 350,
+    "legacy_fingerprints": 70,
+    "records_per_fingerprint": 6,
+    "substrates_per_fingerprint": [
+      1
+    ]
+  },
+  "what_this_migration_does_not_do": [
+    "it does not re-score anything",
+    "it does not choose between the two N=250 touches on the basis of their metrics",
+    "it does not make the 70 rejected records admissible under any later rule",
+    "it does not touch results/raw, configs/, or any frozen protocol file",
+    "it does not change any Gate, narrative rule, metric or decision rule"
+  ]
+}
