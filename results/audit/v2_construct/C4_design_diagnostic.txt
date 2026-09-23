@@ -1,0 +1,22 @@
+RAW substrate:
+   raw synapse-count weights: edges=80,443 distinct=363 mean class=221.6 frac with an exact partner=0.9987
+   raw exact-weight rewire: accepted=574,532 overlap=0.2000 seconds=14.4 stopped=target_overlap accepted_near=0
+NORMALIZED objects (what the reservoir sees):
+   R0 normalized: edges=80,443 distinct=15,277 mean class=5.3 frac with an exact partner=0.9019
+   R2 normalized: edges=80,443 distinct=15,262 mean class=5.3 frac with an exact partner=0.9020
+   normalized multiset identical: False
+   raw overlap=0.2000 normalized overlap=0.2000
+C4 measured on the NORMALIZED pair (design C):
+   degree_exact                       True  PASS
+   global_weights_exact              False  FAIL
+   per_source_weights_exact          False  FAIL
+   input_population_same              None  PASS
+   median_in_strength_err         0.495114  FAIL
+   edge_overlap                    0.19998  PASS
+   build_time                      14.3678  PASS
+   mixing_declared                    True  PASS
+design C, conservation on the RAW object:
+   degrees exact: True
+   raw weight multiset exact: True | per-source exact: True
+   normalized weight values: median relative shift=0.1318 p90=0.1318 (column L1 sums differ because the columns are wired differently)
+   in-strength median relative error on the normalized pair: 0.495114

@@ -34,6 +34,13 @@ MBON 82 · DAN 160** — 1,000 nodes, 80,443 induced eligible edges, and **14,30
 ORN→PN edges reaching 232 of the 243 selected PNs (95.5 %)**. C1.2 on this substrate:
 ORN fraction 0.243, density `243/(1000·5) = 0.0486 ≤ 0.10`.
 
+**Required wording for this composition: a *constraint-satisfying engineering
+composition*.** It is not a "biologically representative composition" and must never be
+described as one: §4.3 above shows the proportions follow from C1.4's floors plus the
+declared allocation, and the real connectome's ORN share (1.83 %) would give ~18 ORNs at
+N=1000, just under C1.4's floor of 20. The composition is an artefact of the criteria,
+which is exactly why it has to be labelled.
+
 ## 2. The same graph and the same N, both selections
 
 The v1 selection is measured on the identical graph at the identical N, so the
@@ -67,13 +74,21 @@ number this denominator replaced). The measurements that carry the biology-keepi
 information, both reported on every line, are the **induced eligible edge count** and
 the **Enrichment** (2.29× → 78.71×).
 
-**Enrichment's form is declared, not chosen.** The signed text defines it as
-`Retention_bio / Retention_random`, but under the corrected denominator that ratio is
-≈1 for any node set and therefore carries no information. The report therefore defines
-Enrichment on the **connectome-share** form — `induced_share_of_connectome(bio) /
-induced_share_of_connectome(random of the same size)` — states that in the JSON
-(`enrichment_form`), and publishes both shares so a reader can re-derive either
-reading. Picking the flattering form silently would have been the alternative.
+**Enrichment's form is a MEASUREMENT-DEFINITION AMENDMENT, not the pre-registered
+formula.** The signed text defines `Enrichment = Retention_bio / Retention_random`, but
+under the corrected denominator that ratio is ≈1 for any node set (a random set also
+keeps every edge it induces), so it degenerates and carries no information. The report
+therefore defines Enrichment on the **connectome-share** form —
+`induced_share_of_connectome(bio) / induced_share_of_connectome(random of the same
+size)` — states it in the JSON (`enrichment_form`), and publishes both shares so a
+reader can re-derive either reading.
+
+**This must be cited as a measurement-definition clarification/amendment.** It is not
+the pre-registered enrichment, and no write-up may call it that. The justification is
+the degeneration of the original formula under the corrected denominator, which is
+stated above and reproducible from the JSON; the alternative — silently reporting the
+degenerate ratio, or quietly picking the form that reads better — is what the labelling
+exists to prevent.
 
 ## 4. Two defects found by measuring, not by reading
 
@@ -106,6 +121,28 @@ The allocation is now declared and contains no tuning constant:
 C1.2 and C1.4 together fix a **minimum admissible N** that is derived rather than
 hoped for: `max(Σ floors, 200/Din)` = **110 at Din=5**, and the expansion refuses below
 it. At the primary N=1000 it is satisfied with room to spare.
+
+## 4b. C2.2 is an implementation guardrail, not biological evidence
+
+The retention number is a check that the construction does not drop wiring biology
+provides. It carries **no** evidence that the substrate keeps its biology, because it is
+1.0 for any construction that keeps its induced block — including a random node set.
+
+The quantities that carry that evidence, and that a write-up should lead with, are:
+
+```
+|E_induced|          (2,343 -> 80,443)
+largest weak component / N   (0.575 -> 1.000)
+isolated fraction            (0.415 -> 0.000)
+mean unweighted out-degree   (2.343 -> 80.443)
+Enrichment (connectome-share form)  (2.29x -> 78.71x)
+```
+
+**C2.2 must not be cited as biological evidence.** It is reported because a criterion
+exists and because it is a real guard against sparsification; the four quantities above
+are what show the v2 substrate differs from v1's.
+
+---
 
 ## 5. What is deliberately NOT claimed
 

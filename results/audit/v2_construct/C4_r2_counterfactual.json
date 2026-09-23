@@ -1,0 +1,407 @@
+{
+  "C4": {
+    "R0": {
+      "n_edges": 80443,
+      "n_nodes": 1000,
+      "normalization": "n1_pre_l1",
+      "spectral_radius": 0.8999999165534973
+    },
+    "R2": {
+      "n_edges": 80443,
+      "n_nodes": 1000,
+      "spectral_radius": 0.8594951635224296,
+      "spectral_radius_ratio_to_R0": 0.9549947146815541
+    },
+    "deterministic_on_repeat": false,
+    "quality": {
+      "C4.1_degree_sequences": {
+        "observed": {
+          "in_degree_hash_R0": "e0d1c0ee0fe4aa5a606277f0598f4a8c65a5cb38397e26a7c93f55489264879a",
+          "in_degree_hash_R2": "e0d1c0ee0fe4aa5a606277f0598f4a8c65a5cb38397e26a7c93f55489264879a",
+          "max_abs_in_degree_delta": 0,
+          "max_abs_out_degree_delta": 0,
+          "out_degree_hash_R0": "0ec9427a7fe6a7b7448a661d9cf12623a55f4e1d86858c06ed9e10155e3df1cf",
+          "out_degree_hash_R2": "0ec9427a7fe6a7b7448a661d9cf12623a55f4e1d86858c06ed9e10155e3df1cf"
+        },
+        "pass": true,
+        "threshold": "exact: max|delta| == 0 and equal hashes, in and out, unweighted"
+      },
+      "C4.2_global_weight_multiset": {
+        "observed": {
+          "multiset_hash_R0": "d5100019bd2df376a6de1b213d6403eaa9687dd8369d006c3789349d8f92772e",
+          "multiset_hash_R2": "d5100019bd2df376a6de1b213d6403eaa9687dd8369d006c3789349d8f92772e",
+          "n_edges_R0": 80443,
+          "n_edges_R2": 80443
+        },
+        "pass": true,
+        "threshold": "exact: equal multiset hashes"
+      },
+      "C4.3_per_source_out_weight_multiset": {
+        "observed": {
+          "per_source_hash_R0": "c4b6a45906da91b7cf03a42fd56a5c6ec653449cdcfe2f1337ca7ca0d88b0b91",
+          "per_source_hash_R2": "c4b6a45906da91b7cf03a42fd56a5c6ec653449cdcfe2f1337ca7ca0d88b0b91"
+        },
+        "pass": true,
+        "threshold": "exact: equal per-source multiset hashes"
+      },
+      "C4.4_in_strength_median_relative_error": {
+        "note": "PRESERVED in distribution, not per node: a swap exchanges weights between two targets, so a target's in-strength moves while its in-degree does not. p90 and max are reported as DIAGNOSTICS and are not gates -- the signed criterion is the median. The chain draws the second edge from the same weight class, which makes the exchange move nothing at all whenever the class has a partner.",
+        "observed": {
+          "max": 6.849683077957593e-07,
+          "median": 7.721503808909839e-08,
+          "p90": 2.1530508447393385e-07
+        },
+        "pass": true,
+        "threshold": "median <= 0.05"
+      },
+      "C4.5_input_population_identical": {
+        "note": "the counterfactual changes the WIRING only: the node set is identical, so the ORN population and every class label are identical by construction",
+        "observed": true,
+        "pass": true,
+        "population_mapping": {
+          "support_rows_hash_R0": "25dcb41750d390d9cfac0859b1e9ecc42f37a87d216df8dde1cdd8de65f5ef56",
+          "w_in_sha256_R0": "314088d733e31a9af67b95b1a6720815159117c24e15d724668d894052130f24",
+          "w_in_sha256_R2": "314088d733e31a9af67b95b1a6720815159117c24e15d724668d894052130f24"
+        },
+        "threshold": "exact equality"
+      },
+      "C4.6_mixing_overlap": {
+        "note": "stopped_because='time_budget', 4345068 swap(s) accepted",
+        "observed": 0.8584587844809368,
+        "pass": false,
+        "threshold": "<= 0.2"
+      },
+      "C4.7_build_seconds": {
+        "observed": 600.0376722048968,
+        "pass": false,
+        "threshold": "<= 600.0"
+      },
+      "C4.8_report": {
+        "acceptance_rate": 0.29550242821664663,
+        "allow_near_weights": false,
+        "fraction_of_accepted_swaps_that_moved_a_weight": 0.0,
+        "mixing_curve": [
+          {
+            "accepted_swaps": 0,
+            "edge_overlap": 1.0
+          },
+          {
+            "accepted_swaps": 40222,
+            "edge_overlap": 0.8607585495319667
+          },
+          {
+            "accepted_swaps": 80443,
+            "edge_overlap": 0.8598883681613068
+          },
+          {
+            "accepted_swaps": 160886,
+            "edge_overlap": 0.8597143318871747
+          },
+          {
+            "accepted_swaps": 402215,
+            "edge_overlap": 0.8605099262832068
+          },
+          {
+            "accepted_swaps": 804430,
+            "edge_overlap": 0.8592295165520928
+          },
+          {
+            "accepted_swaps": 4345068,
+            "edge_overlap": 0.8584587844809368
+          }
+        ],
+        "mixing_overlap_limit": 0.2,
+        "mixing_reached": false,
+        "n_edges": 80443,
+        "n_self_loops": 0,
+        "original_edge_retention": 0.8584587844809368,
+        "overlap_final": 0.8584587844809368,
+        "overlap_initial": 1.0,
+        "seconds": 600.0376722048968,
+        "stopped_because": "time_budget",
+        "swaps_accepted": 4345068,
+        "swaps_accepted_exact_weight": 4345068,
+        "swaps_accepted_near_weight": 0,
+        "swaps_attempted": 14704001,
+        "swaps_rejected_duplicate": 7732108,
+        "swaps_rejected_no_legal_partner": 8707756,
+        "swaps_rejected_no_weight_partner": 1650997,
+        "swaps_rejected_self_loop": 54684,
+        "swaps_rejected_shared_endpoint": 121420794,
+        "swaps_weight_matched_exact": 13052824,
+        "swaps_weight_matched_nearest": 0
+      },
+      "in_strength": {
+        "R0_total": 789.357830317691,
+        "R2_total": 789.3578647761569,
+        "median_relative_error": 7.721503808909839e-08,
+        "p90_relative_error": 2.1530508447393385e-07
+      },
+      "spectral_radius": {
+        "R0": 0.8999999165534973,
+        "R2": 0.8594951635224296,
+        "note": "NOT matched: preserving the global weight multiset (C4.2) and rescaling to a target radius are mutually exclusive. v1's rescale is exactly what made R2 a uniform-weight graph. Reported so the size of the difference is visible rather than hidden.",
+        "ratio": 0.9549947146815541
+      },
+      "verdict": {
+        "C4": false,
+        "checks": {
+          "build_time": false,
+          "degree_exact": true,
+          "edge_overlap": false,
+          "global_weights_exact": true,
+          "input_population_same": true,
+          "median_in_strength_err": true,
+          "mixing_declared": false,
+          "per_source_weights_exact": true
+        },
+        "lines": {
+          "build_time": 600.0376722048968,
+          "degree_exact": true,
+          "edge_overlap": 0.8584587844809368,
+          "global_weights_exact": true,
+          "input_population_same": true,
+          "median_in_strength_err": 7.721503808909839e-08,
+          "mixing_declared": false,
+          "per_source_weights_exact": true
+        },
+        "thresholds": {
+          "build_time": 600.0,
+          "edge_overlap": 0.2,
+          "median_in_strength_err": 0.05
+        }
+      }
+    },
+    "report_schema": "c4_r2_counterfactual/1",
+    "settings": {
+      "din": 5,
+      "mapping_seed": 0,
+      "normalization": "n1_pre_l1",
+      "r2_seed": 0,
+      "target_n": 1000
+    },
+    "substrate": {
+      "composition": {
+        "DAN": 160,
+        "KC": 106,
+        "MBON": 82,
+        "ORN": 243,
+        "PN": 243,
+        "higher_order": 166
+      },
+      "n_edges_R0": 80443,
+      "selection": {
+        "detail": {
+          "allocation": {
+            "KC+higher_order": 272,
+            "MBON+DAN": 242,
+            "ORN": 243,
+            "PN": 243
+          },
+          "allocation_rule": "max(equal share of N, the group's C1.4 floor) per declared layer group, capped by availability and by C1.2 for the ORN group, unspent shares redistributed in the signed layer order",
+          "capacities": {
+            "KC+higher_order": 6783,
+            "MBON+DAN": 12222,
+            "ORN": 500,
+            "PN": 5355
+          },
+          "class_floors_from_c1_4": {
+            "KC": 50,
+            "ORN": 20,
+            "PN": 20
+          },
+          "consumes_randomness": false,
+          "covered_all_typed_layers": true,
+          "din": 5,
+          "frontier_order": "cumulative synapse mass to the selected set, ties by root id",
+          "group_floors_from_c1_4": {
+            "KC+higher_order": 50,
+            "MBON+DAN": 20,
+            "ORN": 20,
+            "PN": 20
+          },
+          "induced_edges": 80443,
+          "layer_counts": {
+            "DAN": 160,
+            "KC": 106,
+            "MBON": 82,
+            "ORN": 243,
+            "PN": 243,
+            "higher_order": 166
+          },
+          "layer_groups": [
+            [
+              "PN"
+            ],
+            [
+              "KC",
+              "higher_order"
+            ],
+            [
+              "MBON",
+              "DAN"
+            ]
+          ],
+          "minimum_admissible_n": 110,
+          "orn_budget": 500,
+          "orn_density_limit": 0.1,
+          "orn_floor_from_c1_4": 20,
+          "orn_to_pn_edges_in_substrate": 14305,
+          "pn_reached_by_an_orn": 232,
+          "self_loops_in_graph": 0,
+          "shortfall": 0,
+          "shortfall_reason": ""
+        },
+        "full_graph_n": 124185,
+        "identity": false,
+        "method": "orn_seeded_biological_expansion (v2 D3)",
+        "n_selected": 1000,
+        "node_index_sha256": "77ec9bfd90d6ec7216f642e1860c815ca972fd7638f1bb464766b9053faccb1e",
+        "seed": 0,
+        "sha256_sorted_root_ids": "a9b7b3f590ed47b270c69212cc040ff7fc56aec9d0846055dd2b049a4444f748",
+        "target_n": 1000
+      }
+    },
+    "type_pair_matrix": {
+      "R0": {
+        "DAN": {
+          "DAN": 3477,
+          "KC": 1676,
+          "MBON": 677,
+          "ORN": 38,
+          "PN": 979,
+          "higher_order": 2594
+        },
+        "KC": {
+          "DAN": 1497,
+          "KC": 1315,
+          "MBON": 905,
+          "ORN": 4,
+          "PN": 359,
+          "higher_order": 737
+        },
+        "MBON": {
+          "DAN": 709,
+          "KC": 887,
+          "MBON": 774,
+          "PN": 98,
+          "higher_order": 314
+        },
+        "ORN": {
+          "DAN": 10,
+          "KC": 7,
+          "ORN": 2778,
+          "PN": 14305,
+          "higher_order": 82
+        },
+        "PN": {
+          "DAN": 1185,
+          "KC": 361,
+          "MBON": 76,
+          "ORN": 10231,
+          "PN": 21315,
+          "higher_order": 3833
+        },
+        "higher_order": {
+          "DAN": 2476,
+          "KC": 857,
+          "MBON": 240,
+          "ORN": 55,
+          "PN": 2620,
+          "higher_order": 2972
+        }
+      },
+      "R2": {
+        "DAN": {
+          "DAN": 3091,
+          "KC": 1516,
+          "MBON": 613,
+          "ORN": 196,
+          "PN": 1624,
+          "higher_order": 2401
+        },
+        "KC": {
+          "DAN": 1406,
+          "KC": 1154,
+          "MBON": 770,
+          "ORN": 80,
+          "PN": 669,
+          "higher_order": 738
+        },
+        "MBON": {
+          "DAN": 678,
+          "KC": 808,
+          "MBON": 669,
+          "ORN": 45,
+          "PN": 241,
+          "higher_order": 341
+        },
+        "ORN": {
+          "DAN": 355,
+          "KC": 205,
+          "MBON": 93,
+          "ORN": 2550,
+          "PN": 13503,
+          "higher_order": 476
+        },
+        "PN": {
+          "DAN": 1570,
+          "KC": 600,
+          "MBON": 254,
+          "ORN": 10041,
+          "PN": 20550,
+          "higher_order": 3986
+        },
+        "higher_order": {
+          "DAN": 2254,
+          "KC": 820,
+          "MBON": 273,
+          "ORN": 194,
+          "PN": 3089,
+          "higher_order": 2590
+        }
+      }
+    },
+    "type_pair_matrix_note": "DIAGNOSTIC ONLY, and deliberately not a gate. R2 preserves node identities, the directed degree sequence and the per-source weight multisets, but it does NOT preserve ORN->PN / PN->KC type-level connectivity -- that is what a wiring-only counterfactual means. Keeping R2 type-pair preserving would change the frozen primary counterfactual; it belongs to a separately pre-registered secondary analysis if R0 ever beats R2 and the scale of the effect has to be localised.",
+    "v1_r2_control": {
+      "global_weight_multiset_preserved": false,
+      "note": "v1's make_degree_rewired writes np.ones(n_edges) and rescales, so its weight multiset is a constant and C4.2 fails -- the defect D6 repairs"
+    },
+    "verdict": {
+      "C4": false,
+      "checks": {
+        "build_time": false,
+        "degree_exact": true,
+        "edge_overlap": false,
+        "global_weights_exact": true,
+        "input_population_same": true,
+        "median_in_strength_err": true,
+        "mixing_declared": false,
+        "per_source_weights_exact": true
+      },
+      "lines": {
+        "build_time": 600.0376722048968,
+        "degree_exact": true,
+        "edge_overlap": 0.8584587844809368,
+        "global_weights_exact": true,
+        "input_population_same": true,
+        "median_in_strength_err": 7.721503808909839e-08,
+        "mixing_declared": false,
+        "per_source_weights_exact": true
+      },
+      "thresholds": {
+        "build_time": 600.0,
+        "edge_overlap": 0.2,
+        "median_in_strength_err": 0.05
+      }
+    }
+  },
+  "generated_at_utc": "2026-09-23T09:54:13Z",
+  "provenance": {
+    "fits_no_model": true,
+    "git_head": "3526478e9068505bd118ee130c4a7f2789309316",
+    "touches_test_split": false,
+    "validation_only": true
+  },
+  "report_schema": "c4_r2_counterfactual/1"
+}
