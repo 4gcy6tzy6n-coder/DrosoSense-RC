@@ -41,37 +41,20 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from paths import metadata_path, raw_path
+from cell_types import DECLARED_LAYER_TIERS, layer_to_class  # noqa: E402
+from paths import metadata_path, raw_path  # noqa: E402
 
 EDGE_CSV = metadata_path("olfactory_v1_edge_meta.csv")
 OLF_TABLE = raw_path("neuron_class_ranking_df_783-olfactory-10000.feather")
 
-# ── Tier definitions (derived from layer_mean distribution in olfactory ranking table) ──
-# These boundaries are chosen to give biologically plausible cell-type assignments.
-# ORN: layer_mean in [0.5, 1.8]
-# PN:  layer_mean in (1.8, 3.5]
-# higher-order (uPN/mPN/LHN): layer_mean in (3.5, 4.2]
-# DAN: layer_mean in (4.2, 4.8]
-# KC:  layer_mean in (4.8, 5.5]
-# MBON: layer_mean in (5.5, 6.5]
-# other/higher-order: layer_mean > 6.5
-
-_TIER_BOUNDARIES = [
-    (0.5, 1.8, "ORN"),
-    (1.8, 3.5, "PN"),
-    (3.5, 4.2, "higher_order"),
-    (4.2, 4.8, "DAN"),
-    (4.8, 5.5, "KC"),
-    (5.5, 6.5, "MBON"),
-    (6.5, float("inf"), "other"),
-]
-
-
-def layer_to_class(lm: float) -> str:
-    for lo, hi, cls in _TIER_BOUNDARIES:
-        if lo < lm <= hi:
-            return cls
-    return "other"
+# ── Tier definitions ────────────────────────────────────────────────────────
+# The vocabulary is DECLARED ONCE, in ``connectome/cell_types.py``, so this
+# classifier and the v2 construct phase cannot drift apart: they used to hold two
+# copies of the same rule and disagreed on 32 of 124,185 nodes. ``layer_mean`` is a
+# per-neuron olfactory-modality SCORE from the ranking table and the boundaries are
+# convention, not measurement -- a receptor-level claim would need data this bundle
+# does not carry.
+_TIER_BOUNDARIES = DECLARED_LAYER_TIERS
 
 
 # ── Pathway classification ──────────────────────────────────────────────────────

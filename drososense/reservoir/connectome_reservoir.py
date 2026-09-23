@@ -43,6 +43,12 @@ from typing import Any, Literal
 
 import numpy as np
 import scipy.sparse as sp
+
+from drososense.reservoir.input_mapping import (  # noqa: E402
+    INPUT_MAPPING_DENSE_RANDOM,
+    InputMapping,
+    sparse_sha256,
+)
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import eigsh
 
@@ -116,17 +122,14 @@ PRIMARY_CONTROL = "R2_degree_rewired"
 #: spectral-radius rescale. Avoiding division by zero on an empty matrix.
 SPECTRAL_RADIUS_EPS: float = 1.0e-12
 
-#: The input mapping this implementation actually uses: ONE dense random ``W_in``
-#: over every node of the substrate, with no input population, no cell-type
-#: gating and no layer assignment.
-#:
-#: Declared as a name — rather than left implicit in ``make_shared`` — because it
-#: is a component of the evidence-unit identity (protocol v1.5 §
-#: `evidence_unit_identity`). The v2 redesign replaces it with an ORN/PN-aligned
-#: population; without this field in the identity, a constrained-input run and a
-#: dense-random run would collide on the same split and repeat the identity
-#: defect that v1.5 exists to fix.
-INPUT_MAPPING_DENSE_RANDOM: str = "dense_random_all_nodes"
+#: The input mapping of the v1 implementation: ONE dense random ``W_in`` over every
+#: node of the substrate, with no input population, no cell-type gating and no layer
+#: assignment. Re-exported from
+#: :mod:`drososense.reservoir.input_mapping`, which is the single declaration of the
+#: pathway names (v2 adds ``orn_aligned_sparse_input_mapping`` and the PN-direct
+#: ablation beside it) — one name per pathway, so a record cannot describe a
+#: ``W_in`` that the reservoir did not use.
+INPUT_MAPPING_DENSE_RANDOM: str = INPUT_MAPPING_DENSE_RANDOM
 
 #: Maximum double-edge swap attempts per edge in the degree-rewired control.
 #: 10 is enough for the configuration-model to converge on sparse graphs.
@@ -194,17 +197,29 @@ class ReservoirShared:
     from the reservoir matrix rather than from the input mapping or the bias.
 
     Attributes:
-        w_in: ``(N, n_channels)`` input projection, drawn once.
+        w_in: ``(N, n_channels)`` input projection, drawn once. Dense for the v1
+            mapping, sparse (CSR) for the v2 ORN-aligned mapping -- the state
+            update is a matvec either way.
         bias: ``(N,)`` per-node bias, drawn once.
         seed: Seed used to draw both. Reproducibility is a property of this
             seed alone.
         input_scale: Uniform-``[-s, s]`` half-width used for ``W_in`` and ``b``.
+        input_mapping: The DECLARED input pathway (protocol v1.5 identity
+            component). ``dense_random_all_nodes`` is v1; v2 declares
+            ``orn_aligned_sparse_input_mapping``, whose support is the ORN
+            population of the substrate and nowhere else (criterion C1.1).
+        input_detail: ``InputMapping.describe()`` when the mapping was built as a
+            declared object -- nnz, density, the populations and the digests. The
+            v1 path leaves it None, so every v1.x record keeps the exact shape it
+            was written with.
     """
 
-    w_in: np.ndarray
+    w_in: np.ndarray | sp.csr_matrix
     bias: np.ndarray
     seed: int
     input_scale: float
+    input_mapping: str = INPUT_MAPPING_DENSE_RANDOM
+    input_detail: dict[str, Any] | None = None
 
     def describe(self) -> dict[str, Any]:
         """Return a JSON-serialisable summary for run records.
@@ -212,19 +227,29 @@ class ReservoirShared:
         Returns:
             Mapping of shared-component fingerprints.
         """
-        return {
+        payload: dict[str, Any] = {
             "w_in_sha256": _sha256(self.w_in),
             "bias_sha256": _sha256(self.bias),
             "seed": int(self.seed),
             "input_scale": float(self.input_scale),
-            "input_mapping": INPUT_MAPPING_DENSE_RANDOM,
+            "input_mapping": self.input_mapping,
         }
+        if self.input_detail is not None:
+            payload["input_population"] = self.input_detail
+        return payload
 
 
-def _sha256(arr: np.ndarray) -> str:
-    """Stable hash of a numeric array's bytes (no payload slicing)."""
+def _sha256(arr: np.ndarray | sp.spmatrix) -> str:
+    """Stable hash of a numeric array's bytes (no payload slicing).
+
+    A sparse matrix is hashed through :func:`input_mapping.sparse_sha256`:
+    ``np.ascontiguousarray(csr).tobytes()`` would hash an 8-byte object POINTER,
+    which is stable within one process and meaningless across runs.
+    """
     import hashlib
 
+    if sp.issparse(arr):
+        return sparse_sha256(arr)
     return hashlib.sha256(np.ascontiguousarray(arr).tobytes()).hexdigest()
 
 
@@ -748,26 +773,50 @@ def make_shared(
     seed: int,
     *,
     input_scale: float = 0.5,
+    mapping: InputMapping | None = None,
 ) -> ReservoirShared:
     """Draw ``W_in`` and ``b`` once for the family.
+
+    With ``mapping`` given, ``W_in`` IS that mapping's matrix -- the declared
+    pathway object carries its own support, density and provenance, and this
+    function does not second-guess it. The bias is still drawn here: the bias is
+    per-node and is not part of the input pathway.
 
     Args:
         n_nodes: Reservoir size (``N``).
         n_channels: Number of input channels (``C``).
         seed: Seed for the draws.
         input_scale: Uniform-``[-s, s]`` half-width.
+        mapping: A declared :class:`~drososense.reservoir.input_mapping.InputMapping`.
+            Its shape must match ``(n_nodes, n_channels)``, or the W_in a record
+            describes would not be the W_in the reservoir used.
 
     Returns:
         A :class:`ReservoirShared`.
 
     Raises:
-        ValueError: On non-positive node or channel counts.
+        ValueError: On non-positive node or channel counts, or a mapping whose
+            shape contradicts them.
     """
     if n_nodes <= 0:
         raise ValueError(f"n_nodes must be positive, got {n_nodes}")
     if n_channels <= 0:
         raise ValueError(f"n_channels must be positive, got {n_channels}")
     rng = make_rng(int(seed))
+    if mapping is not None:
+        if mapping.w_in.shape != (int(n_nodes), int(n_channels)):
+            raise ValueError(
+                f"input mapping {mapping.name!r} has shape {mapping.w_in.shape}, "
+                f"expected {(int(n_nodes), int(n_channels))}"
+            )
+        return ReservoirShared(
+            w_in=mapping.w_in.tocsr(),
+            bias=rng.uniform(-input_scale, input_scale, size=n_nodes).astype(np.float64),
+            seed=int(seed),
+            input_scale=float(input_scale),
+            input_mapping=mapping.name,
+            input_detail=mapping.describe(),
+        )
     w_in = rng.uniform(-input_scale, input_scale, size=(n_nodes, n_channels))
     bias = rng.uniform(-input_scale, input_scale, size=n_nodes)
     return ReservoirShared(
@@ -855,7 +904,13 @@ class _ReservoirBase(BaseModel):
         washout = min(washout, max(length - 1, 0))
         states = np.zeros((n_samples, n_nodes), dtype=np.float64)
         # Pre-transposed input — keeps the inner loop to one sparse matvec.
-        input_projection = x @ w_in.T  # (n_samples, length, n_nodes)
+        if sp.issparse(w_in):
+            # A sparse W_in (the v2 ORN-aligned map) is applied as one sparse
+            # matmul: x @ w_in.T would densify it back to (n, L, N).
+            flat = np.asarray((w_in @ x.reshape(-1, x.shape[-1]).T).T, dtype=np.float64)
+            input_projection = flat.reshape(n_samples, length, n_nodes)
+        else:
+            input_projection = x @ w_in.T  # (n_samples, length, n_nodes)
 
         for i in range(n_samples):
             state = np.zeros(n_nodes, dtype=np.float64)
@@ -998,11 +1053,14 @@ class _ReservoirBase(BaseModel):
     def n_frozen_parameters(self) -> int:
         if self._topology is None or self._shared is None:
             return 0
-        return int(
-            self._topology.matrix.nnz
-            + self._shared.w_in.size
-            + self._shared.bias.size
+        # nnz for the adjacency AND for a sparse W_in: this counts non-zero
+        # connections, and for a dense matrix nnz == size.
+        w_in_terms = (
+            int(self._shared.w_in.nnz)
+            if sp.issparse(self._shared.w_in)
+            else int(self._shared.w_in.size)
         )
+        return int(self._topology.matrix.nnz + w_in_terms + self._shared.bias.size)
 
     def reservoir_sparsity(self) -> float:
         if self._topology is None:
