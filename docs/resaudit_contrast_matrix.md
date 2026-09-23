@@ -1,6 +1,9 @@
 # ResAudit-Food — family contrast matrix (design gate)
 
-**Status: DESIGN ONLY. No family instance exists and no food data has been read.**
+**Status: GENERATORS IMPLEMENTED for F2/F3; F5 BLOCKED by a measured scale limit; F4 STILL
+BLOCKED. No family instance has been produced at F1's real scale and no food data has been
+read.** See Section 7 for the generation-round findings, including one real bug fixed in the
+shared measurement layer.
 
 ```
 Stage 1 runner               = IMPLEMENTED / VERIFIED
@@ -177,3 +180,103 @@ These are open, and they are the substance of the review this matrix is submitte
 
 No family instance will be generated, and no food evaluation performed, until this matrix
 passes review.
+
+
+---
+
+## 7. Generation round: what the generators found
+
+F2, F3 and F5 were released for generation. They are implemented in `resaudit/families.py`
+with tests in `tests/test_resaudit_families.py`. Four findings, one of which is a bug in the
+shared measurement layer that would have corrupted every family.
+
+### 7.1 A real bug: the spectral-radius estimator was wrong on large graphs (FIXED)
+
+`spectral_radius_of` used single-vector power iteration for `n > 500`, which assumes a
+**simple** dominant eigenvalue. A graph that is a union of disjoint cycles has *degenerate*
+dominant eigenvalues — all of them are 1 — so the iterate orbits between them forever and
+`v @ (A @ v)` returns wherever in the orbit it happened to stop. Measured on 8 disjoint
+directed cycles (true `rho = 1.0`, n = 1000):
+
+| seed | reported rho |
+|---|---|
+| 0 | 0.00629 |
+| 1 | **−0.01921** |
+| 2 | **−0.02184** |
+| 42 | 0.08438 |
+
+It returned **negative radii**. This is not cosmetic: `scale_to_spectral_radius` divides by
+this number, so every family built from a block-structured substrate was silently
+mis-scaled — and A3's verdict is normalisation-dependent (amendment 1 Section 1). Fixed by
+iterating a random 8-dimensional subspace, which accumulates every block's period and
+returns 1.00000000 for every seed. A regression test pins the case.
+
+### 7.2 The weight-multiset and `rho` invariants are mutually exclusive for F2/F3 (resolved)
+
+Matching `rho = 0.95` exactly and preserving F1's weight multiset exactly cannot both hold in
+general: normalisation multiplies every weight by a graph-dependent factor. The frozen
+project had already recorded this incompatibility for R2. Faced with the choice, the **weight
+multiset wins** for F2 and F3, because that is what their contrast is *defined* by. Both
+families therefore share F1's single weight scale, and the resulting `rho` drift is reported
+per family (`rho_gap_vs_target`) instead of hidden. Measured: F2 drifts 0.64 %.
+
+**F5 is deliberately exempt**: it normalises to `rho = 0.95` with its own scale. It claims no
+weight-multiset identity, and under F1's much smaller scale a block-union substrate has a
+tiny spectral radius whose power norms decay away before the Krylov horizon (measured:
+`D_eff ≈ 80` at `rho = 0.95` versus `D_eff ≈ 6.5` at F1's 0.128 scale).
+
+### 7.3 F5 is BLOCKED at F1's budget — a measured scale limit, not a tuning problem
+
+F5's declared mechanism is coprime-period blocks. It works at low degree and **does not
+survive F1's edge budget**:
+
+| configuration | mean degree | `D_eff` | gate | A3 |
+|---|---:|---:|---:|---|
+| coprime blocks, own `rho`=0.95 | ~1 | **80.0** | 10 | PASS |
+| same, chords filling F1's budget | **80.4** | **7.9** | 10 | **FAIL** |
+
+The blocks supply only ≈`N` cycle edges, so reaching `m = 80,443` requires ≈79k in-block
+chords, which raise the raw spectral radius to **82**; normalising that back to 0.95 then
+scales every weight down by ~1/86, so the power norms decay by ~14 orders of magnitude
+across the horizon and the Krylov block collapses.
+
+Two things must NOT be done about this: the edge budget must not be quietly dropped, and the
+`rho` convention must not be bent to make the construction pass. Either the construction
+changes to something that survives dense budgets, or F5 is reported as blocked. That
+decision is not this round's.
+
+### 7.4 F4's feasibility gate exists, and its recurrence term is vacuous (blocks F4)
+
+`resaudit/f4_feasibility.py` implements the six conditions as a machine-checkable predicate.
+It correctly catches the **label-only trap**: permuting cell types leaves the type-pair matrix
+bit-identical, so `type_pair_organization_changed` is False and the candidate is rejected. A
+genuine degree-preserving rewire moves type-pair organization while holding degrees, weights
+and input geometry.
+
+But the gate's fifth condition cannot fail. `_simple_cycle_lengths` reports which cycle
+lengths are *present* via `trace(A^k) > 0`; on a dense directed graph every length 2..12 is
+present, and a degree-preserving rewire keeps every one present. The term is therefore
+constant across candidates:
+
+| candidate | cycle lengths present | recurrence preserved |
+|---|---|---|
+| F1 | 2..12 | — |
+| rewire, seed 1 | 2..12 | trivially |
+| rewire, seed 2 | 2..12 | trivially |
+| rewire, seed 3 | 2..12 | trivially |
+
+**A gate term that cannot fail is not a gate term.** So F4 is *not* released on the strength
+of a `feasible = True` verdict that rests on a vacuous check. Before F4 can be built, the
+recurrence-preservation term must be replaced by a discriminating one (exact cycle *counts*,
+or a motif profile). Until then F4 stays blocked even though the gate can return True — and
+that is recorded rather than exploited.
+
+### 7.5 F1 cannot be materialized here
+
+F1 is the frozen S0 connectome substrate (N=1000, M=80443, S1=7.129) plus its typed-aligned
+input mapping. Both live **outside this repository**: the raw connectome and induced
+adjacency are gitignored large binaries under the external data root, and Git records only
+their content hashes (`A_hash 3aa95745…`, `B_hash 3bd78eac…`). No machine without that root
+can build F1, so the generators were verified against a 60-node **stand-in**, and a Stage 1
+report may not substitute a stand-in without saying so. This is enforced as a module
+constant (`F1_MATERIALIZATION_REQUIREMENT`) and asserted by a test.

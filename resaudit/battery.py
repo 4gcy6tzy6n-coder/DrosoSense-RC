@@ -30,6 +30,7 @@ re-implementations that merely resemble them.
 
 from __future__ import annotations
 
+import math
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -146,12 +147,34 @@ def probe_input(din: int) -> np.ndarray:
     return probe_input_with_seed(din, PROBE_SEED)
 
 
-def spectral_radius_of(A: sp.spmatrix, *, power_iters: int = 400, seed: int = 0) -> float:
-    """Dominant ``|lambda|``: dense eigendecomposition when small, power iteration otherwise.
+def spectral_radius_of(
+    A: sp.spmatrix, *, block: int = 8, power_iters: int = 400, seed: int = 0
+) -> float:
+    """Dominant ``|lambda|`` of ``A``.
 
-    Lives here rather than in an experiment script because the A3 measurement depends on
-    it: ``krylov_score`` does not rescale, so every family must be brought to the frozen
-    ``rho_target`` before A3/A4/A5 are read (amendment 1 Section 0.1).
+    Dense eigendecomposition when the graph is small, **block** power iteration otherwise.
+    The block form is not a refinement -- it fixes a real failure. A single-vector power
+    iteration assumes a simple dominant eigenvalue; on a graph that is a union of disjoint
+    cycles the dominant eigenvalue is degenerate (all of them are 1), so the iterate orbits
+    forever and ``v @ (A @ v)`` returns a value that depends on where in the orbit it
+    stopped. Measured on 8 disjoint directed cycles (true ``rho = 1.0``, n = 1000): the
+    single-vector version returned 0.0063, -0.0192, -0.0218 and 0.0844 for four seeds --
+    including NEGATIVE radii. Iterating a random ``k``-dimensional subspace instead lets the
+    iterate accumulate every block's period, and returns 1.00000000 for every seed tested.
+
+    This matters beyond tidiness: ``scale_to_spectral_radius`` divides by this number, so a
+    wrong radius silently mis-scales a whole family -- and A3's verdict is
+    normalisation-dependent (amendment 1 Section 1).
+
+    Args:
+        A: The graph.
+        block: Subspace width for the block iteration. Must exceed the number of distinct
+            dominant periods to be safe; the default of 8 is ample for the families here.
+        power_iters: Iterations.
+        seed: Start-subspace seed.
+
+    Returns:
+        The estimated spectral radius, as a non-negative float.
     """
     A = sp.csr_matrix(A).tocsr()
     n = A.shape[0]
@@ -159,15 +182,20 @@ def spectral_radius_of(A: sp.spmatrix, *, power_iters: int = 400, seed: int = 0)
         return 0.0
     if n <= 500:
         return float(np.abs(np.linalg.eigvals(A.toarray())).max())
-    v = np.random.default_rng(seed).standard_normal(n)
-    v /= np.linalg.norm(v)
-    for _ in range(power_iters):
-        v = A @ v
-        nrm = float(np.linalg.norm(v))
+
+    k = max(1, min(int(block), n))
+    Q = np.random.default_rng(int(seed)).standard_normal((n, k))
+    Q, _ = np.linalg.qr(Q)
+    for _ in range(int(power_iters)):
+        Z = A @ Q
+        nrm = float(np.linalg.norm(Z))
         if nrm == 0.0:
             return 0.0
-        v = v / nrm
-    return float(v @ (A @ v))
+        Q, _ = np.linalg.qr(Z)
+    Z = A @ Q
+    gram = Z.T @ Z
+    largest = float(np.linalg.eigvalsh(gram).max())
+    return float(math.sqrt(max(largest, 0.0)))
 
 
 def scale_to_spectral_radius(A: sp.spmatrix, target: float = FROZEN_RHO_TARGET) -> sp.csr_matrix:

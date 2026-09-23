@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
@@ -36,9 +37,11 @@ class TaskBlindnessError(TypeError):
     #: case-insensitively. This is a guard against a construction description becoming a
     #: smuggling channel for a task result, not a filter on scientific prose.
     FORBIDDEN_KEY_PARTS: tuple[str, ...] = (
+        # NOTE: a bare "f1" is deliberately NOT a rule. It is a legitimate family id and
+        # appears inside construction keys such as "self_loops_in_f1"; the metric names it
+        # was meant to catch are covered explicitly by "macro_f1" and "macrof1" below.
         "macro_f1",
         "macrof1",
-        "f1",
         "mae",
         "mean_absolute_error",
         "rmse",
@@ -52,6 +55,12 @@ class TaskBlindnessError(TypeError):
         "beef",
         "trout",
         "tvc",
+    )
+
+    #: Whole-token rules, checked with word boundaries. A construction record legitimately
+    #: contains ``rho_target``, ``m_target`` and ``accepted_target`` -- those are design
+    #: quantities and matching a bare substring would make the guard reject correct code.
+    FORBIDDEN_KEY_WORDS: tuple[str, ...] = (
         "target",
         "y_true",
         "y_pred",
@@ -59,7 +68,16 @@ class TaskBlindnessError(TypeError):
 
     @classmethod
     def check_construction(cls, construction: Mapping[str, Any]) -> None:
-        """Reject a construction record that names a task or food quantity."""
+        """Reject a construction record that names a task or food quantity.
+
+        Two kinds of rule, because the two kinds of name differ:
+
+        * SUBSTRING rules for names that are task-specific wherever they appear
+          (``macro_f1``, ``mae``, ``food``, ``labels``);
+        * WHOLE-WORD rules for names that are also legitimate design words. ``target`` is
+          the case in point: ``rho_target`` and ``m_target`` are ordinary construction
+          parameters, so only a bare ``target`` token (or ``y_true``/``y_pred``) is refused.
+        """
         for key in construction:
             low = str(key).lower()
             for part in cls.FORBIDDEN_KEY_PARTS:
@@ -68,6 +86,14 @@ class TaskBlindnessError(TypeError):
                         f"construction key {key!r} names a task/food quantity "
                         f"(matched {part!r}); the construction record must be task-blind"
                     )
+            # a WHOLE-KEY rule: normalize separators to underscores and compare the
+            # entire name, so ``rho_target`` passes while a bare ``target`` does not
+            normalized = re.sub(r"[^a-z0-9]+", "_", low).strip("_")
+            if normalized in cls.FORBIDDEN_KEY_WORDS:
+                raise TaskBlindnessError(
+                    f"construction key {key!r} names a task quantity (it IS {normalized!r}); "
+                    "the construction record must be task-blind"
+                )
 
 
 @dataclass(frozen=True)
