@@ -307,6 +307,28 @@ Enrichment 2.29× vs **78.71×**. Three things are recorded rather than glossed:
   point. The composition (24.3 % ORNs against the connectome's 1.83 %) is a declared
   allocation, not a biological ratio.
 
+**C3 is implemented and measured, and the gate FAILS** —
+[`docs/v2_construct_c3_dynamics.md`](v2_construct_c3_dynamics.md),
+`results/audit/v2_construct/C3_dynamics.json`. Both binding gates fail by the same
+mechanism the v1 audit found: the substrate the C2 expansion produces (mean out-degree
+80.4 on the 1000-node induced block) has a recurrent drive that is **orders of magnitude
+below** the input drive through W_in. Tuned across a 36-point (gain x leak) grid, on
+every reservoir (R0/R2 x shared-scale/rho-matched):
+
+* **C3.2 (memory drop ≥ 20 %)** never passes — `M (real) ≤ M (A := 0)` everywhere; the
+  recurrent graph contributes nothing to the autocorrelation the metric measures.
+* **C3.3 (D_eff ≥ 1.5 · Din)** never passes — the state matrix's effective rank tops at
+  ~1.1 · Din; the recurrent drive is too weak to spread the state space beyond the
+  input dimensionality.
+* **C3.1 (R_t in [0.20, 1.00])** does pass — R0 at gain=2/leak=1, R2 at gain=3/leak=0.5
+  (heavy right tail: P90 ≈ 7.5–14). C3.1 alone is not enough: the C3 gate is the AND.
+
+This is the construct phase gate closing on a **measured finding**, not on a relaxed
+threshold or a fixed defect: per the project rule, "close" is not a pass, and no
+formal experiment will run on a construction that demonstrably cannot produce
+recurrent dynamics. The next decision is the construction, not the gate: see the C3
+record for the route.
+
 **C4 is implemented and measured, and the gate PASSES under AMENDMENT 1** —
 [`docs/v2_preregistration_amendment_1.md`](v2_preregistration_amendment_1.md),
 [`docs/v2_construct_c4_r2_counterfactual.md`](v2_construct_c4_r2_counterfactual.md),
