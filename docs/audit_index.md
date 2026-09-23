@@ -271,6 +271,22 @@ any formal inference. C3 depends on a valid R0 and a valid R2 graph, which is wh
 comes last. Formal experiments run only when **every** criterion passes; "close" is a
 failure.
 
+**C1 is implemented and measured** —
+[`docs/v2_construct_c1_input_mapping.md`](v2_construct_c1_input_mapping.md),
+`results/audit/v2_construct/C1_input_mapping.json`. C1.1–C1.6 pass on the construct
+substrate (the full delivered olfactory graph), including C1.3 — the strict inverse of
+A6, where the v1 dynamics were bit-identical under relabelling. Two findings carry
+forward into C2:
+
+1. **C1.4 fails on every substrate the project actually ran**: the delivered v1
+   selections hold 0/1/1/10/19 ORNs against a threshold of `max(20, 2·Din) = 20`, and
+   at N ≤ 1000 the mapping refuses to build at all (fewer ORNs than channels). C2's
+   selection is a **precondition**, not an optimisation.
+2. **The cell-type vocabulary is derived, and two delivered tables of it disagree on
+   8,679 of 124,185 nodes (7.0 %)** — which moves the admissible receiving-PN pool
+   between 949 (declared tiers) and 2,091 (classified edge metadata). C1 is measured
+   against the committed table; the choice is an open biological question.
+
 v2 is the biological architecture redesign. Its pre-registration draft is
 [`docs/v2_preregistration.md`](v2_preregistration.md) — written before any v2 code
 exists, with every "v1 defect" it quotes verified against the evidence JSON in

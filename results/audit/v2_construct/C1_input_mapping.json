@@ -1,0 +1,453 @@
+{
+  "construct_substrate": {
+    "criteria": [
+      {
+        "criterion": "C1.4[ORN]",
+        "note": "",
+        "observed": 2267,
+        "pass": true,
+        "source": "/root/autodl-tmp/drososense/data-root/connectome/adjacency/olfactory_v1.npz + /root/autodl-tmp/drososense/repo/connectome/metadata/olfactory_v1_node_meta.csv",
+        "statement": "population ORN present in the substrate",
+        "threshold": 20
+      },
+      {
+        "criterion": "C1.4[PN]",
+        "note": "",
+        "observed": 5355,
+        "pass": true,
+        "source": "/root/autodl-tmp/drososense/data-root/connectome/adjacency/olfactory_v1.npz + /root/autodl-tmp/drososense/repo/connectome/metadata/olfactory_v1_node_meta.csv",
+        "statement": "population PN present in the substrate",
+        "threshold": 20
+      },
+      {
+        "criterion": "C1.4[KC]",
+        "note": "",
+        "observed": 3613,
+        "pass": true,
+        "source": "/root/autodl-tmp/drososense/data-root/connectome/adjacency/olfactory_v1.npz + /root/autodl-tmp/drososense/repo/connectome/metadata/olfactory_v1_node_meta.csv",
+        "statement": "population KC present in the substrate",
+        "threshold": 50
+      },
+      {
+        "criterion": "C1.4[MBON+DAN+higher_order]",
+        "note": "",
+        "observed": 15392,
+        "pass": true,
+        "source": "/root/autodl-tmp/drososense/data-root/connectome/adjacency/olfactory_v1.npz + /root/autodl-tmp/drososense/repo/connectome/metadata/olfactory_v1_node_meta.csv",
+        "statement": "population MBON+DAN+higher_order present in the substrate",
+        "threshold": 20
+      },
+      {
+        "criterion": "C1.1",
+        "note": "",
+        "observed": {
+          "n_orn": 2267,
+          "n_support_rows": 2267,
+          "support_is_orn_only": true
+        },
+        "pass": true,
+        "source": "/root/autodl-tmp/drososense/repo/connectome/metadata/olfactory_v1_node_meta.csv",
+        "statement": "every node receiving external input is an ORN, and the receiving set equals the declared ORN population",
+        "threshold": "exact equality"
+      },
+      {
+        "criterion": "C1.2",
+        "note": "one non-zero per ORN, so this is the ORN fraction 0.018255 over Din=5 (bound 0.50)",
+        "observed": 0.003651004549663808,
+        "pass": true,
+        "source": "computed from the built mapping",
+        "statement": "input-map density nnz(W_in)/(N*Din)",
+        "threshold": "<= 0.1"
+      },
+      {
+        "criterion": "C1.5a",
+        "note": "",
+        "observed": 0,
+        "pass": true,
+        "source": "computed from the built mapping",
+        "statement": "no W_in support on any PN row",
+        "threshold": 0
+      },
+      {
+        "criterion": "C1.5b",
+        "note": "4406 of 5355 PNs receive NO real ORN edge, so the admissible receiving-PN pool is the 949-node ORN-recipient subset",
+        "observed": {
+          "n_orn_to_pn_edges": 83093,
+          "n_pn": 5355,
+          "n_pn_receiving_a_real_orn_edge": 949
+        },
+        "pass": true,
+        "source": "/root/autodl-tmp/drososense/data-root/connectome/adjacency/olfactory_v1.npz",
+        "statement": "PNs receive signal only through REAL ORN->PN edges of the substrate",
+        "threshold": "every receiving PN has >= 1 real edge"
+      },
+      {
+        "criterion": "C1.6",
+        "note": "",
+        "observed": {
+          "annotation_sha256": "2369f050fda10cbf",
+          "declared_input_population": "ORN",
+          "name": "orn_aligned_sparse_input_mapping",
+          "w_in_sha256": "4029f0096c700e1e"
+        },
+        "pass": true,
+        "source": "computed from the built mapping",
+        "statement": "the input mapping is a named, declared object with a reproducible digest",
+        "threshold": "name == 'orn_aligned_sparse_input_mapping'"
+      }
+    ],
+    "substrate": {
+      "class_source": "/root/autodl-tmp/drososense/repo/connectome/metadata/olfactory_v1_node_meta.csv",
+      "class_source_sha256": "2369f050fda10cbf580aa422c28e2d91065ef9da5a01a37d7c3fea53b579dfe7",
+      "din": 5,
+      "is_formal_substrate": false,
+      "mapping": {
+        "ablation": false,
+        "annotation": {
+          "class_conflicts": {},
+          "classes": [
+            "DAN",
+            "KC",
+            "MBON",
+            "ORN",
+            "PN",
+            "higher_order",
+            "other"
+          ],
+          "mapping_sha256": "2369f050fda10cbf580aa422c28e2d91065ef9da5a01a37d7c3fea53b579dfe7",
+          "n_nodes_with_a_class": 124185,
+          "per_class_counts": {
+            "DAN": 2572,
+            "KC": 3613,
+            "MBON": 9650,
+            "ORN": 2267,
+            "PN": 5355,
+            "higher_order": 3170,
+            "other": 97558
+          },
+          "receptor_exact": false,
+          "source": "/root/autodl-tmp/drososense/repo/connectome/metadata/olfactory_v1_node_meta.csv",
+          "vocabulary": "declared layer_mean tiers (connectome/cell_types.py)"
+        },
+        "channels_per_orn": 1,
+        "declared_input_population": "ORN",
+        "density": 0.003651004549663808,
+        "density_limit": 0.1,
+        "input_mapping": "orn_aligned_sparse_input_mapping",
+        "input_scale": 0.5,
+        "max_orn_fraction_allowed": 0.5,
+        "n_channels": 5,
+        "n_nodes": 124185,
+        "n_orn": 2267,
+        "n_orn_to_pn_edges": 83093,
+        "n_pn": 5355,
+        "n_pn_receiving_a_real_orn_edge": 949,
+        "n_support_rows": 2267,
+        "n_support_rows_on_pn": 0,
+        "nnz": 2267,
+        "orn_fraction": 0.01825502274831904,
+        "population_counts": {
+          "DAN": 2572,
+          "KC": 3613,
+          "MBON": 9650,
+          "ORN": 2267,
+          "PN": 5355,
+          "higher_order": 3170,
+          "other": 97558
+        },
+        "receptor_exact": false,
+        "seed": 0,
+        "support_is_orn_only": true,
+        "w_in_sha256": "4029f0096c700e1eb71c188e9c5cfe3792147dc90c475c910929b0173f01b6b0",
+        "weight_low": 0.0
+      },
+      "n_edges": 14828657,
+      "n_nodes": 124185,
+      "node_ids_source": "/root/autodl-tmp/drososense/data-root/connectome/adjacency/olfactory_v1.npz",
+      "populations": {
+        "DAN": 2572,
+        "KC": 3613,
+        "MBON": 9650,
+        "MBON+DAN+higher_order": 15392,
+        "ORN": 2267,
+        "PN": 5355,
+        "higher_order": 3170,
+        "other": 97558
+      },
+      "substrate": "full delivered olfactory graph",
+      "why_not_formal": "the full graph is not a trainable reservoir; it is the construct substrate where the real populations and ORN->PN edges are all present"
+    }
+  },
+  "edge_criteria_measured": true,
+  "generated_at_utc": "2026-09-23T08:05:49Z",
+  "provenance": {
+    "fits_no_model": true,
+    "git_head": "bd35c215aca170cf20fe20cfa3a3e219e38d5377",
+    "note": "every number here is a property of the construction, measured on delivered data; no model is fitted, no test split is read, and no record is written",
+    "touches_test_split": false,
+    "validation_only": true
+  },
+  "report_schema": "c1_input_mapping/1",
+  "settings": {
+    "din": 5,
+    "input_scale": 0.5,
+    "mapping_seed": 0,
+    "orn_density_limit": 0.1,
+    "selection_seed": 20260920,
+    "sizes": [
+      250,
+      500,
+      1000,
+      2000,
+      4000
+    ]
+  },
+  "v1_selections": {
+    "din": 5,
+    "node_ids_source": "reconstructed from the committed node metadata (node_idx is the graph row order); the digests below are cross-checked against the delivered records by tests/test_input_mapping_c1.py and the C1 report",
+    "sizes": [
+      {
+        "c1_4_kc": {
+          "observed": 18,
+          "pass": false,
+          "threshold": 50
+        },
+        "c1_4_orn": {
+          "observed": 0,
+          "pass": false,
+          "threshold": 20
+        },
+        "c1_4_pn": {
+          "observed": 41,
+          "pass": true,
+          "threshold": 20
+        },
+        "c1_5b": "NOT MEASURED: needs the adjacency (edge structure)",
+        "delivered_selection_sha256": null,
+        "mapping_buildable": false,
+        "n": 250,
+        "populations": {
+          "DAN": 12,
+          "KC": 18,
+          "MBON": 27,
+          "MBON+DAN+higher_order": 55,
+          "PN": 41,
+          "higher_order": 16,
+          "other": 136
+        },
+        "refusal": "0 ORN row(s) for 5 channel(s): one channel per ORN needs at least one ORN per channel",
+        "selection_digest_matches_delivered": null,
+        "selection_sha256": "54816dbf0bd4a8c54285875229bf1fbc0bba3db1b1954fa57a74eeb027b876de"
+      },
+      {
+        "c1_4_kc": {
+          "observed": 36,
+          "pass": false,
+          "threshold": 50
+        },
+        "c1_4_orn": {
+          "observed": 1,
+          "pass": false,
+          "threshold": 20
+        },
+        "c1_4_pn": {
+          "observed": 78,
+          "pass": true,
+          "threshold": 20
+        },
+        "c1_5b": "NOT MEASURED: needs the adjacency (edge structure)",
+        "delivered_selection_sha256": null,
+        "mapping_buildable": false,
+        "n": 500,
+        "populations": {
+          "DAN": 27,
+          "KC": 36,
+          "MBON": 54,
+          "MBON+DAN+higher_order": 116,
+          "ORN": 1,
+          "PN": 78,
+          "higher_order": 35,
+          "other": 269
+        },
+        "refusal": "1 ORN row(s) for 5 channel(s): one channel per ORN needs at least one ORN per channel",
+        "selection_digest_matches_delivered": null,
+        "selection_sha256": "29519c60acbfa66bdf0b6f327c36293c0d7b6cfb25c5e20a453553ce0c02736d"
+      },
+      {
+        "c1_4_kc": {
+          "observed": 64,
+          "pass": true,
+          "threshold": 50
+        },
+        "c1_4_orn": {
+          "observed": 1,
+          "pass": false,
+          "threshold": 20
+        },
+        "c1_4_pn": {
+          "observed": 146,
+          "pass": true,
+          "threshold": 20
+        },
+        "c1_5b": "NOT MEASURED: needs the adjacency (edge structure)",
+        "delivered_selection_sha256": null,
+        "mapping_buildable": false,
+        "n": 1000,
+        "populations": {
+          "DAN": 62,
+          "KC": 64,
+          "MBON": 102,
+          "MBON+DAN+higher_order": 237,
+          "ORN": 1,
+          "PN": 146,
+          "higher_order": 73,
+          "other": 552
+        },
+        "refusal": "1 ORN row(s) for 5 channel(s): one channel per ORN needs at least one ORN per channel",
+        "selection_digest_matches_delivered": null,
+        "selection_sha256": "e17dfe40ebb7f2c9d913e1d25d89d75407d499827e0f9340b04eb3a55e768a1a"
+      },
+      {
+        "c1_4_kc": {
+          "observed": 117,
+          "pass": true,
+          "threshold": 50
+        },
+        "c1_4_orn": {
+          "observed": 10,
+          "pass": false,
+          "threshold": 20
+        },
+        "c1_4_pn": {
+          "observed": 238,
+          "pass": true,
+          "threshold": 20
+        },
+        "c1_5b": "NOT MEASURED: needs the adjacency (edge structure)",
+        "delivered_selection_sha256": null,
+        "mapping_buildable": true,
+        "n": 2000,
+        "populations": {
+          "DAN": 99,
+          "KC": 117,
+          "MBON": 166,
+          "MBON+DAN+higher_order": 386,
+          "ORN": 10,
+          "PN": 238,
+          "higher_order": 121,
+          "other": 1249
+        },
+        "refusal": "",
+        "selection_digest_matches_delivered": null,
+        "selection_sha256": "793feabcdf5b41600fbc887ee28336b65993df3ddf6330d3717eb09da5a67b11"
+      },
+      {
+        "c1_4_kc": {
+          "observed": 117,
+          "pass": true,
+          "threshold": 50
+        },
+        "c1_4_orn": {
+          "observed": 19,
+          "pass": false,
+          "threshold": 20
+        },
+        "c1_4_pn": {
+          "observed": 238,
+          "pass": true,
+          "threshold": 20
+        },
+        "c1_5b": "NOT MEASURED: needs the adjacency (edge structure)",
+        "delivered_selection_sha256": null,
+        "mapping_buildable": true,
+        "n": 4000,
+        "populations": {
+          "DAN": 99,
+          "KC": 117,
+          "MBON": 308,
+          "MBON+DAN+higher_order": 533,
+          "ORN": 19,
+          "PN": 238,
+          "higher_order": 126,
+          "other": 3093
+        },
+        "refusal": "",
+        "selection_digest_matches_delivered": null,
+        "selection_sha256": "55ee4353b768664ae7e630ebf0dd409738cbe39fd8ce8a9a121decfd1a6153ea"
+      }
+    ],
+    "substrate": "delivered v1 selections (connectome.select_neurons, seed=20260920)"
+  },
+  "vocabulary_cross_check": {
+    "disagreement_pairs": {
+      "DAN->KC": 10,
+      "DAN->MBON": 31,
+      "DAN->ORN": 8,
+      "DAN->PN": 28,
+      "DAN->higher_order": 13,
+      "DAN->other": 363,
+      "KC->DAN": 15,
+      "KC->MBON": 47,
+      "KC->ORN": 8,
+      "KC->PN": 31,
+      "KC->higher_order": 18,
+      "KC->other": 539,
+      "MBON->DAN": 29,
+      "MBON->KC": 46,
+      "MBON->ORN": 40,
+      "MBON->PN": 66,
+      "MBON->higher_order": 44,
+      "MBON->other": 1462,
+      "ORN->DAN": 8,
+      "ORN->KC": 9,
+      "ORN->MBON": 35,
+      "ORN->PN": 17,
+      "ORN->higher_order": 5,
+      "ORN->other": 336,
+      "PN->DAN": 17,
+      "PN->KC": 18,
+      "PN->MBON": 90,
+      "PN->ORN": 12,
+      "PN->higher_order": 20,
+      "PN->other": 803,
+      "higher_order->DAN": 17,
+      "higher_order->KC": 15,
+      "higher_order->MBON": 43,
+      "higher_order->ORN": 19,
+      "higher_order->PN": 20,
+      "higher_order->other": 454,
+      "other->DAN": 358,
+      "other->KC": 541,
+      "other->MBON": 1373,
+      "other->ORN": 355,
+      "other->PN": 806,
+      "other->higher_order": 510
+    },
+    "left_mapping_sha256": "2369f050fda10cbf580aa422c28e2d91065ef9da5a01a37d7c3fea53b579dfe7",
+    "left_per_class_counts": {
+      "DAN": 2572,
+      "KC": 3613,
+      "MBON": 9650,
+      "ORN": 2267,
+      "PN": 5355,
+      "higher_order": 3170,
+      "other": 97558
+    },
+    "left_source": "/root/autodl-tmp/drososense/repo/connectome/metadata/olfactory_v1_node_meta.csv",
+    "n_disagreements": 8679,
+    "n_left_only_nodes": 0,
+    "n_right_only_nodes": 0,
+    "n_shared_nodes": 124185,
+    "right_mapping_sha256": "bbecd3c4db077bcbe7e9d9b759eef5008f2fa2b3263e8c3ef42e6c6b7aeaa3f0",
+    "right_per_class_counts": {
+      "DAN": 2563,
+      "KC": 3594,
+      "MBON": 9582,
+      "ORN": 2299,
+      "PN": 5363,
+      "higher_order": 3212,
+      "other": 97572
+    },
+    "right_source": "/root/autodl-tmp/drososense/data-root/connectome/metadata/olfactory_v1_edge_meta_classified.csv"
+  }
+}
