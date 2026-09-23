@@ -287,6 +287,26 @@ forward into C2:
    between 949 (declared tiers) and 2,091 (classified edge metadata). C1 is measured
    against the committed table; the choice is an open biological question.
 
+**C2 is implemented and measured** —
+[`docs/v2_construct_c2_subgraph.md`](v2_construct_c2_subgraph.md),
+`results/audit/v2_construct/C2_subgraph.json`. At the primary N=1000, Din=5 the
+deterministic ORN-seeded expansion passes **all six** criteria — retention 1.0000,
+largest weak component 1.0000, isolated fraction 0.0000, mean out-degree 80.443,
+14,305 real ORN→PN edges reaching 232 of 243 selected PNs — against the v1 selection
+on the same graph at the same N: 2,343 induced edges, component 0.575, isolated 0.415,
+Enrichment 2.29× vs **78.71×**. Three things are recorded rather than glossed:
+
+- **C2.2 does not discriminate**: both selections retain 1.0000 of their induced
+  eligible edges, so the criterion is a guard; the discriminating quantities are the
+  induced edge count and Enrichment, and both are reported on every line.
+- **Two defects were found by measuring, not by reading**: the layer-staged frontier
+  starved KC and MBON/DAN to zero, and then a *group* floor left KC at 21 against a
+  floor of 50. The allocation is now per class and per group, declared, with no tuning
+  constant, and C1.2 + C1.4 together fix a derived minimum N of 110 at Din=5.
+- **No formal inference has run**, and N=1000 is a registered engineering operating
+  point. The composition (24.3 % ORNs against the connectome's 1.83 %) is a declared
+  allocation, not a biological ratio.
+
 v2 is the biological architecture redesign. Its pre-registration draft is
 [`docs/v2_preregistration.md`](v2_preregistration.md) — written before any v2 code
 exists, with every "v1 defect" it quotes verified against the evidence JSON in

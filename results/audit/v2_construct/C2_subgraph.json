@@ -1,0 +1,265 @@
+{
+  "C2": {
+    "criteria": [
+      {
+        "criterion": "C2.1",
+        "note": "measured from the classes of the nodes actually selected; the expansion never adds an untyped node, and it assigns every declared layer group at least its C1.4 floor before sharing the remainder",
+        "observed": {
+          "checks": {
+            "KC": {
+              "observed": 106,
+              "pass": true,
+              "threshold": 50
+            },
+            "MBON+DAN+higher_order": {
+              "observed": 408,
+              "pass": true,
+              "threshold": 20
+            },
+            "ORN": {
+              "observed": 243,
+              "pass": true,
+              "threshold": 20
+            },
+            "PN": {
+              "observed": 243,
+              "pass": true,
+              "threshold": 20
+            }
+          },
+          "composition": {
+            "DAN": 160,
+            "KC": 106,
+            "MBON": 82,
+            "MBON+DAN+higher_order": 408,
+            "ORN": 243,
+            "PN": 243,
+            "higher_order": 166
+          }
+        },
+        "pass": true,
+        "source": "/root/autodl-tmp/drososense/data-root/connectome/adjacency/olfactory_v1.npz + /root/autodl-tmp/drososense/repo/connectome/metadata/olfactory_v1_node_meta.csv",
+        "statement": "input population present and typed in the selected subgraph (C1.4)",
+        "threshold": {
+          "KC": 50,
+          "MBON+DAN+higher_order": 20,
+          "ORN": 20,
+          "PN": 20
+        }
+      },
+      {
+        "criterion": "C2.2",
+        "note": "induced eligible edges of the selected node set",
+        "observed": {
+          "after_the_declared_normalization": 1.0,
+          "before_normalization": 1.0,
+          "induced_eligible_edges": 80443,
+          "kept_eligible_edges": 80443,
+          "normalization": "n1_pre_l1"
+        },
+        "pass": true,
+        "source": "/root/autodl-tmp/drososense/data-root/connectome/adjacency/olfactory_v1.npz + the built R0 matrix",
+        "statement": "eligible-edge retention (denominator = induced eligible edges)",
+        "threshold": ">= 0.90"
+      },
+      {
+        "criterion": "C2.3",
+        "note": "",
+        "observed": 1.0,
+        "pass": true,
+        "source": "computed on the induced subgraph",
+        "statement": "largest weak component / N",
+        "threshold": ">= 0.90"
+      },
+      {
+        "criterion": "C2.4",
+        "note": "0 isolated node(s)",
+        "observed": 0.0,
+        "pass": true,
+        "source": "computed on the induced subgraph",
+        "statement": "isolated fraction",
+        "threshold": "<= 0.02"
+      },
+      {
+        "criterion": "C2.5",
+        "note": "median 65.0",
+        "observed": 80.443,
+        "pass": true,
+        "source": "computed on the induced subgraph",
+        "statement": "mean in-subgraph unweighted out-degree",
+        "threshold": ">= 2.0"
+      },
+      {
+        "criterion": "C2.6",
+        "note": "",
+        "observed": {
+          "consumes_randomness": false,
+          "method": "orn_seeded_biological_expansion (v2 D3)",
+          "sha256_sorted_root_ids": "a9b7b3f590ed47b2",
+          "target_n": 1000
+        },
+        "pass": true,
+        "source": "the NodeSelection's own describe()",
+        "statement": "deterministic, declared selection with target_n, seed and sha256 on the record",
+        "threshold": "declared + reproducible"
+      }
+    ],
+    "expansion": {
+      "composition": {
+        "DAN": 160,
+        "KC": 106,
+        "MBON": 82,
+        "MBON+DAN+higher_order": 408,
+        "ORN": 243,
+        "PN": 243,
+        "higher_order": 166
+      },
+      "deterministic_on_repeat": true,
+      "quality": {
+        "eligible_edge_retention": 1.0,
+        "eligible_edge_retention_denominator": "induced eligible edges of the selected node set",
+        "eligible_edges_kept": 80443,
+        "enrichment": 78.71135029354207,
+        "enrichment_form": "induced_share_of_connectome(biological) / induced_share_of_connectome(random); the retention ratio is ~1 for any node set under the corrected denominator",
+        "induced_edges_incl_self_loops": 80443,
+        "induced_eligible_edges": 80443,
+        "induced_share_of_connectome": 0.005424833820082291,
+        "induced_share_of_connectome_random_same_size": 6.892060420576186e-05,
+        "isolated_fraction": 0.0,
+        "largest_weak_component_fraction": 1.0,
+        "mean_unweighted_out_degree": 80.443,
+        "median_unweighted_out_degree": 65.0,
+        "n_full_edges": 14828657,
+        "n_full_nodes": 124185,
+        "n_isolated": 0,
+        "n_nodes": 1000,
+        "random_draws": 1,
+        "random_seed": 20260920,
+        "self_loops_in_subgraph": 0
+      },
+      "retention_after_the_declared_normalization": 1.0,
+      "selection": {
+        "detail": {
+          "allocation": {
+            "KC+higher_order": 272,
+            "MBON+DAN": 242,
+            "ORN": 243,
+            "PN": 243
+          },
+          "allocation_rule": "max(equal share of N, the group's C1.4 floor) per declared layer group, capped by availability and by C1.2 for the ORN group, unspent shares redistributed in the signed layer order",
+          "capacities": {
+            "KC+higher_order": 6783,
+            "MBON+DAN": 12222,
+            "ORN": 500,
+            "PN": 5355
+          },
+          "class_floors_from_c1_4": {
+            "KC": 50,
+            "ORN": 20,
+            "PN": 20
+          },
+          "consumes_randomness": false,
+          "covered_all_typed_layers": true,
+          "din": 5,
+          "frontier_order": "cumulative synapse mass to the selected set, ties by root id",
+          "group_floors_from_c1_4": {
+            "KC+higher_order": 50,
+            "MBON+DAN": 20,
+            "ORN": 20,
+            "PN": 20
+          },
+          "induced_edges": 80443,
+          "layer_counts": {
+            "DAN": 160,
+            "KC": 106,
+            "MBON": 82,
+            "ORN": 243,
+            "PN": 243,
+            "higher_order": 166
+          },
+          "layer_groups": [
+            [
+              "PN"
+            ],
+            [
+              "KC",
+              "higher_order"
+            ],
+            [
+              "MBON",
+              "DAN"
+            ]
+          ],
+          "minimum_admissible_n": 110,
+          "orn_budget": 500,
+          "orn_density_limit": 0.1,
+          "orn_floor_from_c1_4": 20,
+          "orn_to_pn_edges_in_substrate": 14305,
+          "pn_reached_by_an_orn": 232,
+          "self_loops_in_graph": 0,
+          "shortfall": 0,
+          "shortfall_reason": ""
+        },
+        "full_graph_n": 124185,
+        "identity": false,
+        "method": "orn_seeded_biological_expansion (v2 D3)",
+        "n_selected": 1000,
+        "node_index_sha256": "77ec9bfd90d6ec7216f642e1860c815ca972fd7638f1bb464766b9053faccb1e",
+        "seed": 0,
+        "sha256_sorted_root_ids": "a9b7b3f590ed47b270c69212cc040ff7fc56aec9d0846055dd2b049a4444f748",
+        "target_n": 1000
+      }
+    },
+    "report_schema": "c2_subgraph/1",
+    "settings": {
+      "din": 5,
+      "mapping_seed": 0,
+      "normalization": "n1_pre_l1",
+      "selection_seed": 20260920,
+      "target_n": 1000
+    },
+    "v1_selection_at_the_same_n": {
+      "orn_aligned_mapping_refusal": "1 ORN row(s) for 5 channel(s): one channel per ORN needs at least one ORN per channel",
+      "quality": {
+        "eligible_edge_retention": 1.0,
+        "eligible_edge_retention_denominator": "induced eligible edges of the selected node set",
+        "eligible_edges_kept": 2343,
+        "enrichment": 2.2925636007827785,
+        "enrichment_form": "induced_share_of_connectome(biological) / induced_share_of_connectome(random); the retention ratio is ~1 for any node set under the corrected denominator",
+        "induced_edges_incl_self_loops": 2343,
+        "induced_eligible_edges": 2343,
+        "induced_share_of_connectome": 0.00015800486854608613,
+        "induced_share_of_connectome_random_same_size": 6.892060420576186e-05,
+        "isolated_fraction": 0.415,
+        "largest_weak_component_fraction": 0.575,
+        "mean_unweighted_out_degree": 2.343,
+        "median_unweighted_out_degree": 1.0,
+        "n_full_edges": 14828657,
+        "n_full_nodes": 124185,
+        "n_isolated": 415,
+        "n_nodes": 1000,
+        "random_draws": 1,
+        "random_seed": 20260920,
+        "self_loops_in_subgraph": 0
+      },
+      "selection": {
+        "full_graph_n": 124185,
+        "identity": false,
+        "method": "connectome.select_neurons (S0\u2013S4, layer-stratified, seeded)",
+        "n_selected": 1000,
+        "node_index_sha256": "4b7afa0df9f8ba7ffb178058e67156cfc7b26f0e31756e3d91a8b6d3f7ef223c",
+        "seed": 20260920,
+        "sha256_sorted_root_ids": "e17dfe40ebb7f2c9d913e1d25d89d75407d499827e0f9340b04eb3a55e768a1a",
+        "target_n": 1000
+      }
+    }
+  },
+  "generated_at_utc": "2026-09-23T08:19:52Z",
+  "provenance": {
+    "fits_no_model": true,
+    "git_head": "f9c53e8b58331b7c608cf8d5c332835a64d750cf",
+    "touches_test_split": false,
+    "validation_only": true
+  },
+  "report_schema": "c2_subgraph/1"
+}
