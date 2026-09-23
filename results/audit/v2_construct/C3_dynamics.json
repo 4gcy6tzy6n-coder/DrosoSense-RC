@@ -1,0 +1,1518 @@
+{
+  "C3": {
+    "criteria_lines_definition": {
+      "C3.1_R_t_in_band": "0.20 <= median(R_t) <= 1.00  (gain-FREE form on val windows)",
+      "C3.2_memory_drop": "(M - M_A=0) / M >= 0.20  with M = max_k in {1,4,8,16} |corr(h_t, x_{t-k})|",
+      "C3.3_D_eff_factor": "D_eff >= 1.5 * Din  on the val-window state matrix"
+    },
+    "per_reservoir": {
+      "R0_rho_matched": {
+        "all_points_failed": true,
+        "closest_to_band": {
+          "D_eff_factor": 0.5189240453950532,
+          "R_t_gain_inclusive_median": 1.0349503647214973,
+          "R_t_median": 0.5174751823607486,
+          "gain": 2.0,
+          "input_scale": 0.5,
+          "leak": 1.0,
+          "memory_drop": -0.7183869336741929,
+          "pass": false
+        },
+        "selection_grid": {
+          "gain_values": [
+            0.1,
+            0.25,
+            0.5,
+            1.0,
+            2.0,
+            5.0
+          ],
+          "leak_values": [
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            0.75,
+            1.0
+          ]
+        },
+        "selection_trace": [
+          {
+            "D_eff_factor": 0.8172081163781766,
+            "R_t_gain_inclusive_median": 0.0031858714308770266,
+            "R_t_median": 0.006371742861754053,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.013153411049264423,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8588906122857516,
+            "R_t_gain_inclusive_median": 0.005270761374530789,
+            "R_t_median": 0.010541522749061578,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.021140762806520403,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9359911702897655,
+            "R_t_gain_inclusive_median": 0.009401395907565205,
+            "R_t_median": 0.01880279181513041,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.025970185565910176,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9795260702132687,
+            "R_t_gain_inclusive_median": 0.01347378436181543,
+            "R_t_median": 0.02694756872363086,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.01973575757180923,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0007689400665085,
+            "R_t_gain_inclusive_median": 0.017045157026857646,
+            "R_t_median": 0.03409031405371529,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.012476522565073745,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0198913455102854,
+            "R_t_gain_inclusive_median": 0.020158884025722038,
+            "R_t_median": 0.040317768051444075,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.0028510723937414505,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8225860753890195,
+            "R_t_gain_inclusive_median": 0.006399859749158861,
+            "R_t_median": 0.006399859749158861,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.029780913821677885,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8702003064403316,
+            "R_t_gain_inclusive_median": 0.011269211281058192,
+            "R_t_median": 0.011269211281058192,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.053089770980831015,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9626212222129054,
+            "R_t_gain_inclusive_median": 0.02211502921257346,
+            "R_t_median": 0.02211502921257346,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.08152231353927061,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0207332899133863,
+            "R_t_gain_inclusive_median": 0.03395045106374723,
+            "R_t_median": 0.03395045106374723,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.0746800315372864,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.052098411869986,
+            "R_t_gain_inclusive_median": 0.04443234364550332,
+            "R_t_median": 0.04443234364550332,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.05613031085163175,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0833985816624825,
+            "R_t_gain_inclusive_median": 0.0546602675664387,
+            "R_t_median": 0.0546602675664387,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.030392880956879288,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8352717922356545,
+            "R_t_gain_inclusive_median": 0.013723401360913448,
+            "R_t_median": 0.006861700680456724,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.06236702161255763,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9024359279970765,
+            "R_t_gain_inclusive_median": 0.0264114986373682,
+            "R_t_median": 0.0132057493186841,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.17248196515860814,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0895347519049488,
+            "R_t_gain_inclusive_median": 0.07425564295873471,
+            "R_t_median": 0.03712782147936736,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.6532137223554695,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.1041438671961021,
+            "R_t_gain_inclusive_median": 0.18624865359223247,
+            "R_t_median": 0.09312432679611624,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -1.2601446721246974,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.6753665010348633,
+            "R_t_gain_inclusive_median": 0.42709692891493384,
+            "R_t_median": 0.21354846445746692,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.9349791030196475,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.5189240453950532,
+            "R_t_gain_inclusive_median": 1.0349503647214973,
+            "R_t_median": 0.5174751823607486,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.7183869336741929,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8513291069744797,
+            "R_t_gain_inclusive_median": 0.021914804518684855,
+            "R_t_median": 0.007304934839561617,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.08607383449668947,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9534518141889805,
+            "R_t_gain_inclusive_median": 0.04827795315521443,
+            "R_t_median": 0.01609265105173814,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.3452231312629153,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9705351937654647,
+            "R_t_gain_inclusive_median": 0.18361117382775222,
+            "R_t_median": 0.061203724609250734,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.6495594319427387,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.4561808059151734,
+            "R_t_gain_inclusive_median": 1.4422643330067102,
+            "R_t_median": 0.4807547776689034,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.4896076622154312,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.40853816402760607,
+            "R_t_gain_inclusive_median": 5.769936148500564,
+            "R_t_median": 1.9233120495001879,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.5233907709901162,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.4891177577395311,
+            "R_t_gain_inclusive_median": 15.349575150118877,
+            "R_t_median": 5.116525050039625,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.5356947613724913,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8970706659611999,
+            "R_t_gain_inclusive_median": 0.04525965281860354,
+            "R_t_median": 0.009051930563720709,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.024404909462267015,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0340315261724746,
+            "R_t_gain_inclusive_median": 0.11498797818527196,
+            "R_t_median": 0.022997595637054394,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.14905066452809054,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.4408827569390543,
+            "R_t_gain_inclusive_median": 1.5915819552462969,
+            "R_t_median": 0.31831639104925935,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.16680316490329766,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.433667204918012,
+            "R_t_gain_inclusive_median": 18.584871425159506,
+            "R_t_median": 3.716974285031901,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.3649178110825308,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.3570386902781932,
+            "R_t_gain_inclusive_median": 39.073403950842675,
+            "R_t_median": 7.814680790168535,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.45425243711442886,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.37754176888820085,
+            "R_t_gain_inclusive_median": 45.26392697991461,
+            "R_t_median": 9.052785395982921,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.5900030109415343,
+            "pass": false
+          }
+        ],
+        "selection_trace_size": 30,
+        "spectral_radius": 0.8999999165534994
+      },
+      "R0_shared": {
+        "all_points_failed": true,
+        "closest_to_band": {
+          "D_eff_factor": 0.5189240453950532,
+          "R_t_gain_inclusive_median": 1.0349503647214973,
+          "R_t_median": 0.5174751823607486,
+          "gain": 2.0,
+          "input_scale": 0.5,
+          "leak": 1.0,
+          "memory_drop": -0.7183869336741929,
+          "pass": false
+        },
+        "selection_grid": {
+          "gain_values": [
+            0.1,
+            0.25,
+            0.5,
+            1.0,
+            2.0,
+            5.0
+          ],
+          "leak_values": [
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            0.75,
+            1.0
+          ]
+        },
+        "selection_trace": [
+          {
+            "D_eff_factor": 0.8172081163781766,
+            "R_t_gain_inclusive_median": 0.0031858714308770266,
+            "R_t_median": 0.006371742861754053,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.013153411049264423,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8588906122857516,
+            "R_t_gain_inclusive_median": 0.005270761374530789,
+            "R_t_median": 0.010541522749061578,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.021140762806520403,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9359911702897655,
+            "R_t_gain_inclusive_median": 0.009401395907565205,
+            "R_t_median": 0.01880279181513041,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.025970185565910176,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9795260702132687,
+            "R_t_gain_inclusive_median": 0.01347378436181543,
+            "R_t_median": 0.02694756872363086,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.01973575757180923,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0007689400665085,
+            "R_t_gain_inclusive_median": 0.017045157026857646,
+            "R_t_median": 0.03409031405371529,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.012476522565073745,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0198913455102854,
+            "R_t_gain_inclusive_median": 0.020158884025722038,
+            "R_t_median": 0.040317768051444075,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.0028510723937414505,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8225860753890195,
+            "R_t_gain_inclusive_median": 0.006399859749158861,
+            "R_t_median": 0.006399859749158861,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.029780913821677885,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8702003064403316,
+            "R_t_gain_inclusive_median": 0.011269211281058192,
+            "R_t_median": 0.011269211281058192,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.053089770980831015,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9626212222129054,
+            "R_t_gain_inclusive_median": 0.02211502921257346,
+            "R_t_median": 0.02211502921257346,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.08152231353927061,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0207332899133863,
+            "R_t_gain_inclusive_median": 0.03395045106374723,
+            "R_t_median": 0.03395045106374723,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.0746800315372864,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.052098411869986,
+            "R_t_gain_inclusive_median": 0.04443234364550332,
+            "R_t_median": 0.04443234364550332,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.05613031085163175,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0833985816624825,
+            "R_t_gain_inclusive_median": 0.0546602675664387,
+            "R_t_median": 0.0546602675664387,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.030392880956879288,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8352717922356545,
+            "R_t_gain_inclusive_median": 0.013723401360913448,
+            "R_t_median": 0.006861700680456724,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.06236702161255763,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9024359279970765,
+            "R_t_gain_inclusive_median": 0.0264114986373682,
+            "R_t_median": 0.0132057493186841,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.17248196515860814,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0895347519049488,
+            "R_t_gain_inclusive_median": 0.07425564295873471,
+            "R_t_median": 0.03712782147936736,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.6532137223554695,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.1041438671961021,
+            "R_t_gain_inclusive_median": 0.18624865359223247,
+            "R_t_median": 0.09312432679611624,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -1.2601446721246974,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.6753665010348633,
+            "R_t_gain_inclusive_median": 0.42709692891493384,
+            "R_t_median": 0.21354846445746692,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.9349791030196475,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.5189240453950532,
+            "R_t_gain_inclusive_median": 1.0349503647214973,
+            "R_t_median": 0.5174751823607486,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.7183869336741929,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8513291069744797,
+            "R_t_gain_inclusive_median": 0.021914804518684855,
+            "R_t_median": 0.007304934839561617,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.08607383449668947,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9534518141889805,
+            "R_t_gain_inclusive_median": 0.04827795315521443,
+            "R_t_median": 0.01609265105173814,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.3452231312629153,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9705351937654647,
+            "R_t_gain_inclusive_median": 0.18361117382775222,
+            "R_t_median": 0.061203724609250734,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.6495594319427387,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.4561808059151734,
+            "R_t_gain_inclusive_median": 1.4422643330067102,
+            "R_t_median": 0.4807547776689034,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.4896076622154312,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.40853816402760607,
+            "R_t_gain_inclusive_median": 5.769936148500564,
+            "R_t_median": 1.9233120495001879,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.5233907709901162,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.4891177577395311,
+            "R_t_gain_inclusive_median": 15.349575150118877,
+            "R_t_median": 5.116525050039625,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.5356947613724913,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8970706659611999,
+            "R_t_gain_inclusive_median": 0.04525965281860354,
+            "R_t_median": 0.009051930563720709,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.024404909462267015,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0340315261724746,
+            "R_t_gain_inclusive_median": 0.11498797818527196,
+            "R_t_median": 0.022997595637054394,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.14905066452809054,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.4408827569390543,
+            "R_t_gain_inclusive_median": 1.5915819552462969,
+            "R_t_median": 0.31831639104925935,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.16680316490329766,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.433667204918012,
+            "R_t_gain_inclusive_median": 18.584871425159506,
+            "R_t_median": 3.716974285031901,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.3649178110825308,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.3570386902781932,
+            "R_t_gain_inclusive_median": 39.073403950842675,
+            "R_t_median": 7.814680790168535,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.45425243711442886,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.37754176888820085,
+            "R_t_gain_inclusive_median": 45.26392697991461,
+            "R_t_median": 9.052785395982921,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.5900030109415343,
+            "pass": false
+          }
+        ],
+        "selection_trace_size": 30,
+        "spectral_radius": 0.8999999165534994
+      },
+      "R2_rho_matched": {
+        "all_points_failed": true,
+        "closest_to_band": {
+          "D_eff_factor": 0.32418220135507014,
+          "R_t_gain_inclusive_median": 2.9447186255964866,
+          "R_t_median": 0.5889437251192973,
+          "gain": 5.0,
+          "input_scale": 0.5,
+          "leak": 0.25,
+          "memory_drop": -0.12687717600010961,
+          "pass": false
+        },
+        "selection_grid": {
+          "gain_values": [
+            0.1,
+            0.25,
+            0.5,
+            1.0,
+            2.0,
+            5.0
+          ],
+          "leak_values": [
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            0.75,
+            1.0
+          ]
+        },
+        "selection_trace": [
+          {
+            "D_eff_factor": 0.8256931435757104,
+            "R_t_gain_inclusive_median": 0.00939929494571803,
+            "R_t_median": 0.01879858989143606,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.03335208817121344,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8745401718669111,
+            "R_t_gain_inclusive_median": 0.015322991549842116,
+            "R_t_median": 0.03064598309968423,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.05219476415445955,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9620669262382593,
+            "R_t_gain_inclusive_median": 0.025653973501533187,
+            "R_t_median": 0.05130794700306637,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.06234499076871288,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0115044960695616,
+            "R_t_gain_inclusive_median": 0.03381076757099982,
+            "R_t_median": 0.06762153514199964,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.04758088456022222,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.038809254285594,
+            "R_t_gain_inclusive_median": 0.039470792489006555,
+            "R_t_median": 0.07894158497801311,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.031004552142512572,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0676800380235292,
+            "R_t_gain_inclusive_median": 0.04494803285403396,
+            "R_t_median": 0.08989606570806792,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.012253884067199836,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8400128070896298,
+            "R_t_gain_inclusive_median": 0.0189378081767414,
+            "R_t_median": 0.0189378081767414,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.05615504923352007,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9027178695015712,
+            "R_t_gain_inclusive_median": 0.031204197161968053,
+            "R_t_median": 0.031204197161968053,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.1240885669550534,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0202744990920325,
+            "R_t_gain_inclusive_median": 0.052389055388768466,
+            "R_t_median": 0.052389055388768466,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.18465441686908307,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0967418895263177,
+            "R_t_gain_inclusive_median": 0.0731291317040946,
+            "R_t_median": 0.0731291317040946,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.1773512177990473,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.1438282066551155,
+            "R_t_gain_inclusive_median": 0.09112008038507165,
+            "R_t_median": 0.09112008038507165,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.14358813204656692,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.1973537325095582,
+            "R_t_gain_inclusive_median": 0.10270776398935152,
+            "R_t_median": 0.10270776398935152,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.09996692037499942,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8714610670707762,
+            "R_t_gain_inclusive_median": 0.038995635667623055,
+            "R_t_median": 0.019497817833811527,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.06840204483834154,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.973087927071554,
+            "R_t_gain_inclusive_median": 0.06898634096064983,
+            "R_t_median": 0.034493170480324915,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.321343490930431,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.228738021183537,
+            "R_t_gain_inclusive_median": 0.14452137214949945,
+            "R_t_median": 0.07226068607474972,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.9034816043279594,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.7735239567337161,
+            "R_t_gain_inclusive_median": 0.36306330612861437,
+            "R_t_median": 0.18153165306430719,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.8451490971348868,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.42701347503576387,
+            "R_t_gain_inclusive_median": 0.92939284294,
+            "R_t_median": 0.46469642147,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.6754703635037145,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.3692842833492217,
+            "R_t_gain_inclusive_median": 2.6936331389863435,
+            "R_t_median": 1.3468165694931717,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.6055965872975142,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9076285845344243,
+            "R_t_gain_inclusive_median": 0.06238785589647118,
+            "R_t_median": 0.020795951965490393,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.025553226503732505,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.068767794279935,
+            "R_t_gain_inclusive_median": 0.1161912718832275,
+            "R_t_median": 0.03873042396107583,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.233544116969183,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.7463073139612993,
+            "R_t_gain_inclusive_median": 0.35889224848132445,
+            "R_t_median": 0.11963074949377482,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.3943530498928364,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.32521308115859193,
+            "R_t_gain_inclusive_median": 2.9139376573232667,
+            "R_t_median": 0.971312552441089,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.42482061328026177,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.30032565773173947,
+            "R_t_gain_inclusive_median": 13.002053240063574,
+            "R_t_median": 4.334017746687858,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.5172575092918243,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.30690622611714613,
+            "R_t_gain_inclusive_median": 22.762287538107095,
+            "R_t_median": 7.587429179369032,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.5577665512681157,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9980158636466252,
+            "R_t_gain_inclusive_median": 0.11313067357890408,
+            "R_t_median": 0.022626134715780816,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": 0.058824962891871675,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0740292794923068,
+            "R_t_gain_inclusive_median": 0.2530003413617642,
+            "R_t_median": 0.05060006827235284,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.011805317599040431,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.32418220135507014,
+            "R_t_gain_inclusive_median": 2.9447186255964866,
+            "R_t_median": 0.5889437251192973,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.12687717600010961,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.28881040327572227,
+            "R_t_gain_inclusive_median": 29.05105029740703,
+            "R_t_median": 5.810210059481406,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.36673654491316776,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.2817717685170105,
+            "R_t_gain_inclusive_median": 47.60078873804304,
+            "R_t_median": 9.520157747608607,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.5005806659184325,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.2978831204535689,
+            "R_t_gain_inclusive_median": 50.40450046515086,
+            "R_t_median": 10.080900093030174,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.7318802682951159,
+            "pass": false
+          }
+        ],
+        "selection_trace_size": 30,
+        "spectral_radius": 0.8999999165534971
+      },
+      "R2_shared": {
+        "all_points_failed": true,
+        "closest_to_band": {
+          "D_eff_factor": 0.3377887801804231,
+          "R_t_gain_inclusive_median": 2.1302041475453026,
+          "R_t_median": 0.7100680491817676,
+          "gain": 3.0,
+          "input_scale": 0.5,
+          "leak": 0.5,
+          "memory_drop": -0.4415458428962274,
+          "pass": false
+        },
+        "selection_grid": {
+          "gain_values": [
+            0.1,
+            0.25,
+            0.5,
+            1.0,
+            2.0,
+            5.0
+          ],
+          "leak_values": [
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            0.75,
+            1.0
+          ]
+        },
+        "selection_trace": [
+          {
+            "D_eff_factor": 0.8250239797941751,
+            "R_t_gain_inclusive_median": 0.008944406320875519,
+            "R_t_median": 0.017888812641751038,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.03161289236406336,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.873265459804615,
+            "R_t_gain_inclusive_median": 0.014580126057105559,
+            "R_t_median": 0.029160252114211117,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.04929155215216268,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9597389463638331,
+            "R_t_gain_inclusive_median": 0.02441421359484095,
+            "R_t_median": 0.0488284271896819,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.05843466673913463,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0084958086297078,
+            "R_t_gain_inclusive_median": 0.03219589055604984,
+            "R_t_median": 0.06439178111209969,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.04440956505701306,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0351951820165652,
+            "R_t_gain_inclusive_median": 0.03758359755134557,
+            "R_t_median": 0.07516719510269114,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.02878207583672849,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0631366857902447,
+            "R_t_gain_inclusive_median": 0.04268116836335535,
+            "R_t_median": 0.0853623367267107,
+            "gain": 0.5,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.011095424929724033,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8385925337615877,
+            "R_t_gain_inclusive_median": 0.01799586068942783,
+            "R_t_median": 0.01799586068942783,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.054047415433126036,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8998354622860892,
+            "R_t_gain_inclusive_median": 0.029653886256592793,
+            "R_t_median": 0.029653886256592793,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.11601863412398052,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0135896575039056,
+            "R_t_gain_inclusive_median": 0.0496385682755245,
+            "R_t_median": 0.0496385682755245,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.16792162052048984,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0855625865658804,
+            "R_t_gain_inclusive_median": 0.06889288475946442,
+            "R_t_median": 0.06889288475946442,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.1545696727510955,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.129367301501275,
+            "R_t_gain_inclusive_median": 0.08476180915295034,
+            "R_t_median": 0.08476180915295034,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.11995095949935308,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.179585081505814,
+            "R_t_gain_inclusive_median": 0.09609860290810883,
+            "R_t_median": 0.09609860290810883,
+            "gain": 1.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.07811313630428979,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8682405059028284,
+            "R_t_gain_inclusive_median": 0.03706080539963427,
+            "R_t_median": 0.018530402699817136,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.0725199148172298,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9652500818039528,
+            "R_t_gain_inclusive_median": 0.0643189803858546,
+            "R_t_median": 0.0321594901929273,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.30360856234840683,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.2086586905674763,
+            "R_t_gain_inclusive_median": 0.13105498980751168,
+            "R_t_median": 0.06552749490375584,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.879070063963747,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9354000708999338,
+            "R_t_gain_inclusive_median": 0.29558345970551686,
+            "R_t_median": 0.14779172985275843,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.9686729202689923,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.48949889910384287,
+            "R_t_gain_inclusive_median": 0.7286468139358779,
+            "R_t_median": 0.36432340696793897,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.7463420678863762,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.397631576497432,
+            "R_t_gain_inclusive_median": 1.9210818253699353,
+            "R_t_median": 0.9605409126849677,
+            "gain": 2.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.6396855937694211,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9020476065006429,
+            "R_t_gain_inclusive_median": 0.05904042174310165,
+            "R_t_median": 0.019680140581033886,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": -0.031765042583349154,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.0535655489449276,
+            "R_t_gain_inclusive_median": 0.10879834121747417,
+            "R_t_median": 0.03626611373915806,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.2526210442917389,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.8597928312675208,
+            "R_t_gain_inclusive_median": 0.3089898097633326,
+            "R_t_median": 0.10299660325444421,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.4457094770192277,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.3377887801804231,
+            "R_t_gain_inclusive_median": 2.1302041475453026,
+            "R_t_median": 0.7100680491817676,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.4415458428962274,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.30434509606596544,
+            "R_t_gain_inclusive_median": 9.607251351964639,
+            "R_t_median": 3.2024171173215463,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.5201088654850573,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.307759467231262,
+            "R_t_gain_inclusive_median": 20.70913586669441,
+            "R_t_median": 6.903045288898136,
+            "gain": 3.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.5556272821743337,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.9858864871104711,
+            "R_t_gain_inclusive_median": 0.10583606137832721,
+            "R_t_median": 0.02116721227566544,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.05,
+            "memory_drop": 0.04888351796467013,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 1.1190516815753786,
+            "R_t_gain_inclusive_median": 0.23292114334425407,
+            "R_t_median": 0.04658422866885081,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.1,
+            "memory_drop": -0.033936848514568685,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.3343245461818669,
+            "R_t_gain_inclusive_median": 2.2928572650666452,
+            "R_t_median": 0.4585714530133291,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.25,
+            "memory_drop": -0.136171439057605,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.28631929359535613,
+            "R_t_gain_inclusive_median": 25.12219502374732,
+            "R_t_median": 5.024439004749464,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.5,
+            "memory_drop": -0.37114798374266916,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.28217513451217635,
+            "R_t_gain_inclusive_median": 43.826565973603486,
+            "R_t_median": 8.765313194720697,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 0.75,
+            "memory_drop": -0.48750425851522783,
+            "pass": false
+          },
+          {
+            "D_eff_factor": 0.29695612751797495,
+            "R_t_gain_inclusive_median": 47.05551498410814,
+            "R_t_median": 9.411102996821628,
+            "gain": 5.0,
+            "input_scale": 0.5,
+            "leak": 1.0,
+            "memory_drop": -0.6979951027383081,
+            "pass": false
+          }
+        ],
+        "selection_trace_size": 30,
+        "spectral_radius": 0.8565567120275019
+      }
+    },
+    "report_matrix": {
+      "D_eff": {
+        "R0_rho_matched": null,
+        "R0_shared": null,
+        "R2_rho_matched": null,
+        "R2_shared": null
+      },
+      "Din": {
+        "R0_rho_matched": 5,
+        "R0_shared": 5,
+        "R2_rho_matched": 5,
+        "R2_shared": 5
+      },
+      "P10_P90_R_t": {
+        "R0_rho_matched": null,
+        "R0_shared": null,
+        "R2_rho_matched": null,
+        "R2_shared": null
+      },
+      "median_R_t": {
+        "R0_rho_matched": null,
+        "R0_shared": null,
+        "R2_rho_matched": null,
+        "R2_shared": null
+      },
+      "memory_M": {
+        "R0_rho_matched": null,
+        "R0_shared": null,
+        "R2_rho_matched": null,
+        "R2_shared": null
+      },
+      "memory_drop": {
+        "R0_rho_matched": null,
+        "R0_shared": null,
+        "R2_rho_matched": null,
+        "R2_shared": null
+      },
+      "memory_zero_A": {
+        "R0_rho_matched": null,
+        "R0_shared": null,
+        "R2_rho_matched": null,
+        "R2_shared": null
+      },
+      "spectral_radius": {
+        "R0_rho_matched": 0.8999999165534994,
+        "R0_shared": 0.8999999165534994,
+        "R2_rho_matched": 0.8565567120275019,
+        "R2_shared": 0.8565567120275019
+      }
+    },
+    "report_schema": "c3_dynamics/1",
+    "settings": {
+      "din": 5,
+      "fixed_knobs": [
+        "input_scale",
+        "spectral_scaling"
+      ],
+      "input_scale": 0.5,
+      "length": 16,
+      "n_val_windows": 10,
+      "selection_knobs": [
+        "gain",
+        "leak"
+      ],
+      "target_n": 1000,
+      "validation_windows_source": "synthetic: 10 windows, length 16, Din, gaussian with AR(1)=0.6 so the memory metric has a signal to surface. Real D2 fold-0 windows would shift the numbers but not the criterion satisfaction; the construct-phase C3 measurement is the property of the construction, not the data."
+    },
+    "substrate": {
+      "composition": {
+        "DAN": 160,
+        "KC": 106,
+        "MBON": 82,
+        "ORN": 243,
+        "PN": 243,
+        "higher_order": 166
+      },
+      "selection": {
+        "detail": {
+          "allocation": {
+            "KC+higher_order": 272,
+            "MBON+DAN": 242,
+            "ORN": 243,
+            "PN": 243
+          },
+          "allocation_rule": "max(equal share of N, the group's C1.4 floor) per declared layer group, capped by availability and by C1.2 for the ORN group, unspent shares redistributed in the signed layer order",
+          "capacities": {
+            "KC+higher_order": 6783,
+            "MBON+DAN": 12222,
+            "ORN": 500,
+            "PN": 5355
+          },
+          "class_floors_from_c1_4": {
+            "KC": 50,
+            "ORN": 20,
+            "PN": 20
+          },
+          "consumes_randomness": false,
+          "covered_all_typed_layers": true,
+          "din": 5,
+          "frontier_order": "cumulative synapse mass to the selected set, ties by root id",
+          "group_floors_from_c1_4": {
+            "KC+higher_order": 50,
+            "MBON+DAN": 20,
+            "ORN": 20,
+            "PN": 20
+          },
+          "induced_edges": 80443,
+          "layer_counts": {
+            "DAN": 160,
+            "KC": 106,
+            "MBON": 82,
+            "ORN": 243,
+            "PN": 243,
+            "higher_order": 166
+          },
+          "layer_groups": [
+            [
+              "PN"
+            ],
+            [
+              "KC",
+              "higher_order"
+            ],
+            [
+              "MBON",
+              "DAN"
+            ]
+          ],
+          "minimum_admissible_n": 110,
+          "orn_budget": 500,
+          "orn_density_limit": 0.1,
+          "orn_floor_from_c1_4": 20,
+          "orn_to_pn_edges_in_substrate": 14305,
+          "pn_reached_by_an_orn": 232,
+          "self_loops_in_graph": 0,
+          "shortfall": 0,
+          "shortfall_reason": ""
+        },
+        "full_graph_n": 124185,
+        "identity": false,
+        "method": "orn_seeded_biological_expansion (v2 D3)",
+        "n_selected": 1000,
+        "node_index_sha256": "77ec9bfd90d6ec7216f642e1860c815ca972fd7638f1bb464766b9053faccb1e",
+        "seed": 0,
+        "sha256_sorted_root_ids": "a9b7b3f590ed47b270c69212cc040ff7fc56aec9d0846055dd2b049a4444f748",
+        "target_n": 1000
+      }
+    },
+    "verdict_diagnostic_rho_matched": {
+      "R0": false,
+      "R2": false,
+      "note": "DIAGNOSTIC, not a gate. rho-matched rescaled each graph to R0's radius; see the amendment-1 measurement_object note in the C4 record for why this is reported but does not gate C3"
+    },
+    "verdict_primary_shared_scale": {
+      "R0": false,
+      "R2": false,
+      "note": "the signed gate is on the SHARED-SCALE R0/R2 pair only. R2 must also be a valid reservoir -- if it FAILs here, the R0-vs-R2 comparison would be hard to interpret and the run is paused to address the counterfactual dynamics, not to compare performance",
+      "primary_gate_passes_if_both_pass": false
+    }
+  },
+  "generated_at_utc": "2026-09-23T11:19:53Z",
+  "provenance": {
+    "fits_no_model": true,
+    "git_head": "eeb63fec6a3e969900733887a31f2ebdfe6c7a5c",
+    "touches_test_split": false,
+    "validation_only": true
+  },
+  "report_schema": "c3_dynamics/1"
+}
