@@ -47,6 +47,7 @@ from drososense.connectome_selection import (  # noqa: E402
 )
 from drososense.reservoir.input_mapping import (  # noqa: E402
     INPUT_MAPPING_ORN_ALIGNED,
+    sparse_sha256,
     ORN_DENSITY_LIMIT,
     CellTypeAnnotation,
     InputMappingError,
@@ -601,6 +602,185 @@ def measure_c2(
     }
 
 
+def measure_c4(
+    adjacency_path: Path,
+    node_meta: Path,
+    *,
+    din: int,
+    target_n: int,
+    normalization: str,
+    seed: int,
+) -> dict:
+    """C4.1-C4.8: R2 as a true wiring-only counterfactual, on the C2 substrate.
+
+    R0 is built exactly as the pipeline builds it (declared normalization, rescaled to
+    the configured spectral radius). R2 is then the weight-preserving rewire OF THAT
+    MATRIX, so the weight multiset R2 preserves is the one the reservoir actually
+    sees -- not an intermediate.
+    """
+    from drososense.reservoir.connectome_reservoir import (
+        load_reservoir_topology_from_npz,
+        make_degree_rewired,
+        make_degree_rewired_weight_preserving,
+    )
+    from drososense.reservoir.r2_counterfactual import (
+        cell_type_pair_matrix,
+        counterfactual_quality,
+        weight_preserving_degree_rewire,
+    )
+
+    matrix, node_ids = _load_graph(adjacency_path)
+    annotation = _declared_annotation(node_meta)
+    expansion = expand_from_orns(matrix, node_ids, annotation, target_n, din=din, seed=seed)
+    selected_root_ids = node_ids[expansion.node_indices]
+    selected_classes = annotation.class_of(selected_root_ids)
+
+    r0 = load_reservoir_topology_from_npz(
+        adjacency_path, normalization=normalization, node_indices=expansion.node_indices
+    )
+    r2 = make_degree_rewired_weight_preserving(r0, seed=seed)
+    report = r2.counterfactual["report"]
+
+    # C4.5 measured through the INPUT PATHWAY, not by comparing an array with itself:
+    # the ORN-aligned mapping is built independently on R0 and on R2 and its support
+    # and matrix digest must agree.
+    mapping_r0 = build_orn_aligned_mapping(
+        r0.matrix, selected_root_ids, annotation, din, seed=seed
+    )
+    mapping_r2 = build_orn_aligned_mapping(
+        r2.matrix, selected_root_ids, annotation, din, seed=seed
+    )
+    population_identical = bool(
+        np.array_equal(mapping_r0.support_rows, mapping_r2.support_rows)
+        and mapping_r0.describe()["w_in_sha256"] == mapping_r2.describe()["w_in_sha256"]
+    )
+
+    rewired_matrix, raw_report = weight_preserving_degree_rewire(
+        r0.matrix, seed=seed, target_overlap=0.20
+    )
+    quality = counterfactual_quality(
+        r0.matrix,
+        r2.matrix,
+        # the report the topology carries IS the chain's report; re-deriving it here
+        # would risk reporting a different run from the one the matrix came from
+        _ReportView(report),
+        population_rows_r0=mapping_r0.support_rows,
+        population_rows_r2=mapping_r2.support_rows,
+    )
+    quality["C4.5_input_population_identical"]["population_mapping"] = {
+        "support_rows_hash_R0": sparse_sha256(
+            sp.csr_matrix(
+                (np.ones(mapping_r0.support_rows.size), (mapping_r0.support_rows, np.zeros(mapping_r0.support_rows.size, dtype=int))),
+                shape=(r0.n_nodes, 1),
+            )
+        ),
+        "w_in_sha256_R0": mapping_r0.describe()["w_in_sha256"],
+        "w_in_sha256_R2": mapping_r2.describe()["w_in_sha256"],
+    }
+    quality["C4.5_input_population_identical"]["pass"] = population_identical
+    quality["C4.5_input_population_identical"]["observed"] = population_identical
+
+    # the v1 control, measured on the same R0, so the defect the v2 factory repairs is
+    # in the record rather than in the prose
+    v1_r2 = make_degree_rewired(r0, seed=seed)
+    v1_weights_equal = bool(
+        np.array_equal(
+            np.sort(r0.matrix.tocoo().data.astype(np.float64)),
+            np.sort(v1_r2.matrix.tocoo().data.astype(np.float64)),
+        )
+    )
+
+    r0_coo, r2_coo = r0.matrix.tocoo(), r2.matrix.tocoo()
+    type_pairs = {
+        "R0": cell_type_pair_matrix(
+            r0_coo.row.astype(np.int64), r0_coo.col.astype(np.int64), selected_classes
+        ),
+        "R2": cell_type_pair_matrix(
+            r2_coo.row.astype(np.int64), r2_coo.col.astype(np.int64), selected_classes
+        ),
+    }
+    # the same weight-preserving chain, measured twice from the same seed, must agree
+    deterministic = bool(
+        raw_report.overlap_final == report["overlap_final"]
+        and raw_report.swaps_accepted == report["swaps_accepted"]
+    )
+
+    return {
+        "report_schema": "c4_r2_counterfactual/1",
+        "settings": {
+            "target_n": int(target_n),
+            "din": int(din),
+            "normalization": normalization,
+            "mapping_seed": int(seed),
+            "r2_seed": int(seed),
+        },
+        "substrate": {
+            "selection": expansion.describe(),
+            "composition": {
+                name: int((selected_classes == name).sum())
+                for name in sorted(set(selected_classes.tolist()))
+            },
+            "n_edges_R0": int(r0.matrix.nnz),
+        },
+        "R0": {
+            "n_nodes": int(r0.n_nodes),
+            "n_edges": int(r0.n_edges),
+            "spectral_radius": float(r0.spectral_radius),
+            "normalization": r0.normalization,
+        },
+        "R2": {
+            "n_nodes": int(r2.n_nodes),
+            "n_edges": int(r2.n_edges),
+            "spectral_radius": float(r2.spectral_radius),
+            "spectral_radius_ratio_to_R0": float(
+                r2.spectral_radius / r0.spectral_radius if r0.spectral_radius else float("nan")
+            ),
+        },
+        "quality": quality,
+        "verdict": quality["verdict"],
+        "deterministic_on_repeat": deterministic,
+        "v1_r2_control": {
+            "global_weight_multiset_preserved": v1_weights_equal,
+            "note": (
+                "v1's make_degree_rewired writes np.ones(n_edges) and rescales, so its "
+                "weight multiset is a constant and C4.2 fails -- the defect D6 repairs"
+            ),
+        },
+        "type_pair_matrix": type_pairs,
+        "type_pair_matrix_note": (
+            "DIAGNOSTIC ONLY, and deliberately not a gate. R2 preserves node identities, "
+            "the directed degree sequence and the per-source weight multisets, but it does "
+            "NOT preserve ORN->PN / PN->KC type-level connectivity -- that is what a "
+            "wiring-only counterfactual means. Keeping R2 type-pair preserving would change "
+            "the frozen primary counterfactual; it belongs to a separately pre-registered "
+            "secondary analysis if R0 ever beats R2 and the scale of the effect has to be "
+            "localised."
+        ),
+    }
+
+
+class _ReportView:
+    """A read-only view over a serialised :class:`RewireReport`.
+
+    The topology carries the chain's report as a dict (it travels in the run record);
+    this exposes the attributes :func:`counterfactual_quality` reads, so the quality
+    block is computed from the SAME run that produced the matrix rather than from a
+    second, possibly different, chain.
+    """
+
+    def __init__(self, payload: dict):
+        self._payload = payload
+
+    def __getattr__(self, name: str):
+        if name == "mixing_reached":
+            return bool(self._payload.get("mixing_reached"))
+        if name == "original_edges_retained_fraction":
+            return float(self._payload.get("original_edge_retention", float("nan")))
+        if name == "as_dict":
+            return lambda: self._payload
+        return self._payload[name]
+
+
 def node_indices_or_all(matrix, indices):
     """The rows of ``indices`` (identity when the selection is the whole graph)."""
     return np.asarray(indices, dtype=np.int64)
@@ -626,7 +806,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     wanted = {part.strip().upper() for part in str(args.only).split(",") if part.strip()}
-    unknown = wanted - {"C1", "C2"}
+    unknown = wanted - {"C1", "C2", "C4"}
     if unknown:
         raise SystemExit(f"--only {args.only!r}: unknown section(s) {sorted(unknown)}")
 
@@ -638,6 +818,47 @@ def main(argv: list[str] | None = None) -> int:
     )
     node_meta = Path(args.node_meta)
     sizes = tuple(int(v) for v in str(args.sizes).split(",") if v.strip())
+
+    if wanted == {"C4"}:
+        if not adjacency.is_file():
+            raise SystemExit(f"--only C4 needs the adjacency; not found at {adjacency}")
+        c4 = measure_c4(
+            adjacency,
+            node_meta,
+            din=args.din,
+            target_n=args.target_n,
+            normalization=args.normalization,
+            seed=args.seed,
+        )
+        report = {
+            "report_schema": "c4_r2_counterfactual/1",
+            "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "provenance": {
+                "git_head": git_head(),
+                "validation_only": True,
+                "touches_test_split": False,
+                "fits_no_model": True,
+            },
+            "C4": c4,
+        }
+        out_dir = Path(args.out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        target = out_dir / "C4_r2_counterfactual.json"
+        target.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+        print(target)
+        for name, value in c4["verdict"]["lines"].items():
+            flag = c4["verdict"]["checks"][name]
+            shown = f"{value:.6g}" if isinstance(value, float) else str(value)
+            print(f"  {name:26s} {shown:>14s}   {'PASS' if flag else 'FAIL'}")
+        print(f"  {'C4':26s} {'':>14s}   {'PASS' if c4['verdict']['C4'] else 'FAIL'}")
+        print(
+            f"  swaps accepted={c4['quality']['C4.8_report']['swaps_accepted']} "
+            f"attempted={c4['quality']['C4.8_report']['swaps_attempted']} "
+            f"overlap={c4['quality']['C4.8_report']['overlap_final']:.4f} "
+            f"seconds={c4['quality']['C4.8_report']['seconds']:.2f} "
+            f"stopped={c4['quality']['C4.8_report']['stopped_because']}"
+        )
+        return 0
 
     if wanted == {"C2"}:
         report = {

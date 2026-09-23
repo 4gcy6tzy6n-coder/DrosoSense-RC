@@ -156,6 +156,10 @@ class ReservoirTopology:
             meaningful for R0.
         weight_semantics: Always the structural-weight sentence. Cached so a
             run record cannot accidentally lose it.
+        counterfactual: For a v2 R2 built as a weight-preserving counterfactual, the
+            swap chain's own report (C4.8: swap counts, original-edge retention, the
+            mixing curve, the conservation hashes). ``None`` for every v1 control, so
+            no v1 record gains a field it was not written with.
     """
 
     matrix: csr_matrix
@@ -165,6 +169,7 @@ class ReservoirTopology:
     density: float
     kind: str
     normalization: str | None
+    counterfactual: dict[str, Any] | None = None
     weight_semantics: str = (
         "synapse-count-informed structural weight "
         "(uncalibrated — not conductance, efficacy, or connection probability)"
@@ -176,7 +181,7 @@ class ReservoirTopology:
         Returns:
             Mapping of structural metrics and provenance.
         """
-        return {
+        payload = {
             "kind": self.kind,
             "n_nodes": self.n_nodes,
             "n_edges": self.n_edges,
@@ -186,6 +191,9 @@ class ReservoirTopology:
             "weight_semantics": self.weight_semantics,
             "nnz": int(self.matrix.nnz),
         }
+        if self.counterfactual is not None:
+            payload["counterfactual"] = self.counterfactual
+        return payload
 
 
 @dataclass(frozen=True)
@@ -541,6 +549,70 @@ def make_degree_rewired(
     )
     rewired = rescale_to_spectral_radius(rewired, reference.spectral_radius)
     return _wrap_topology(rewired, reference, kind="R2_degree_rewired", normalization=None)
+
+
+def make_degree_rewired_weight_preserving(
+    reference: ReservoirTopology,
+    seed: int,
+    *,
+    target_overlap: float = 0.20,
+    time_budget_s: float = 600.0,
+    max_attempts: int | None = None,
+) -> ReservoirTopology:
+    """R2 as a TRUE wiring-only counterfactual (v2 D6, criteria C4.1-C4.8).
+
+    The v1 :func:`make_degree_rewired` rewrites the matrix with ``np.ones(n_edges)``
+    and rescales it, so R2 was a **uniform-weight graph**: R0-vs-R2 was a joint
+    contrast of wiring AND weight structure, and "the wiring does not matter" is not
+    what that comparison measured.
+
+    This factory keeps the nodes, the directed degree sequence, the GLOBAL weight
+    multiset and every per-source outgoing weight multiset, and changes only the
+    wiring -- a directed double-edge swap that leaves each weight with its own source.
+    It does NOT rescale: preserving the weight multiset and matching a spectral radius
+    are mutually exclusive, and both radii are reported so the difference is visible.
+
+    Args:
+        reference: The R0 topology.
+        seed: Seed of the swap sequence.
+        target_overlap: C4.6's ceiling on the R0/R2 edge overlap.
+        time_budget_s: C4.7's wall-time budget (the signed threshold is 600 s; the
+            caller may pass the 1 h hard cap, but a run over 600 s is a FAIL).
+        max_attempts: Cap on swap proposals.
+
+    Returns:
+        The R2 topology, with ``counterfactual`` carrying the chain's report.
+    """
+    from drososense.reservoir.r2_counterfactual import (
+        counterfactual_quality,
+        weight_preserving_degree_rewire,
+    )
+
+    rewired, report = weight_preserving_degree_rewire(
+        reference.matrix,
+        seed=seed,
+        target_overlap=target_overlap,
+        time_budget_s=time_budget_s,
+        max_attempts=max_attempts,
+    )
+    topology = _wrap_topology(
+        rewired, reference, kind="R2_degree_rewired", normalization=None
+    )
+    quality = counterfactual_quality(reference.matrix, rewired, report)
+    return ReservoirTopology(
+        matrix=topology.matrix,
+        n_nodes=topology.n_nodes,
+        n_edges=topology.n_edges,
+        spectral_radius=topology.spectral_radius,
+        density=topology.density,
+        kind=topology.kind,
+        normalization=topology.normalization,
+        counterfactual={
+            "report": report.as_dict(),
+            "quality": quality,
+            "reference_spectral_radius": float(reference.spectral_radius),
+        },
+    )
 
 
 def make_random_sparse(
@@ -1241,6 +1313,7 @@ __all__ = [
     "load_reservoir_topology_from_npz",
     "make_dense_random",
     "make_degree_rewired",
+    "make_degree_rewired_weight_preserving",
     "make_er_esn",
     "make_random_sparse",
     "make_shared",
