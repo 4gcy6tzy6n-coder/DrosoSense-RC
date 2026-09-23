@@ -866,6 +866,7 @@ def measure_c3(
     from drososense.reservoir.input_mapping import build_orn_aligned_mapping
     from drososense.reservoir.dynamics import evaluate_c3, select_knobs
     from drososense.reservoir.r2_counterfactual import build_wiring_counterfactual
+    from drososense.reservoir.connectome_reservoir import load_reservoir_topology_from_npz
 
     matrix, node_ids = _load_graph(adjacency_path)
     annotation = _declared_annotation(node_meta)
