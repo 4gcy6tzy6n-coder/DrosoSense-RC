@@ -49,22 +49,30 @@ from drososense.utils.paths import PROTOCOL_PATH, RESULTS_RAW_DIR  # noqa: E402
 
 
 def _evaluate(gate_id, protocol, table, model_params, provenance=None,
-              counts_by_dataset=None):
-    """Evaluate the gate through the DELIVERED pipeline (analyze.evaluate_rules).
+              counts_by_dataset=None, expression=None):
+    """Evaluate an expression through the DELIVERED pipeline (analyze.evaluate_rules).
 
     Using the production entry point rather than a bespoke evaluator is the point
     of the comparison: it shows what the shipped analysis reports under each
-    resolution, not what a hand-built evaluator would.
+    resolution, not what a hand-built evaluator would. `expression` overrides the
+    gate's own text so a single term can be reported on its own, still evaluated
+    by the frozen-expression engine.
     """
     from scripts.analyze import evaluate_rules
 
     # The aggregate shape the production pipeline passes, not a bare scope, so
     # the comparison exercises the same code path analyze.py does.
     audit = (
-        {"declaration": "configs/protocol_v1.5.1.yaml", "scopes": {gate_id: provenance}}
+        {"declaration": "configs/protocol_v1.5.2.yaml", "scopes": {gate_id: provenance}}
         if provenance
         else None
     )
+    if expression is not None:
+        protocol = dict(protocol)
+        protocol["gates"] = dict(protocol["gates"])
+        protocol["gates"][gate_id] = {
+            **protocol["gates"][gate_id], "expression": expression,
+        }
     rules = evaluate_rules(
         table, protocol, None, model_params, audit,
         parameter_counts_by_dataset=counts_by_dataset,
