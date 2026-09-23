@@ -1,0 +1,150 @@
+# =============================================================================
+# DrosoSense-RC — FROZEN PROTOCOL AMENDMENT v1.5.1
+# =============================================================================
+# Project : DrosoSense-RC (Drosophila Sensory Connectome Reservoir Computing)
+# Version : 1.5.1
+# Frozen  : 2026-09-23T06:00:00Z
+# Owner   : M4-Audit (Reservoir Integrity Audit) — parameter evidence scope
+# Supersedes: v1.5.0 (configs/protocol_v1.5.yaml, kept unchanged on disk)
+#
+# SCOPE. v1.5.1 declares the EVIDENCE SCOPE of a gate's `params(model)` term and
+# nothing else. No model, dataset, split, endpoint, metric, gate expression,
+# narrative rule or statistical decision rule is altered.
+#
+# WHY THIS FILE EXISTS. `params(model)` was resolved by scanning ALL of
+# `results/raw/**` and taking the maximum `n_trainable_parameters` over whatever
+# records happened to be there. So `params(R0)` was not a defined experimental
+# quantity but "whichever R0 count currently sits in the tree". Measured
+# consequences on the GPU box, where the E2 and E9 evidence coexists:
+#
+#     params(R0) = 16004   <- the E9 size study's N=4000 readout
+#     params(GRU) = 4452
+#     => Gate_A's term `params(R0) < params(GRU)` evaluates FALSE
+#
+# while with `results/raw` absent the same code reports the committed table and
+# the term is unevaluable for want of R0 at all. The gate outcome therefore
+# depended on the presence of unrelated evidence — `tests/test_e2e_gate_evaluation.py`
+# demonstrates exactly this (populated tree: FAIL; tree held aside: PASS).
+#
+# WHAT v1.5.1 CHANGES. Each gate's parameter term is resolved from a declared
+# scope and MATCHED RESULT ROWS, with no fallback:
+#
+#     params(model, experiment, condition)      -- and the task and datasets the
+#                                                  gate is evaluated on
+#
+# If the declared scope carries no rows, conflicting values, or a condition that
+# is not bound to experiment labels, the term is UNEVALUABLE. It is never
+# resolved by choosing a maximum, a minimum, the first or the last value.
+#
+# HOW THE DECLARATION IS ANCHORED (it is not hand-tuned to a wanted number).
+#   * `datasets` is copied from `gates.<gate>.evaluated_on` and a test asserts it;
+#   * `task` is the task whose PRIMARY metric the gate's performance terms use
+#     (`macro_f1` -> classification) and a test asserts it;
+#   * each term names the `register_entry` from the protocol's `experiments`
+#     block, and a test asserts the entry exists and that its `needs_connectome`
+#     flag agrees with whether the model is a connectome family;
+#   * each term names the `via_contrast` from the protocol's `contrasts.list` and
+#     the side the model sits on, and a test asserts both;
+#   * `condition_bindings` binds a declared condition to the experiment LABELS
+#     that realise the register entry in the delivered evidence. This binding is
+#     the one thing the frozen protocol does not carry: `experiments` names
+#     E1_main / E2_topology / E9_size but nothing maps a register entry onto the
+#     labels actually written into records, which is why the unscoped rglob was
+#     resorted to in the first place. The binding below names the labels that
+#     carry the connectome topology experiment and the baseline zoo; the E9 size
+#     study's labels are deliberately absent because E9_size is a DIFFERENT
+#     register entry — a size sweep is not the topology contrast.
+#
+# WHAT THIS AMENDMENT DELIBERATELY DOES NOT DO. It does not decide whether a
+# parameter count that differs between D2 and D3 should be resolved per dataset,
+# or whether the protocol should instead require the count to be
+# dataset-independent. `params(GRU)` in Gate_A is 4452 on D2 and 4068 on D3
+# (hyperparameters are selected per fold and per dataset), so a single
+# dataset-agnostic term has no unique value and v1.5.1 reports it UNEVALUABLE
+# with both values named. Choosing one of them, or re-scoping the term until it
+# yields the number the pre-v1.5.1 code happened to publish, would be choosing
+# the design after knowing which way the result leans. That decision belongs to
+# the project owner as a separate amendment.
+
+protocol_version: "1.5.1"
+frozen: true
+frozen_at: "2026-09-23T06:00:00Z"
+supersedes: "1.5.0"
+owner: "M4-Audit (Reservoir Integrity Audit) — parameter evidence scope"
+
+scope_statement: >
+  v1.5.1 declares the evidence scope of a gate's params(model) term and nothing
+  else; no model, dataset, split, endpoint, metric, gate expression, narrative
+  rule or statistical decision rule is altered.
+
+parameter_evidence_scope:
+  schema_version: "1"
+  resolution: matched_result_rows
+  fallback: forbidden
+  on_missing_scope: UNEVALUABLE
+  on_no_records: UNEVALUABLE
+  on_conflicting_values: UNEVALUABLE
+  on_unbound_condition: UNEVALUABLE
+  on_missing_reservoir_size: UNEVALUABLE
+  selection_within_scope: >
+    none. Every matched row must carry the SAME n_trainable_parameters for its
+    model, and the same reservoir size where the model has one. If they do not
+    agree the term is UNEVALUABLE: taking max, min, first or last would be a
+    silent choice of one configuration over another, and the pre-v1.5.1 code's
+    `max` rule is exactly what let an E9 size-study record set `params(R0)`.
+  gates:
+    Gate_A:
+      task: classification
+      datasets: [D2, D3]
+      terms:
+        - model: R0
+          register_entry: E2_topology
+          via_contrast: R0_vs_R4
+          side: first
+          condition_bindings:
+            full: [e2_main_d2, e2_main_d3]
+        - model: GRU
+          register_entry: E1_main
+          via_contrast: R0_vs_GRU
+          side: second
+          condition_bindings:
+            full: [e1_main_d2, e1_main_d3]
+
+change_log:
+  - item: P1
+    change: >
+      params(model) is resolved from matched result rows within a declared
+      (experiment labels, condition, task, datasets) scope instead of a
+      whole-tree rglob. The scope is declared per gate and anchored to the
+      protocol's own gates/contrasts/experiments blocks.
+  - item: P2
+    change: >
+      Fallback is forbidden in every direction: no committed-table substitution,
+      no cross-experiment search, no max/min/first/last selection. Any of
+      missing scope, no records, conflicting values, an unbound condition or a
+      missing reservoir size yields UNEVALUABLE.
+  - item: P3
+    change: >
+      Every resolved count carries provenance: model, parameter count,
+      experiment label(s), condition, task, datasets, reservoir size, the number
+      of source records, their run_ids and config hashes. A published "1,004
+      trainable parameters" is therefore auditable back to the rows that
+      produced it.
+  - item: P4
+    change: >
+      `Gate_A`'s parameter term is reported UNEVALUABLE on the delivered
+      evidence, because `params(GRU)` is 4452 on D2 and 4068 on D3 within the
+      declared scope and the protocol's single dataset-agnostic term has no
+      unique value. Both values and their source records are named in the
+      provenance. This is reported, not resolved.
+
+non_changes:
+  - "the Gate A/B/C expressions, verbatim"
+  - "the narrative rules N1..N5"
+  - "datasets, splits, seeds, window lengths, preprocessing"
+  - "metrics, their directions, the AUROC empty-class policy"
+  - "alpha, the decisive cluster-level sign test, the descriptive Wilcoxon"
+  - "the bootstrap and its resampling unit, the equivalence margins"
+  - "multiplicity: Holm, its families and the family rule"
+  - "the model zoo, the reservoir families and the readout"
+  - "the M4-v1.4 / v1.5 records already on disk: not re-indexed, not re-labelled"

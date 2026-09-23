@@ -146,10 +146,13 @@ def _run_pipeline(
     model_params: dict,
     exploratory: list[tuple[str, str]] | None = None,
     availability: dict | None = None,
+    parameter_audit: dict | None = None,
 ):
     frame = frame[frame["status"] == "ok"]
     table = build_contrast_table(frame, protocol, _metric_by_task(protocol), exploratory)
-    rules = evaluate_rules(table, protocol, availability or _availability(), model_params)
+    rules = evaluate_rules(
+        table, protocol, availability or _availability(), model_params, parameter_audit
+    )
     return table, rules
 
 
@@ -474,18 +477,34 @@ def test_the_gate_outcome_does_not_depend_on_the_git_ignored_run_records(protoco
     This is the actual defect behind review item N2: the delivered gate artifact
     said one thing on the author's machine and another on a clean clone, because
     a term was resolved from a directory the repository does not carry.
+
+    Protocol v1.5.1 changed WHICH resolution the gates use, so this test now
+    exercises the scoped path. Under a declared scope the two trees agree for a
+    stronger reason than before: the count is read from matched rows inside the
+    scope, so the presence of other records is irrelevant by construction, and a
+    tree that lacks the scope's own rows is UNEVALUABLE rather than different.
+    The unscoped scan is retained only as ``model_parameter_counts`` and is
+    asserted below to be the thing the gates no longer call.
     """
     import drososense.evaluation.results as results_module
-    from scripts.analyze import model_parameter_counts
+    from drososense.evaluation.parameter_scope import (
+        load_parameter_scope_declaration,
+        resolve_gate_parameter_scope,
+    )
 
+    declaration = load_parameter_scope_declaration()
     frame = pd.read_csv(COMMITTED_PER_RUN)
     table = build_contrast_table(
         frame[frame["status"] == "ok"], protocol, _metric_by_task(protocol), [("esn", "gru")]
     )
 
-    with_records = model_parameter_counts(results_module.load_records(), protocol)
+    with_scope = resolve_gate_parameter_scope(
+        "Gate_A", results_module.load_records(), protocol=protocol, declaration=declaration
+    )
+    params_with = with_scope.counts if with_scope.evaluable else {}
     _, with_results = _run_pipeline(
-        frame, protocol, with_records, exploratory=[("esn", "gru")]
+        frame, protocol, params_with, exploratory=[("esn", "gru")],
+        parameter_audit={"scopes": {"Gate_A": with_scope.provenance()}},
     )
 
     # A clean clone: results/raw does not exist at all.
@@ -494,14 +513,25 @@ def test_the_gate_outcome_does_not_depend_on_the_git_ignored_run_records(protoco
     monkeypatch_target.RESULTS_RAW_DIR = tmp_path / "absent"
     try:
         assert results_module.load_records() == []
-        without_records = model_parameter_counts(results_module.load_records(), protocol)
-        without_results = evaluate_rules(table, protocol, _availability(), without_records)
+        without_scope = resolve_gate_parameter_scope(
+            "Gate_A", results_module.load_records(), protocol=protocol, declaration=declaration
+        )
+        params_without = without_scope.counts if without_scope.evaluable else {}
+        without_results = evaluate_rules(
+            table, protocol, _availability(), params_without,
+            {"scopes": {"Gate_A": without_scope.provenance()}},
+        )
     finally:
         monkeypatch_target.RESULTS_RAW_DIR = original
 
     assert with_results == without_results
-    # And the parameter counts themselves agree, model for model.
-    assert with_records == without_records
+    # The scope's own provenance agrees model for model between the two trees.
+    assert with_scope.provenance()["terms"].keys() == without_scope.provenance()["terms"].keys()
+    for model in with_scope.provenance()["terms"]:
+        assert (
+            with_scope.provenance()["terms"][model]["parameter_count"]
+            == without_scope.provenance()["terms"][model]["parameter_count"]
+        ), model
 
 
 @pytest.mark.integration
@@ -527,5 +557,26 @@ def test_an_unrun_model_says_so_rather_than_blaming_the_gitignore(protocol, tmp_
             ["R0", "GRU"], [], [], [], aliases={}
         ),
     )
-    with pytest.raises(GateExpressionError, match="has not been run under this protocol yet"):
+    with pytest.raises(GateExpressionError, match="no parameter evidence scope was declared"):
         evaluator.evaluate("G", "params(R0) < params(GRU)")
+
+    # Protocol v1.5.1: when a scope IS declared, the error quotes the scope's own
+    # reason, which is more specific than "not recorded" and names what would have
+    # to change.
+    from drososense.evaluation.parameter_scope import (
+        load_parameter_scope_declaration,
+        resolve_gate_parameter_scope,
+    )
+
+    scope = resolve_gate_parameter_scope(
+        "Gate_A", [], protocol=protocol, declaration=load_parameter_scope_declaration()
+    )
+    scoped = GateEvaluator(
+        contrasts={},
+        metrics=protocol_metric_properties(protocol),
+        model_params={},
+        symbols=build_symbols(["R0", "GRU"], [], [], [], aliases={}),
+        parameter_provenance=scope.provenance(),
+    )
+    with pytest.raises(GateExpressionError, match="declared parameter evidence scope"):
+        scoped.evaluate("Gate_A", "params(R0) < params(GRU)")

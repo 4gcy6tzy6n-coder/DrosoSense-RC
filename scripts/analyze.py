@@ -396,7 +396,20 @@ def model_parameter_counts(
     protocol: dict[str, Any] | None = None,
     path: str | Path | None = None,
 ) -> dict[str, int]:
-    """Collect each model's trainable-parameter count.
+    """Collect each model's trainable-parameter count. **UNSCOPED — DO NOT USE FOR GATES.**
+
+    .. deprecated:: protocol v1.5.1
+       This scans every record under ``results/raw/**`` and takes the maximum
+       ``n_trainable_parameters`` per model, so its answer depends on which
+       unrelated experiments happen to be on disk: with the E9 size study present
+       it reports ``params(R0) = 16004`` (the N=4000 readout) instead of the
+       N=250 count the topology contrast used. That is the defect v1.5.1 fixes.
+       Gate evaluation now reads :func:`drososense.evaluation.parameter_scope.
+       resolve_gate_parameter_scope`, which resolves from matched result rows
+       inside a declared scope and fails closed. This function is retained only
+       because the audit and its regression tests need the old behaviour to
+       compare against, and because ``model_parameter_audit`` reports it.
+
 
     ``Gate_A`` ends in ``params(R0) < params(GRU)``, and the evaluator used to be
     handed an empty mapping — so even with every contrast present, Gate_A could
@@ -525,6 +538,7 @@ def evaluate_rules(
     protocol: dict[str, Any],
     availability: dict[str, dict[str, Any]] | None = None,
     model_params: dict[str, int] | None = None,
+    parameter_provenance: dict[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Evaluate every gate and narrative rule against the contrast table.
 
@@ -574,6 +588,7 @@ def evaluate_rules(
         contrasts=contrasts,
         metrics=protocol_metric_properties(protocol),
         model_params=model_params or {},
+        parameter_provenance=parameter_provenance,
         symbols=build_symbols(
             protocol_model_symbols(protocol),
             metrics,
@@ -637,13 +652,45 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = parse_args(argv)
     protocol = load_protocol()
+    from drososense.evaluation.parameter_scope import (
+        load_parameter_scope_declaration,
+        resolve_gate_parameter_scope,
+    )
 
-    # Parameter counts come from every record, not only this experiment's: a
-    # model's size does not depend on which split produced the run. The committed
-    # table is the base, so a clone without results/raw still resolves params().
+    parameter_declaration = load_parameter_scope_declaration()
+
+    # Protocol v1.5.1: a gate's parameter terms are read from MATCHED RESULT ROWS
+    # inside the scope the amendment declares for that gate — never from a
+    # whole-tree scan. The previous behaviour took the maximum
+    # n_trainable_parameters over every record under results/raw, so an E9
+    # size-study record (R0 at N=4000 -> 16004) settled Gate_A's parameter term
+    # and the gate outcome depended on the presence of unrelated evidence.
     all_records = load_records()
-    model_params = model_parameter_counts(all_records, protocol)
-    parameter_audit = model_parameter_audit(model_params, all_records, protocol)
+    parameter_scopes = {
+        gate_id: resolve_gate_parameter_scope(
+            gate_id, all_records, protocol=protocol, declaration=parameter_declaration
+        )
+        for gate_id in protocol.get("gates", {})
+    }
+    # A gate is handed ONLY its own scope's counts. An unevaluable scope yields an
+    # empty mapping, so `params(...)` raises with the scope's reason and the gate
+    # is reported UNEVALUABLE rather than resolved from somewhere else.
+    model_params = {
+        model: count
+        for scope in parameter_scopes.values()
+        if scope.evaluable
+        for model, count in scope.counts.items()
+    }
+    parameter_audit = {
+        "declaration": "configs/protocol_v1.5.1.yaml",
+        "scopes": {g: s.provenance() for g, s in sorted(parameter_scopes.items())},
+        "unevaluable": sorted(g for g, s in parameter_scopes.items() if not s.evaluable),
+        "note": (
+            "params(model) is read from matched result rows inside the declared scope. "
+            "No fallback, no cross-experiment substitution, no max/min/first/last "
+            "selection. An unevaluable scope makes the gates that read it UNEVALUABLE."
+        ),
+    }
 
     records = [r for r in all_records if r.experiment == args.experiment]
     if not args.include_non_compliant:
@@ -702,7 +749,9 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(parameter_audit, indent=2, sort_keys=True, default=str), encoding="utf-8"
     )
 
-    rules = evaluate_rules(table, protocol, availability, model_params)
+    rules = evaluate_rules(
+        table, protocol, availability, model_params, parameter_audit
+    )
     rules_path = RESULTS_TABLES_DIR / f"{args.experiment}_gates.json"
     rules_path.write_text(json.dumps(rules, indent=2, sort_keys=True, default=str), encoding="utf-8")
     print(f"{rules_path}")

@@ -150,12 +150,18 @@ class GateEvaluator:
         contrasts: Mapping[tuple[str, str, str, str], Mapping[str, Any]],
         metrics: Mapping[str, Mapping[str, Any]],
         model_params: Mapping[str, int] | None = None,
+        parameter_provenance: Mapping[str, Any] | None = None,
         symbols: Mapping[str, Any] | None = None,
         available_datasets: Iterable[str] | None = None,
     ) -> None:
         self.contrasts = contrasts
         self.metrics = metrics
         self.model_params = dict(model_params or {})
+        #: Protocol v1.5.1: the declared evidence scope behind `model_params`, so
+        #: a `params(...)` term that cannot resolve can say WHY (no rows,
+        #: conflicting values, unbound condition) instead of blaming the wrong
+        #: thing, and so the gate result carries an auditable trail.
+        self.parameter_provenance = dict(parameter_provenance or {})
         self.symbols = dict(symbols or {})
         self.available_datasets = {
             str(d) for d in (available_datasets if available_datasets is not None else ())
@@ -197,8 +203,14 @@ class GateEvaluator:
                 f"{gate_id}: expression {expression!r} evaluated to {type(value).__name__}, "
                 f"not a boolean"
             )
+        detail = dict(self._trace)
+        if self.parameter_provenance:
+            # Every gate result carries the parameter scope it was evaluated
+            # against, so a published parameter number is auditable from the
+            # gate output alone (protocol v1.5.1, item P3).
+            detail["parameter_scope"] = self.parameter_provenance
         return GateEvaluation(
-            gate_id=gate_id, expression=expression, result=value, detail=dict(self._trace)
+            gate_id=gate_id, expression=expression, result=value, detail=detail
         )
 
     def evaluate_all(self, gates: Mapping[str, Mapping[str, Any]]) -> dict[str, GateEvaluation]:
@@ -519,11 +531,20 @@ class GateEvaluator:
             raise GateExpressionError(f"{gate_id}: params takes 1 argument")
         model = str(args[0])
         if model not in self.model_params:
+            # Protocol v1.5.1: the count is read from matched result rows inside a
+            # declared scope, with no fallback. When the scope says why it could
+            # not resolve, that reason is the error — it is more specific than
+            # "not recorded" and it names what would have to change.
+            scope_reason = str(self.parameter_provenance.get("reason") or "")
+            if scope_reason:
+                raise GateExpressionError(
+                    f"{gate_id}: params({model}) is unevaluable under the declared parameter "
+                    f"evidence scope (protocol v1.5.1). {scope_reason}"
+                )
             raise GateExpressionError(
-                f"{gate_id}: no trainable-parameter count recorded for {model!r}. The table is "
-                f"built from the run records plus the committed "
-                f"results/tables/model_parameters.json, so this means the model has not been "
-                f"run under this protocol yet — it is NOT a missing-data or git-ignore problem."
+                f"{gate_id}: no trainable-parameter count recorded for {model!r} and no "
+                f"parameter evidence scope was declared. A count is never substituted from "
+                f"another experiment: it is NOT a missing-data or git-ignore problem."
             )
         return int(self.model_params[model])
 

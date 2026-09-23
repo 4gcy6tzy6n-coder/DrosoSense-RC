@@ -56,6 +56,13 @@ PROTOCOL_V1_4_PATH: Path = CONFIGS_DIR / "protocol_v1.4.yaml"
 # dataset, split, endpoint or statistical decision rule moves.
 PROTOCOL_V1_5_PATH: Path = CONFIGS_DIR / "protocol_v1.5.yaml"
 
+# v1.5.1 (M4-Audit) declares the EVIDENCE SCOPE of a gate's `params(model)` term:
+# the count must come from matched result rows inside a declared
+# (experiment labels, condition, task, datasets) scope, with no fallback and no
+# max/min/first/last selection, and every resolved count carries provenance.
+# Another amendment record layered on the loadable v1.3 base.
+PROTOCOL_V1_5_1_PATH: Path = CONFIGS_DIR / "protocol_v1.5.1.yaml"
+
 # The active protocol. Everything that reads "the protocol" reads this.
 #
 # v1.2 supersedes v1.1 for the DECISION MACHINE only: v1.1's gate expressions
@@ -75,6 +82,7 @@ PROTOCOL_V1_2_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.2.sha256"
 PROTOCOL_V1_3_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.3.sha256"
 PROTOCOL_V1_4_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.4.sha256"
 PROTOCOL_V1_5_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.5.sha256"
+PROTOCOL_V1_5_1_SHA256_PATH: Path = CONFIGS_DIR / "protocol_v1.5.1.sha256"
 
 
 def protocol_version_paths(version: str) -> tuple[Path, Path]:
