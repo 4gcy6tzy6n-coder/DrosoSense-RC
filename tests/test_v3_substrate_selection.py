@@ -243,7 +243,9 @@ def test_the_provenance_records_answer_why_a_node_was_admitted():
     from drososense.connectome_candidates import CandidateSubstrate
 
     provenance_fields = set(CandidateSubstrate.__dataclass_fields__)
-    assert {"candidate_id", "node_indices", "adjacency", "input_rows", "provenance"} == provenance_fields
+    assert {
+        "candidate_id", "node_indices", "root_ids", "adjacency", "input_rows", "provenance"
+    } == provenance_fields
 
     # the declared provenance keys the generators must produce (checked structurally here so
     # the contract is pinned without needing the delivered graph)

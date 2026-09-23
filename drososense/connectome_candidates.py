@@ -60,6 +60,7 @@ class CandidateSubstrate:
 
     candidate_id: str
     node_indices: np.ndarray
+    root_ids: np.ndarray
     adjacency: sp.csr_matrix
     input_rows: np.ndarray
     provenance: dict[str, Any]
@@ -149,9 +150,9 @@ def _feedback_closure(
     coo = matrix.tocoo()
     admitted: set[int] = set()
     for src, dst in zip(coo.row.tolist(), coo.col.tolist()):
-        if int(src) in target_rows and int(dst) in base:
-            if str(classes[int(src)]) in source_classes:
-                admitted.add(int(src))
+        # admit a node of a SOURCE class whose real edge lands INTO the base node set
+        if int(dst) in base and str(classes[int(src)]) in source_classes:
+            admitted.add(int(src))
     return np.asarray(sorted(admitted), dtype=np.int64)
 
 
@@ -247,7 +248,10 @@ def generate_candidate(
             admission_reason=dict(s0.detail.get("layer_counts", {})),
             extra={"orn_budget": int(s0.detail["orn_budget"])},
         )
-        return CandidateSubstrate("S0", s0_rows, adjacency, _input_rows(classes, s0_rows), prov)
+        return CandidateSubstrate(
+            "S0", s0_rows, root_ids[s0_rows], adjacency,
+            _input_rows(classes, s0_rows), prov,
+        )
 
     # ---- S1 / S3 / S4: S0's populations plus a declared feedback closure ---
     if candidate_id in ("S1", "S3", "S4"):
@@ -307,7 +311,10 @@ def generate_candidate(
             },
             extra={"n_merged_from_S0": int(s0_rows.size), "n_feedback_admitted": int(admitted.size)},
         )
-        return CandidateSubstrate(candidate_id, merged, adjacency, _input_rows(classes, merged), prov)
+        return CandidateSubstrate(
+            candidate_id, merged, root_ids[merged], adjacency,
+            _input_rows(classes, merged), prov,
+        )
 
     # ---- S2: MB/KC-centred recurrent ------------------------------------
     if candidate_id == "S2":
@@ -354,7 +361,10 @@ def generate_candidate(
             },
             extra={"n_orn_reached_pn": int(attached.size)},
         )
-        return CandidateSubstrate("S2", kept, adjacency, _input_rows(classes, kept), prov)
+        return CandidateSubstrate(
+            "S2", kept, root_ids[kept], adjacency,
+            _input_rows(classes, kept), prov,
+        )
 
     raise CandidateError(f"unhandled candidate {candidate_id!r}")  # pragma: no cover
 
@@ -383,7 +393,7 @@ def build_candidate_input(candidate: CandidateSubstrate, annotation, din: int, *
     # density_limit is raised here only as far as the declared amendment-3 ceiling; the
     # receiving_fraction is fixed across candidates so the *rule* is identical.
     mapping = build_typed_aligned_mapping(
-        candidate.node_indices, annotation, din, seed=seed, receiving_fraction=0.80,
+        candidate.root_ids, annotation, din, seed=seed, receiving_fraction=0.80,
         density_limit=0.16,
     )
     return mapping
