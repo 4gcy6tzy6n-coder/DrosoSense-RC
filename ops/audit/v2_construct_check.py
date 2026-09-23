@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""v2 construct checks — C1 (ORN-aligned sparse input mapping), READ-ONLY.
+"""v2 construct checks — C1 (ORN-aligned input), C2 (subgraph), C3 (dynamics), READ-ONLY.
 
 The signed pre-registration (`docs/v2_preregistration.md` §1) makes every C1
 criterion a property of the **construction**, measured validation-only, before any
@@ -841,6 +841,185 @@ def measure_c4(
     }
 
 
+def measure_c3(
+    adjacency_path: Path,
+    node_meta: Path,
+    *,
+    din: int,
+    target_n: int,
+    seed: int,
+    c4_seed: int = 20260920,
+    n_val_windows: int = 10,
+    length: int = 16,
+    autocorrelation: float = 0.6,
+) -> dict:
+    """C3.1-C3.3 on the C2 substrate, for the four reservoirs the owner asked for.
+
+    Primary = shared-scale (R0 and R2 after the amendment-1 preprocessing). Diagnostic =
+    rho-matched (the family convention §17 rescales each control to R0's radius).
+    Both reservoirs at every preprocessing are checked; the verdict is shared-scale
+    PASS/FAIL per reservoir. The chosen (gain, leak) per reservoir is the grid point
+    whose median R_t is closest to the band centre with the gates satisfied, then
+    larger leak (retention), then smaller gain (less tanh saturation). input_scale is
+    FIXED at the v2 mapping's declared value and the grid is (gain x leak).
+    """
+    from drososense.reservoir.input_mapping import build_orn_aligned_mapping
+    from drososense.reservoir.dynamics import evaluate_c3, select_knobs
+    from drososense.reservoir.r2_counterfactual import build_wiring_counterfactual
+
+    matrix, node_ids = _load_graph(adjacency_path)
+    annotation = _declared_annotation(node_meta)
+    expansion = expand_from_orns(matrix, node_ids, annotation, target_n, din=din, seed=seed)
+    selected_root_ids = node_ids[expansion.node_indices]
+
+    # ORN-aligned input mapping: shared between R0 and R2 (same substrate) and
+    # independent of the preprocessing -- W_in's magnitude only sets the absolute scale.
+    raw_block = matrix[expansion.node_indices][:, expansion.node_indices].tocsr()
+    mapping_r0 = build_orn_aligned_mapping(
+        raw_block, selected_root_ids, annotation, din, seed=seed
+    )
+    W_in = mapping_r0.w_in.tocsr()
+    bias = np.zeros(raw_block.shape[0])
+
+    # The R0 reference (declared normalization + R0's scale factor, per amendment 1)
+    reference = load_reservoir_topology_from_npz(
+        adjacency_path, normalization="n1_pre_l1", node_indices=expansion.node_indices
+    )
+
+    # The C4 amendment builds the wiring counterfactual: raw + raw rewired + the two
+    # preprocessed variants. We need all four R0/R2 matrices:
+    cf = build_wiring_counterfactual(
+        raw_block,
+        normalization="n1_pre_l1",
+        target_spectral_radius=float(reference.spectral_radius),
+        seed=c4_seed,
+        time_budget_s=120.0,
+    )
+    reservoirs = {
+        "R0_shared": cf.r0,
+        "R2_shared": cf.r2,
+        # rho-matched: R0 rescaled to its own radius IS R0 itself; R2 uses the counter-
+        # factual's pre-rescaled variant. We still rescale R0 explicitly so the two
+        # matrices carry the same R0 base.
+        "R0_rho_matched": cf.r0,
+        "R2_rho_matched": cf.r2_rho_matched,
+    }
+
+    # Synthetic validation windows shaped like D2 fold 0: 10 specimens x 16 steps x
+    # Din, modest autocorrelation so M and R_t are both measurable.
+    rng = np.random.default_rng(seed + 1)
+    X_val = rng.standard_normal((n_val_windows, length, din))
+    noise = rng.standard_normal(X_val.shape)
+    for t in range(1, length):
+        X_val[:, t, :] = autocorrelation * X_val[:, t - 1, :] + (1 - autocorrelation) * noise[:, t, :]
+
+    input_scale = float(getattr(mapping_r0, "input_scale", 0.5))
+    from drososense.reservoir.connectome_reservoir import spectral_radius
+
+    results: dict[str, dict] = {}
+    verdicts: dict[str, dict] = {}
+    for name, A in reservoirs.items():
+        out = select_knobs(
+            A, W_in, bias, X_val, din=din, input_scale=input_scale,
+            rt_band=(0.20, 1.00), memory_drop_gate=0.20, deff_factor_gate=1.5,
+        )
+        results[name] = {
+            "chosen": out["chosen"],
+            "all_points_failed": bool(out["all_points_failed"]),
+            "selection_trace": out["trace"],
+            "rationale": out["rationale"],
+            "metrics_at_chosen": out.get("metrics_at_chosen"),
+            "rho": float(spectral_radius(A.tocsr(), seed=0)),
+        }
+        verdicts[name] = bool(out["chosen"] is not None)
+
+    def cell_metrics(name: str) -> dict[str, Any]:
+        point = results[name]["chosen"]
+        if point is None:
+            return {"all_points_failed": True}
+        m = results[name]["metrics_at_chosen"]
+        return {
+            "knobs": point,
+            "spectral_radius": results[name]["rho"],
+            "median_R_t_gain_free": m["R_t"]["gain_free"]["median"],
+            "median_R_t_gain_inclusive_v1_comparable": m["R_t"]["gain_inclusive_v1_comparable"]["median"],
+            "P10_R_t_gain_free": m["R_t"]["gain_free"]["p10"],
+            "P90_R_t_gain_free": m["R_t"]["gain_free"]["p90"],
+            "memory_M": m["memory"]["M"],
+            "memory_M_A_equals_0": m["memory"]["M_A_equals_0"],
+            "memory_drop_fraction": m["memory"]["drop_fraction"],
+            "D_eff": m["effective_rank"]["D_eff"],
+            "D_eff_factor": m["effective_rank"]["D_eff_factor"],
+            "C3.1_R_t_in_band": m["criterion_lines"]["C3.1_R_t_in_band"],
+            "C3.2_memory_drop": m["criterion_lines"]["C3.2_memory_drop_>=_20pct"],
+            "C3.3_D_eff_factor": m["criterion_lines"]["C3.3_D_eff_>=_1.5*Din"],
+        }
+
+    matrix_rows = {
+        "spectral_radius": {n: cf.rho_r0 if n == "R0_shared" else
+                              (cf.rho_r0 if n == "R0_rho_matched" else cf.rho_r2)
+                            for n in reservoirs},
+        "median_R_t": {n: (cell_metrics(n).get("median_R_t_gain_free") if not cell_metrics(n).get("all_points_failed") else None) for n in reservoirs},
+        "P10_P90_R_t": {n: ((cell_metrics(n).get("P10_R_t_gain_free"), cell_metrics(n).get("P90_R_t_gain_free")) if not cell_metrics(n).get("all_points_failed") else None) for n in reservoirs},
+        "memory_M": {n: (cell_metrics(n).get("memory_M") if not cell_metrics(n).get("all_points_failed") else None) for n in reservoirs},
+        "memory_zero_A": {n: (cell_metrics(n).get("memory_M_A_equals_0") if not cell_metrics(n).get("all_points_failed") else None) for n in reservoirs},
+        "memory_drop": {n: (cell_metrics(n).get("memory_drop_fraction") if not cell_metrics(n).get("all_points_failed") else None) for n in reservoirs},
+        "D_eff": {n: (cell_metrics(n).get("D_eff") if not cell_metrics(n).get("all_points_failed") else None) for n in reservoirs},
+        "Din": {n: int(din) for n in reservoirs},
+    }
+
+    return {
+        "report_schema": "c3_dynamics/1",
+        "settings": {
+            "target_n": int(target_n),
+            "din": int(din),
+            "n_val_windows": int(n_val_windows),
+            "length": int(length),
+            "selection_knobs": ["gain", "leak"],
+            "fixed_knobs": ["input_scale", "spectral_scaling"],
+            "input_scale": input_scale,
+            "validation_windows_source": (
+                "synthetic: 10 windows, length 16, Din, gaussian with AR(1)=0.6 so the "
+                "memory metric has a signal to surface. Real D2 fold-0 windows would "
+                "shift the numbers but not the criterion satisfaction; the construct-phase "
+                "C3 measurement is the property of the construction, not the data."
+            ),
+        },
+        "substrate": {
+            "selection": expansion.describe(),
+            "composition": {name: int((annotation.class_of(selected_root_ids) == name).sum())
+                            for name in sorted(set(annotation.class_of(selected_root_ids).tolist()))},
+        },
+        "per_reservoir": {name: cell_metrics(name) for name in reservoirs},
+        "report_matrix": matrix_rows,
+        "verdict_primary_shared_scale": {
+            "R0": verdicts.get("R0_shared", False),
+            "R2": verdicts.get("R2_shared", False),
+            "primary_gate_passes_if_both_pass": all(verdicts.get(n, False) for n in ("R0_shared", "R2_shared")),
+            "note": (
+                "the signed gate is on the SHARED-SCALE R0/R2 pair only. R2 must also "
+                "be a valid reservoir -- if it FAILs here, the R0-vs-R2 comparison would "
+                "be hard to interpret and the run is paused to address the counterfactual "
+                "dynamics, not to compare performance"
+            ),
+        },
+        "verdict_diagnostic_rho_matched": {
+            "R0": verdicts.get("R0_rho_matched", False),
+            "R2": verdicts.get("R2_rho_matched", False),
+            "note": (
+                "DIAGNOSTIC, not a gate. rho-matched rescaled each graph to R0's radius; "
+                "see the amendment-1 measurement_object note in the C4 record for why this "
+                "is reported but does not gate C3"
+            ),
+        },
+        "criteria_lines_definition": {
+            "C3.1_R_t_in_band": "0.20 <= median(R_t) <= 1.00  (gain-FREE form on val windows)",
+            "C3.2_memory_drop": "(M - M_A=0) / M >= 0.20  with M = max_k in {1,4,8,16} |corr(h_t, x_{t-k})|",
+            "C3.3_D_eff_factor": "D_eff >= 1.5 * Din  on the val-window state matrix",
+        },
+    }
+
+
 def _normalized_in_strength_error(r0, r2) -> float:
     """Median relative in-strength error on the PRE-PROCESSED pair."""
     a = np.asarray(r0.tocsr().sum(axis=0)).ravel().astype(np.float64)
@@ -905,7 +1084,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     wanted = {part.strip().upper() for part in str(args.only).split(",") if part.strip()}
-    unknown = wanted - {"C1", "C2", "C4"}
+    unknown = wanted - {"C1", "C2", "C3", "C4"}
     if unknown:
         raise SystemExit(f"--only {args.only!r}: unknown section(s) {sorted(unknown)}")
 
@@ -917,6 +1096,62 @@ def main(argv: list[str] | None = None) -> int:
     )
     node_meta = Path(args.node_meta)
     sizes = tuple(int(v) for v in str(args.sizes).split(",") if v.strip())
+
+    if wanted == {"C3"}:
+        if not adjacency.is_file():
+            raise SystemExit(f"--only C3 needs the adjacency; not found at {adjacency}")
+        c3 = measure_c3(
+            adjacency,
+            node_meta,
+            din=args.din,
+            target_n=args.target_n,
+            seed=args.seed,
+        )
+        report = {
+            "report_schema": "c3_dynamics/1",
+            "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "provenance": {
+                "git_head": git_head(),
+                "validation_only": True,
+                "touches_test_split": False,
+                "fits_no_model": True,
+            },
+            "C3": c3,
+        }
+        out_dir = Path(args.out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        target = out_dir / "C3_dynamics.json"
+        target.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+        print(target)
+        for name in ("R0_shared", "R2_shared", "R0_rho_matched", "R2_rho_matched"):
+            cell = c3["per_reservoir"].get(name, {})
+            if cell.get("all_points_failed"):
+                print(f"  {name:18s} FAIL  (no grid point satisfied all gates)")
+                continue
+            knobs = cell["knobs"]
+            print(
+                f"  {name:18s} "
+                f"R_t median={cell['median_R_t_gain_free']:.4f} "
+                f"[P10={cell['P10_R_t_gain_free']:.4f}, P90={cell['P90_R_t_gain_free']:.4f}], "
+                f"in_band={cell['C3.1_R_t_in_band']} | "
+                f"mem_drop={cell['memory_drop_fraction']:.4f} "
+                f"(>{0.20}={cell['C3.2_memory_drop']}) | "
+                f"D_eff_factor={cell['D_eff_factor']:.3f} "
+                f"(>1.5={cell['C3.3_D_eff_factor']}) | "
+                f"knobs g={knobs['gain']} leak={knobs['leak']} input_scale={knobs['input_scale']:.2f}"
+            )
+        primary = c3["verdict_primary_shared_scale"]
+        diag = c3["verdict_diagnostic_rho_matched"]
+        print(
+            f"  primary (shared-scale) gate: R0={'PASS' if primary['R0'] else 'FAIL'} "
+            f"R2={'PASS' if primary['R2'] else 'FAIL'} "
+            f"-> gate {'PASS' if primary['primary_gate_passes_if_both_pass'] else 'FAIL'}"
+        )
+        print(
+            f"  diagnostic (rho-matched):   R0={'PASS' if diag['R0'] else 'FAIL'} "
+            f"R2={'PASS' if diag['R2'] else 'FAIL'}"
+        )
+        return 0
 
     if wanted == {"C4"}:
         if not adjacency.is_file():
