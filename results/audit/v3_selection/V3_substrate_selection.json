@@ -1,0 +1,654 @@
+{
+  "candidates": [
+    {
+      "A_hash": "3aa95745aea38ea85b4750c51c5262bd3d79c64e3450cca9a07fa8ecb33dac20",
+      "B_hash": "3bd78eaca10cad865749a6bb1d04871d83a48af48b83ee5d1000e9ca39e7d968",
+      "Din": 5,
+      "K": 16,
+      "S1": 7.129071758407175,
+      "S2": {
+        "S2_basis": "left_eigenvectors",
+        "S2_coupling_top": [
+          2.4544649118691217,
+          0.9975584059871468,
+          0.3309439507568608,
+          0.7335575259260044,
+          0.047423395626231796,
+          0.587355130053445,
+          0.5509799030119114,
+          0.5431944340739261,
+          0.5350280794697273,
+          0.48220327591092954,
+          0.5133497099716003,
+          0.5133497099716003,
+          0.29235212371737307,
+          0.29235212371737307,
+          0.31220254896912586,
+          0.31220254896912586
+        ],
+        "S2_mode_count": 64,
+        "S2_mode_energy_entropy": 3.9476820086921087,
+        "S2_participation_ratio": 40.5991993532292,
+        "eigenvector_condition_number": 21063.926016781552,
+        "non_normality": 0.1526437597582422
+      },
+      "S3": {
+        "S3_eigenvalue_modulus_entropy": 5.938293172735086,
+        "S3_eigenvalues_top8_modulus": [
+          0.8508955047990814,
+          0.7421417713081313,
+          0.45165904418462194,
+          0.4183255153004866,
+          0.39360942049131276,
+          0.3202387653637608,
+          0.28626844315200517,
+          0.2709777594230023
+        ],
+        "S3_henrici_non_normality": 0.1526437597582422,
+        "S3_note": "REPORT-ONLY: the selection engine must not read any S3 field",
+        "S3_singular_value_spread": 1750475.5602790895,
+        "S3_spectral_radius": 0.8508955047990814,
+        "S3_transient_amplification_proxy": 1.1342733224674382
+      },
+      "candidate_id": "S0",
+      "clears_gate": false,
+      "effective_rank": 7.129071758407175,
+      "gate": 10.0,
+      "input_density": 0.0946,
+      "input_nodes": 473,
+      "krylov_diagnostics": {
+        "S1_over_min_capacity": 0.08387143245184912,
+        "S1_per_node": 0.007129071758407175,
+        "krylov_capacity_used": 0.08387143245184912,
+        "theoretical_columns": 85
+      },
+      "n_edges": 80443,
+      "n_nodes": 1000,
+      "normalization": "global gamma to rho=0.9",
+      "numerical_rank": 61,
+      "provenance": {
+        "added_populations": {
+          "DAN": 160,
+          "KC": 106,
+          "MBON": 82,
+          "PN": 243,
+          "higher_order": 166
+        },
+        "admission_reason": {
+          "DAN": 160,
+          "KC": 106,
+          "MBON": 82,
+          "ORN": 243,
+          "PN": 243,
+          "higher_order": 166
+        },
+        "candidate_id": "S0",
+        "cap_rule": "target_n=1000; 'other' nodes never admitted",
+        "edge_list_sha256": "a840f45bd5c96ce654f8ff9c5957b0ec3eb158527a417ff635b462e03815740a",
+        "frontier_rule": "cumulative synapse mass to the selected set, ties by root id",
+        "n_edges": 80443,
+        "n_nodes": 1000,
+        "node_list_sha256": "77ec9bfd90d6ec7216f642e1860c815ca972fd7638f1bb464766b9053faccb1e",
+        "orn_budget": 500,
+        "seed_populations": {
+          "ORN": 243
+        },
+        "selection_rule": "v2 substrate: ORN-seeded deterministic expansion over ORN -> PN -> KC/higher_order -> MBON/DAN, frontier by cumulative synapse mass with ties by root id, induced edges kept",
+        "typed_composition": {
+          "DAN": 160,
+          "KC": 106,
+          "MBON": 82,
+          "ORN": 243,
+          "PN": 243,
+          "higher_order": 166
+        }
+      },
+      "singular_values": [
+        3.5342870720636657,
+        2.9563725048185114,
+        2.873942036967615,
+        2.721138471737987,
+        2.6915380253659715,
+        1.771418258525366,
+        0.525174188147881,
+        0.3805500934253542,
+        0.28585239584289324,
+        0.24384903324815177,
+        0.13901195069099634,
+        0.11283643285027838,
+        0.07435160710860865,
+        0.04861285634454112,
+        0.029790468809640053,
+        0.02584788687960347
+      ]
+    },
+    {
+      "A_hash": "aa9217dad0a1a471cd38ed63c40e2661ce163261e912c03d5be8207384a0b44c",
+      "B_hash": "b1ed68c0dda112989c71e615024c4fab787815bc7f121942932d7f8defa72668",
+      "Din": 5,
+      "K": 16,
+      "S1": 6.962852591952045,
+      "S2": {
+        "S2_basis": "left_eigenvectors",
+        "S2_coupling_top": [
+          2.4454405644682233,
+          1.0371847633836195,
+          0.2662838160145122,
+          0.6609482925020403,
+          0.04736138079853635,
+          0.4778436112639602,
+          0.42978679550343823,
+          0.5328484793581924,
+          0.7027118138035094,
+          0.6965741001929909,
+          0.6134446807456141,
+          0.6134446807456141,
+          0.14895020512649362,
+          0.14895020512649362,
+          0.3268855335953706,
+          0.3268855335953706
+        ],
+        "S2_mode_count": 64,
+        "S2_mode_energy_entropy": 3.963581085725168,
+        "S2_participation_ratio": 41.66892083299614,
+        "eigenvector_condition_number": 40667.92005284188,
+        "non_normality": 0.14944802840016744
+      },
+      "S3": {
+        "S3_eigenvalue_modulus_entropy": 5.995325386088574,
+        "S3_eigenvalues_top8_modulus": [
+          0.8509823334321133,
+          0.7427366957658582,
+          0.46968889973071976,
+          0.4185652691717507,
+          0.3968114872310588,
+          0.33244391949220253,
+          0.2936859481774757,
+          0.2735443702006232
+        ],
+        "S3_henrici_non_normality": 0.14944802840016744,
+        "S3_note": "REPORT-ONLY: the selection engine must not read any S3 field",
+        "S3_singular_value_spread": 22825095.31134628,
+        "S3_spectral_radius": 0.8509823334321133,
+        "S3_transient_amplification_proxy": 1.1342120202205028
+      },
+      "candidate_id": "S1",
+      "clears_gate": false,
+      "effective_rank": 6.962852591952045,
+      "gate": 10.0,
+      "input_density": 0.0832,
+      "input_nodes": 416,
+      "krylov_diagnostics": {
+        "S1_over_min_capacity": 0.08191591284649465,
+        "S1_per_node": 0.006962852591952046,
+        "krylov_capacity_used": 0.08191591284649465,
+        "theoretical_columns": 85
+      },
+      "n_edges": 82139,
+      "n_nodes": 1000,
+      "normalization": "global gamma to rho=0.9",
+      "numerical_rank": 62,
+      "provenance": {
+        "added_populations": {
+          "DAN": 160,
+          "KC": 84,
+          "MBON": 82,
+          "PN": 243,
+          "higher_order": 237
+        },
+        "admission_reason": {
+          "higher_order_feedback_into_PN_or_KC": 3129,
+          "seed:DAN": 160,
+          "seed:KC": 106,
+          "seed:MBON": 82,
+          "seed:ORN": 243,
+          "seed:PN": 243,
+          "seed:higher_order": 166
+        },
+        "candidate_id": "S1",
+        "cap_rule": "target_n=1000",
+        "edge_list_sha256": "cb5e25cb3825b4685afb85b258bda4ad07bbc91d4411c70bd4781c9ec6154433",
+        "frontier_rule": "S0's closed; feedback nodes capped in S0 frontier order",
+        "n_S0_nodes_displaced_by_feedback": 95,
+        "n_edges": 82139,
+        "n_feedback_admitted": 3129,
+        "n_feedback_nodes_in_final_set": 237,
+        "n_merged_from_S0": 1000,
+        "n_nodes": 1000,
+        "node_list_sha256": "72814145950d215d9c83b19263ec430c94dc31d13da4c41aaf81cc02d435ef41",
+        "seed_populations": {
+          "ORN": 243
+        },
+        "selection_rule": "S0's ORN-seeded expansion, plus higher_order_feedback_into_PN_or_KC (a real edge from the source population onto the pathway's intrinsic populations), induced edges kept",
+        "typed_composition": {
+          "DAN": 160,
+          "KC": 84,
+          "MBON": 82,
+          "ORN": 194,
+          "PN": 243,
+          "higher_order": 237
+        }
+      },
+      "singular_values": [
+        3.563953313557271,
+        2.7903687735019473,
+        2.7523297782488343,
+        2.4326558806479266,
+        2.2426012250167013,
+        1.7787174503511696,
+        0.34993785932379,
+        0.34710885555397725,
+        0.2825327148057952,
+        0.2526150220505712,
+        0.12317619864151844,
+        0.09616695922182467,
+        0.062294328438473996,
+        0.05693743095777608,
+        0.022659085974149,
+        0.016320866621639965
+      ]
+    },
+    {
+      "A_hash": "8ed229d87f06a988ac212d9e83f4fc802e44c4e8ecd27a7d62e8f0a9e517d3d7",
+      "B_hash": "5a0109a9d442bc973e4b10f21525b2fa9784b0354aef0bc54173aae94a8060b2",
+      "Din": 5,
+      "K": 16,
+      "S1": 4.713362973251272,
+      "S2": {
+        "S2_basis": "left_eigenvectors",
+        "S2_coupling_top": [
+          0.46355526004947256,
+          1.3637453718439438,
+          0.031117276652912272,
+          0.9031502580518348,
+          0.7869191427753675,
+          1.0097452433387695,
+          0.16196159917888625,
+          0.08061066757020034,
+          1.0248124928763471,
+          0.2882743316100567,
+          0.6464345503611555,
+          0.30275236311399323,
+          0.40156895510265844,
+          0.19075050346921235,
+          0.17185373347087748,
+          0.17185373347087748
+        ],
+        "S2_mode_count": 64,
+        "S2_mode_energy_entropy": 3.943999475457555,
+        "S2_participation_ratio": 40.895222102983816,
+        "eigenvector_condition_number": 2965.4128732360346,
+        "non_normality": 0.12965951486106617
+      },
+      "S3": {
+        "S3_eigenvalue_modulus_entropy": 6.336264564532493,
+        "S3_eigenvalues_top8_modulus": [
+          0.8514999941288174,
+          0.7345209271249482,
+          0.7130499488070978,
+          0.6111393400767688,
+          0.5959423393105115,
+          0.44102570973507765,
+          0.43904933806910906,
+          0.40665386709686324
+        ],
+        "S3_henrici_non_normality": 0.12965951486106617,
+        "S3_note": "REPORT-ONLY: the selection engine must not read any S3 field",
+        "S3_singular_value_spread": 127286.68295743894,
+        "S3_spectral_radius": 0.8514999941288174,
+        "S3_transient_amplification_proxy": 1.1852936830687921
+      },
+      "candidate_id": "S2",
+      "clears_gate": false,
+      "effective_rank": 4.713362973251272,
+      "gate": 10.0,
+      "input_density": 0.0446,
+      "input_nodes": 223,
+      "krylov_diagnostics": {
+        "S1_over_min_capacity": 0.05545132909707379,
+        "S1_per_node": 0.004713362973251272,
+        "krylov_capacity_used": 0.05545132909707379,
+        "theoretical_columns": 85
+      },
+      "n_edges": 85212,
+      "n_nodes": 1000,
+      "normalization": "global gamma to rho=0.9",
+      "numerical_rank": 47,
+      "provenance": {
+        "added_populations": {
+          "DAN": 149,
+          "KC": 219,
+          "MBON": 495,
+          "ORN": 0,
+          "PN": 60,
+          "higher_order": 77
+        },
+        "admission_reason": {
+          "orn_reached_pn_attached": 949,
+          "seed:degree_order_within_admissible": 1000
+        },
+        "candidate_id": "S2",
+        "cap_rule": "target_n=1000",
+        "edge_list_sha256": "a725a94722429d4d122320e6be40a4c15871ad8f6e2a7801ecbfc1ebe93d4c39",
+        "frontier_rule": "total degree within the admissible set, ties by root id",
+        "n_edges": 85212,
+        "n_nodes": 1000,
+        "n_orn_reached_pn": 949,
+        "node_list_sha256": "8ffc1bef38605211f2e33df7ad729abfc5b43e61582286d04071b0992cd0d098",
+        "seed_populations": {
+          "DAN": 2572,
+          "KC": 3613,
+          "MBON": 9650,
+          "higher_order": 3170
+        },
+        "selection_rule": "MB/KC-centred: seed = KC, higher_order, MBON, DAN populations; ORN/PN attached by real ORN->PN edges (only PNs an ORN actually reaches); capped in degree order within the admissible set",
+        "typed_composition": {
+          "DAN": 149,
+          "KC": 219,
+          "MBON": 495,
+          "PN": 60,
+          "higher_order": 77
+        }
+      },
+      "singular_values": [
+        3.9632997320319485,
+        1.7912830376367488,
+        1.5113305802883905,
+        1.0590886828821184,
+        0.8413979804244556,
+        0.35239510472145263,
+        0.31487516375827806,
+        0.20104430474161591,
+        0.17752353112673924,
+        0.1166789845965044,
+        0.04341158860881556,
+        0.04304343307218613,
+        0.0276835480325485,
+        0.015304393901695098,
+        0.01077927900539418,
+        0.008365373946335696
+      ]
+    },
+    {
+      "A_hash": "c4f29d1097da12bba46a79966ab80e96161e9d63fc5658c4818294dfb7995337",
+      "B_hash": "0b6dbdb7771a0c286d50b7c1fa62ba4536eaddec57dbe970d698b51efe90f82c",
+      "Din": 5,
+      "K": 16,
+      "S1": 7.005408416816923,
+      "S2": {
+        "S2_basis": "left_eigenvectors",
+        "S2_coupling_top": [
+          2.3787325384656097,
+          1.144376674021595,
+          0.3105553392751397,
+          0.5840415147979573,
+          0.07448360782791294,
+          0.4888467008314861,
+          0.402934802686556,
+          0.4122628050312984,
+          0.490674729742032,
+          0.4726889794920873,
+          0.3423797951412507,
+          0.3423797951412507,
+          0.5483706439815331,
+          0.5483706439815331,
+          0.04856324997729351,
+          0.509243811557236
+        ],
+        "S2_mode_count": 64,
+        "S2_mode_energy_entropy": 3.9113324574117936,
+        "S2_participation_ratio": 37.96440410699557,
+        "eigenvector_condition_number": 8887.41691457075,
+        "non_normality": 0.1385404096123673
+      },
+      "S3": {
+        "S3_eigenvalue_modulus_entropy": 6.13805926961255,
+        "S3_eigenvalues_top8_modulus": [
+          0.8512356896558149,
+          0.7442499508927766,
+          0.45755756503671546,
+          0.41916926521057846,
+          0.39518714825107665,
+          0.34099716374981504,
+          0.301384698114773,
+          0.27478274634212835
+        ],
+        "S3_henrici_non_normality": 0.1385404096123673,
+        "S3_note": "REPORT-ONLY: the selection engine must not read any S3 field",
+        "S3_singular_value_spread": 212661.02724655546,
+        "S3_spectral_radius": 0.8512356896558149,
+        "S3_transient_amplification_proxy": 1.133953324278864
+      },
+      "candidate_id": "S3",
+      "clears_gate": false,
+      "effective_rank": 7.005408416816923,
+      "gate": 10.0,
+      "input_density": 0.0714,
+      "input_nodes": 357,
+      "krylov_diagnostics": {
+        "S1_over_min_capacity": 0.08241656960961086,
+        "S1_per_node": 0.007005408416816923,
+        "krylov_capacity_used": 0.08241656960961086,
+        "theoretical_columns": 85
+      },
+      "n_edges": 79474,
+      "n_nodes": 1000,
+      "normalization": "global gamma to rho=0.9",
+      "numerical_rank": 62,
+      "provenance": {
+        "added_populations": {
+          "DAN": 227,
+          "KC": 79,
+          "MBON": 199,
+          "PN": 243,
+          "higher_order": 127
+        },
+        "admission_reason": {
+          "DAN_or_MBON_feedback_into_KC": 10021,
+          "seed:DAN": 160,
+          "seed:KC": 106,
+          "seed:MBON": 82,
+          "seed:ORN": 243,
+          "seed:PN": 243,
+          "seed:higher_order": 166
+        },
+        "candidate_id": "S3",
+        "cap_rule": "target_n=1000",
+        "edge_list_sha256": "ca05124342a357099d8b56603a53cf0aa3354e42570ba4a29da494699854db91",
+        "frontier_rule": "S0's closed; feedback nodes capped in S0 frontier order",
+        "n_S0_nodes_displaced_by_feedback": 192,
+        "n_edges": 79474,
+        "n_feedback_admitted": 10021,
+        "n_feedback_nodes_in_final_set": 426,
+        "n_merged_from_S0": 1000,
+        "n_nodes": 1000,
+        "node_list_sha256": "415b7570821e65df9cff4de6f77e77f914dbe5c36ef92f21cedeb1f695746fcc",
+        "seed_populations": {
+          "ORN": 243
+        },
+        "selection_rule": "S0's ORN-seeded expansion, plus DAN_or_MBON_feedback_into_KC (a real edge from the source population onto the pathway's intrinsic populations), induced edges kept",
+        "typed_composition": {
+          "DAN": 227,
+          "KC": 79,
+          "MBON": 199,
+          "ORN": 125,
+          "PN": 243,
+          "higher_order": 127
+        }
+      },
+      "singular_values": [
+        3.683252290382731,
+        2.8285179012035027,
+        2.2374200400387396,
+        2.1678176689423454,
+        2.1379598388255774,
+        1.881240711136021,
+        0.41111998732533883,
+        0.3624665443270442,
+        0.2827608746559482,
+        0.22737335791908572,
+        0.1630340494228222,
+        0.09068457204857688,
+        0.08694743602812002,
+        0.04442431721330127,
+        0.03214294143286424,
+        0.016929000730502942
+      ]
+    },
+    {
+      "A_hash": "b9de093e00d7dcbeb848c1ae8124892d9318679e38a7febb2594cb9c24b2bbf4",
+      "B_hash": "2d284d0478e8a33f64a31c1ac2a89ba7f0f16f685323dfac543098da95802635",
+      "Din": 5,
+      "K": 16,
+      "S1": 6.8897419041317045,
+      "S2": {
+        "S2_basis": "left_eigenvectors",
+        "S2_coupling_top": [
+          2.6072245092876907,
+          1.0587858355687714,
+          0.3218636947622622,
+          0.582632358914166,
+          0.02630211018197887,
+          0.4821522549814885,
+          0.41903718148616026,
+          0.5194712556846612,
+          0.5250771621062753,
+          0.5607371686345692,
+          0.14123401380969092,
+          0.14123401380969092,
+          0.4506015003018467,
+          0.4506015003018467,
+          0.026821354788786857,
+          0.35260127822172205
+        ],
+        "S2_mode_count": 64,
+        "S2_mode_energy_entropy": 3.9195528753387148,
+        "S2_participation_ratio": 38.40774623223522,
+        "eigenvector_condition_number": 13855.725030108275,
+        "non_normality": 0.13810714941066082
+      },
+      "S3": {
+        "S3_eigenvalue_modulus_entropy": 6.1461148174538955,
+        "S3_eigenvalues_top8_modulus": [
+          0.8512699839011738,
+          0.7445571841217793,
+          0.47537559819732433,
+          0.41922162827196785,
+          0.3981236607602894,
+          0.3466875926692826,
+          0.3149775556836358,
+          0.27558152252081713
+        ],
+        "S3_henrici_non_normality": 0.13810714941066082,
+        "S3_note": "REPORT-ONLY: the selection engine must not read any S3 field",
+        "S3_singular_value_spread": 866000.4623065804,
+        "S3_spectral_radius": 0.8512699839011738,
+        "S3_transient_amplification_proxy": 1.133905488180095
+      },
+      "candidate_id": "S4",
+      "clears_gate": false,
+      "effective_rank": 6.8897419041317045,
+      "gate": 10.0,
+      "input_density": 0.0694,
+      "input_nodes": 347,
+      "krylov_diagnostics": {
+        "S1_over_min_capacity": 0.08105578710743182,
+        "S1_per_node": 0.006889741904131705,
+        "krylov_capacity_used": 0.08105578710743182,
+        "theoretical_columns": 85
+      },
+      "n_edges": 80594,
+      "n_nodes": 1000,
+      "normalization": "global gamma to rho=0.9",
+      "numerical_rank": 62,
+      "provenance": {
+        "added_populations": {
+          "DAN": 211,
+          "KC": 78,
+          "MBON": 182,
+          "PN": 242,
+          "higher_order": 173
+        },
+        "admission_reason": {
+          "DAN_or_MBON_feedback_into_KC": 10021,
+          "higher_order_feedback_into_PN_or_KC": 3129,
+          "seed:DAN": 160,
+          "seed:KC": 106,
+          "seed:MBON": 82,
+          "seed:ORN": 243,
+          "seed:PN": 243,
+          "seed:higher_order": 166
+        },
+        "candidate_id": "S4",
+        "cap_rule": "target_n=1000",
+        "edge_list_sha256": "49afa6f6274caf0b1d2d4c53d582b1cf7f0ccd1e21956e6493c78aa72040001e",
+        "frontier_rule": "S0's closed; feedback nodes capped in S0 frontier order",
+        "n_S0_nodes_displaced_by_feedback": 212,
+        "n_edges": 80594,
+        "n_feedback_admitted": 13150,
+        "n_feedback_nodes_in_final_set": 566,
+        "n_merged_from_S0": 1000,
+        "n_nodes": 1000,
+        "node_list_sha256": "869802f64c7d364ffe76eff3777a06b752b9aec99d1f855e8f15e958582dadfd",
+        "seed_populations": {
+          "ORN": 243
+        },
+        "selection_rule": "S0's ORN-seeded expansion, plus higher_order_feedback_into_PN_or_KC and DAN_or_MBON_feedback_into_KC (a real edge from the source population onto the pathway's intrinsic populations), induced edges kept",
+        "typed_composition": {
+          "DAN": 211,
+          "KC": 78,
+          "MBON": 182,
+          "ORN": 114,
+          "PN": 242,
+          "higher_order": 173
+        }
+      },
+      "singular_values": [
+        3.8342301363059166,
+        2.9078873944231685,
+        2.1514844391803485,
+        2.097754203563892,
+        2.050312907112178,
+        1.8738394343236335,
+        0.38703972839898654,
+        0.3707872549414468,
+        0.33039329802151995,
+        0.24185595348952638,
+        0.13263769017294313,
+        0.08664012275454755,
+        0.08326471503836319,
+        0.042105026657632494,
+        0.023409907850171354,
+        0.01748335667035593
+      ]
+    }
+  ],
+  "generated_at_utc": "2026-09-23T14:06:32Z",
+  "provenance": {
+    "fits_no_model": true,
+    "git_head": "4cc695c55b631d064fb1e32dc67f1ef7915933b6",
+    "note": "selection uses only structure and linear dynamics; the selection engine reads S1, S2_participation_ratio and n_nodes and never any S3 field",
+    "preregistration": "docs/v3_preregistration.md",
+    "reads_food_labels": false,
+    "touches_test_split": false,
+    "validation_only": true
+  },
+  "report_schema": "v3_substrate_selection/1",
+  "selection": {
+    "eligible": [],
+    "reason": "no candidate reached S1 >= 2*Din; per docs/v3_preregistration.md section 6 the connectome-reservoir main line STOPS and no v4 is opened",
+    "selected": null,
+    "stop_loss": true
+  },
+  "settings": {
+    "A_normalization_for_scoring": "raw induced synapse-count matrix scaled by ONE global factor to rho_target, identical for every candidate",
+    "din": 5,
+    "input_rule": "amendment 2/3 typed-aligned mapping, receiving_fraction 0.80, density_limit 0.16, identical for every candidate",
+    "krylov_K": 16,
+    "rho_target": 0.9,
+    "selection_gate": 10.0,
+    "selection_gate_factor": 2.0,
+    "target_n": 1000,
+    "tie_break": "higher S2 participation ratio, then smaller N; exact float ordering"
+  }
+}

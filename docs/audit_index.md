@@ -456,6 +456,32 @@ floor-relative (`O ≤ min(0.20, 1.10 × E[overlap])`; v1's own numbers satisfy 
 **No formal inference may run while a construct criterion fails, and C3 must not start
 before C4 closes** — C3 measures the recurrence on a valid R0 *and* a valid R2.
 
+**v3 SELECTION MEASURED — STOP-LOSS FIRED.** No candidate reached the gate.
+[`docs/v3_selection_measurement.md`](v3_selection_measurement.md),
+`results/audit/v3_selection/V3_substrate_selection.json`. Gate: `S1 ≥ 2·Din = 10`.
+
+| candidate | M | input nodes | S1 |
+|---|---:|---:|---:|
+| **S0** (the v2 substrate) | 80,443 | 473 | **7.129** |
+| S1 (S0 + higher_order feedback → PN/KC) | 82,139 | 416 | 6.963 |
+| S2 (MB/KC-centred) | 85,212 | 223 | 4.713 |
+| S3 (S0 + DAN/MBON feedback → KC) | 79,474 | 357 | 7.005 |
+| S4 (S1 ∪ S3) | 80,594 | 347 | 6.890 |
+
+**The v2 substrate is the best of the five**, the feedback closures scored slightly lower, and
+the MB/KC-centred candidate scored much lower despite having the most edges — on this
+connectome, more edges do not buy controllability. The eigenmode diagnostic explains why: the
+input reaches ~40 of A's modes in every candidate (S2 participation ratio 37.96–41.67), so the
+input is not missing the modes — those modes are just not independent under propagation, and
+the Krylov effective rank saturates at ≈7 of 85.
+
+Per pre-registration §6: **the connectome-reservoir main line STOPS and no v4 is opened** — the
+paper question changes instead. Three generator bugs were found by running it (input support
+zero because candidates carried row indices where root ids were needed; an inverted feedback
+closure; a cap that let S0 crowd the feedback out so three candidates were bit-identical to
+S0) and are all recorded; the stop-loss above is on five genuinely distinct substrates.
+No food label, no dataset metric and no test split was read at any point.
+
 **v3 is pre-registered** — [`docs/v3_preregistration.md`](v3_preregistration.md) —
 **before any v3 measurement**: Controllability-Aware Biological Substrate Selection, with
 the candidate substrates defined by cell type and pathway (S0 the v2 substrate, S1 S0 +
