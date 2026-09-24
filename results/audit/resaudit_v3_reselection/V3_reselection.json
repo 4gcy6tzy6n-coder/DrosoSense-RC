@@ -1,0 +1,89 @@
+{
+  "candidates": [
+    {
+      "S1_normalised_with_directed_rho": 7.162430526527039,
+      "S1_normalised_with_sym_rho": 7.129071758407176,
+      "S2_participation_ratio": 40.59919935322887,
+      "candidate_id": "S0",
+      "gate": 10.0,
+      "n_edges": 80443,
+      "n_nodes": 1000,
+      "rho_directed_corrected": 2663.671595758101,
+      "rho_ratio_directed_over_sym": 0.9484418217016212,
+      "rho_symmetrised": 2808.471257603494
+    },
+    {
+      "S1_normalised_with_directed_rho": 6.95150706385954,
+      "S1_normalised_with_sym_rho": 6.962852591952047,
+      "S2_participation_ratio": 41.668920832996186,
+      "candidate_id": "S1",
+      "gate": 10.0,
+      "n_edges": 82139,
+      "n_nodes": 1000,
+      "rho_directed_corrected": 2660.8691157504704,
+      "rho_ratio_directed_over_sym": 0.9485032291637439,
+      "rho_symmetrised": 2805.334799014284
+    },
+    {
+      "S1_normalised_with_directed_rho": 4.89788970338046,
+      "S1_normalised_with_sym_rho": 4.713362973251283,
+      "S2_participation_ratio": 40.89522210298375,
+      "candidate_id": "S2",
+      "gate": 10.0,
+      "n_edges": 85212,
+      "n_nodes": 1000,
+      "rho_directed_corrected": 1495.7968062184477,
+      "rho_ratio_directed_over_sym": 0.9640885570252402,
+      "rho_symmetrised": 1551.5139095041527
+    },
+    {
+      "S1_normalised_with_directed_rho": 6.969210165725435,
+      "S1_normalised_with_sym_rho": 7.005408416816922,
+      "S2_participation_ratio": 37.96440410699553,
+      "candidate_id": "S3",
+      "gate": 10.0,
+      "n_edges": 79474,
+      "n_nodes": 1000,
+      "rho_directed_corrected": 2653.9609459004446,
+      "rho_ratio_directed_over_sym": 0.9485917324263194,
+      "rho_symmetrised": 2797.790509002341
+    },
+    {
+      "S1_normalised_with_directed_rho": 6.784631460199716,
+      "S1_normalised_with_sym_rho": 6.8897419041317045,
+      "S2_participation_ratio": 38.40774623223533,
+      "candidate_id": "S4",
+      "gate": 10.0,
+      "n_edges": 80594,
+      "n_nodes": 1000,
+      "rho_directed_corrected": 2652.6456245426425,
+      "rho_ratio_directed_over_sym": 0.9486206750572841,
+      "rho_symmetrised": 2796.3185858061315
+    }
+  ],
+  "generated_utc": "2026-09-24T01:40:31.579507+00:00",
+  "git_head": "ac2e33f39651d41409de25e81effbd37db972c34",
+  "note": "The frozen score_matrix symmetrises before eigsh, so its rho is a legitimate SYMMETRIC estimate and is NOT the directed-eigsh defect. This run quantifies the convention difference; it does not assume it.",
+  "report": "v3 substrate selection recomputed under two rho conventions",
+  "selection_changed": false,
+  "selection_corrected_directed_rho": {
+    "eligible": [],
+    "reason": "no candidate reached S1 >= 2*Din; stop-loss",
+    "selected": null,
+    "stop_loss": true
+  },
+  "selection_frozen_convention_symmetrised_rho": {
+    "eligible": [],
+    "reason": "no candidate reached S1 >= 2*Din; stop-loss",
+    "selected": null,
+    "stop_loss": true
+  },
+  "settings": {
+    "din": 5,
+    "gate_factor": 2.0,
+    "rho_target": 0.9,
+    "seed": 0,
+    "target_n": 1000
+  },
+  "stop_loss_either_way": true
+}

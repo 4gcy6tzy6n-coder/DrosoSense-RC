@@ -1,5 +1,28 @@
 # ResAudit-Food Stage 1 — findings
 
+```text
+scientific_status = FROZEN_NEGATIVE_RESULT
+```
+
+Both governing conditions are now met: (1) the upstream V3 selection was recomputed under the
+corrected estimator and still selects nothing, so no alternative F1 was concealed by the
+defect (`docs/resaudit_v3_reselection.md`); and (2) the full test suite runs clean
+(871 passed, 8 skipped). The earlier `PROVISIONAL_PENDING_UPSTREAM_SELECTION_RECOMPUTATION`
+status is superseded.
+
+**Scope of the negative, stated narrowly.** It holds for the biological reference, the matched
+random controls, the topology-destroyed control and the attempted positive-control
+construction, at both preregistered input widths, under the frozen normalisation, input
+geometry and A3 definition. It does **not** license the claim that a larger or differently
+connected substrate of another kind could not clear the gate: `N`, connectivity scale and
+input-coverage fraction were not varied, and any of them could move `D_eff/Din`. What is
+established is that **within the preregistered input-width range, increasing `Din` does not
+close the deficit; it behaves approximately multiplicatively rather than additively.**
+
+Naming correction: F5 is reported as the **attempted** A3-qualified construction / the
+positive-control construction **attempt**. It measured `D_eff/Din = 1.556` and `1.544`
+(≈0.78 of the gate), so it is not A3-qualified and must not be labelled as if it were.
+
 **Result: at both preregistered widths, no family clears the primary gate. Zero families are
 `food_eligible`, so the food stage cannot start under decision rule 6.1.**
 
@@ -14,11 +37,11 @@ task metric exists anywhere in this stage.
 | F1 connectome | 6 | 1000 | 80443 | PASS | n/a | 7.822 | 12 | **FAIL** | — | — | False | False |
 | F2 ER / degree-preserving | 6 | 1000 | 80443 | PASS | FAIL | 7.884 | 12 | **FAIL** | — | — | False | False |
 | F3 topology-destroyed | 6 | 1000 | 80443 | PASS | FAIL | 10.256 | 12 | **FAIL** | — | — | False | False |
-| F5 A3-qualified | 6 | 1000 | 80443 | **FAIL** | FAIL | 9.334 | 12 | **FAIL** | — | — | False | False |
+| F5 attempted A3-qualified construction | 6 | 1000 | 80443 | **FAIL** | FAIL | 9.334 | 12 | **FAIL** | — | — | False | False |
 | F1 connectome | 8 | 1000 | 80443 | PASS | n/a | 10.514 | 16 | **FAIL** | — | — | False | False |
 | F2 ER / degree-preserving | 8 | 1000 | 80443 | PASS | FAIL | 10.297 | 16 | **FAIL** | — | — | False | False |
 | F3 topology-destroyed | 8 | 1000 | 80443 | PASS | FAIL | 13.628 | 16 | **FAIL** | — | — | False | False |
-| F5 A3-qualified | 8 | 1000 | 80443 | **FAIL** | FAIL | 12.349 | 16 | **FAIL** | — | — | False | False |
+| F5 attempted A3-qualified construction | 8 | 1000 | 80443 | **FAIL** | FAIL | 12.349 | 16 | **FAIL** | — | — | False | False |
 | **F4** | — | — | — | — | — | — | — | **BLOCKED / NOT EVALUATED** | — | — | — | — |
 
 `—` means **not evaluated**, because A3 (the primary gate) did not pass: the engine evaluates A4/A5
