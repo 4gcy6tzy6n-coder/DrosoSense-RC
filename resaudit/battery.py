@@ -43,9 +43,9 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from drososense.reservoir import dynamics as _dyn  # noqa: E402
-from drososense.reservoir import r2_counterfactual as _r2  # noqa: E402
-from drososense.substrate_scores import krylov_score  # noqa: E402
+from resaudit import _kernels as _dyn  # noqa: E402
+from resaudit import _kernels as _r2  # noqa: E402
+from resaudit._kernels import krylov_score  # noqa: E402
 
 from resaudit.criteria import (  # noqa: E402
     A1_ISOLATED_FRACTION_MAX,
@@ -147,56 +147,10 @@ def probe_input(din: int) -> np.ndarray:
     return probe_input_with_seed(din, PROBE_SEED)
 
 
-def spectral_radius_of(
-    A: sp.spmatrix, *, block: int = 8, power_iters: int = 400, seed: int = 0
-) -> float:
-    """Dominant ``|lambda|`` of ``A``.
 
-    Dense eigendecomposition when the graph is small, **block** power iteration otherwise.
-    The block form is not a refinement -- it fixes a real failure. A single-vector power
-    iteration assumes a simple dominant eigenvalue; on a graph that is a union of disjoint
-    cycles the dominant eigenvalue is degenerate (all of them are 1), so the iterate orbits
-    forever and ``v @ (A @ v)`` returns a value that depends on where in the orbit it
-    stopped. Measured on 8 disjoint directed cycles (true ``rho = 1.0``, n = 1000): the
-    single-vector version returned 0.0063, -0.0192, -0.0218 and 0.0844 for four seeds --
-    including NEGATIVE radii. Iterating a random ``k``-dimensional subspace instead lets the
-    iterate accumulate every block's period, and returns 1.00000000 for every seed tested.
-
-    This matters beyond tidiness: ``scale_to_spectral_radius`` divides by this number, so a
-    wrong radius silently mis-scales a whole family -- and A3's verdict is
-    normalisation-dependent (amendment 1 Section 1).
-
-    Args:
-        A: The graph.
-        block: Subspace width for the block iteration. Must exceed the number of distinct
-            dominant periods to be safe; the default of 8 is ample for the families here.
-        power_iters: Iterations.
-        seed: Start-subspace seed.
-
-    Returns:
-        The estimated spectral radius, as a non-negative float.
-    """
-    A = sp.csr_matrix(A).tocsr()
-    n = A.shape[0]
-    if n == 0:
-        return 0.0
-    if n <= 500:
-        return float(np.abs(np.linalg.eigvals(A.toarray())).max())
-
-    k = max(1, min(int(block), n))
-    Q = np.random.default_rng(int(seed)).standard_normal((n, k))
-    Q, _ = np.linalg.qr(Q)
-    for _ in range(int(power_iters)):
-        Z = A @ Q
-        nrm = float(np.linalg.norm(Z))
-        if nrm == 0.0:
-            return 0.0
-        Q, _ = np.linalg.qr(Z)
-    Z = A @ Q
-    gram = Z.T @ Z
-    largest = float(np.linalg.eigvalsh(gram).max())
-    return float(math.sqrt(max(largest, 0.0)))
-
+# Imported from resaudit._kernels (the corrected estimator, inlined here
+# so the framework is self-contained and free of circular imports).
+from resaudit._kernels import spectral_radius_of  # noqa: E402  (re-export)
 
 def scale_to_spectral_radius(A: sp.spmatrix, target: float = FROZEN_RHO_TARGET) -> sp.csr_matrix:
     """Scale ``A`` so its spectral radius is ``target``. One scalar, nothing else changes."""
@@ -457,6 +411,7 @@ def _parent_report(spec: FamilySpec, parent: FamilySpec) -> _r2.RewireReport:
         swaps_weight_matched_exact=0,
         swaps_weight_matched_nearest=0,
         swaps_rejected_no_weight_partner=0,
+        swaps_rejected_no_partner=0,
         swaps_rejected_no_legal_partner=0,
         swaps_accepted_exact_weight=0,
         swaps_accepted_near_weight=0,

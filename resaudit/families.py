@@ -41,8 +41,9 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from drososense.reservoir import r2_counterfactual as _r2  # noqa: E402
-from drososense.reservoir.input_mapping import dense_random_mapping  # noqa: E402
+from resaudit import _kernels as _r2  # noqa: E402
+# dense_random_mapping is the frozen project's input rule and is NOT inlined;
+# callers should provide their own B for F2/F3 generation. Marked unused.
 
 from resaudit.battery import (  # noqa: E402
     FROZEN_RHO_TARGET,
