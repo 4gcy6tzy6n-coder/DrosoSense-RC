@@ -59,7 +59,7 @@ F1_A_PATH = REPO / "results/audit/resaudit_stage1/f1/F1_A.npz"
 F1_B_DIN5 = REPO / "results/audit/resaudit_stage1/f1/F1_B_Din5_historical.npz"
 F1_INFO = REPO / "results/audit/resaudit_stage1/f1/F1_materialization.json"
 
-DEFAULT_OUT = REPO / "results/audit/resaudit_e1_e2/E1_E2_ensemble.json"
+DEFAULT_OUT = REPO / "results/audit/resaudit_a3_attainability/E1_E2_ensemble.json"
 
 E1_K = 16  # A3 Krylov depth; the same constant the frozen audit uses
 
