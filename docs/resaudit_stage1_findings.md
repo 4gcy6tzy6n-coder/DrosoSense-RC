@@ -23,6 +23,9 @@ Naming correction: F5 is reported as the **attempted** A3-qualified construction
 positive-control construction **attempt**. It measured `D_eff/Din = 1.556` and `1.544`
 (≈0.78 of the gate), so it is not A3-qualified and must not be labelled as if it were.
 
+**Final decision: rule 6.4 invoked; Stage 1 closed. See
+[`docs/resaudit_stage1_decision_rule_6_4.md`](resaudit_stage1_decision_rule_6_4.md).**
+
 **Result: at both preregistered widths, no family clears the primary gate. Zero families are
 `food_eligible`, so the food stage cannot start under decision rule 6.1.**
 
